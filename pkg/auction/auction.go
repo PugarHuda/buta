@@ -14,8 +14,11 @@ package auction
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"sort"
+
+	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -24,6 +27,7 @@ var (
 	ErrSetMismatch   = errors.New("auction: bid set does not match the recorded commitments")
 	ErrDuplicateBid  = errors.New("auction: duplicate commitment")
 	ErrAlreadyClosed = errors.New("auction: already cleared")
+	ErrOpeningMismatch = errors.New("auction: opening does not match its commitment")
 )
 
 // Commitment is the 32-byte handle the contract records for a sealed bid.
@@ -31,11 +35,41 @@ var (
 // caller cannot present a trimmed set to suppress the second price.
 type Commitment [32]byte
 
+// Commit binds a bid to its commitment: keccak256(amount || nonce || bidder).
+// The contract records this on-chain before the amount is known; the enclave
+// recomputes it from the decrypted opening and refuses any mismatch. Without
+// this, committing on-chain to X and handing the enclave Y would clear at Y —
+// the commitment would be theatre.
+//
+// bidder is the 20-byte address bytes (lowercased upstream; only the bytes
+// matter here).
+func Commit(amount uint64, nonce [32]byte, bidder [20]byte) Commitment {
+	var amt [32]byte
+	binary.BigEndian.PutUint64(amt[24:], amount)
+
+	h := sha3.NewLegacyKeccak256()
+	h.Write(amt[:])
+	h.Write(nonce[:])
+	h.Write(bidder[:])
+
+	var out Commitment
+	copy(out[:], h.Sum(nil))
+	return out
+}
+
 // Bid is a decrypted bid. It exists only inside the enclave.
 type Bid struct {
 	Commitment Commitment
-	Bidder     string // lowercase hex address
-	Amount     uint64 // quote units; never leaves the enclave
+	Bidder     string   // lowercase hex address
+	Amount     uint64   // quote units; never leaves the enclave
+	Nonce      [32]byte // blinds the commitment; without it commitments would be a lookup table
+	Addr       [20]byte // raw address bytes, for recomputing the commitment
+}
+
+// Opens reports whether this bid's opening actually produces its commitment.
+// A false here means the bidder committed to one number and revealed another.
+func (b Bid) Opens() bool {
+	return Commit(b.Amount, b.Nonce, b.Addr) == b.Commitment
 }
 
 // Outcome is everything the enclave is willing to say out loud.
@@ -58,6 +92,13 @@ type Outcome struct {
 func Clear(recorded []Commitment, bids []Bid, reserve uint64) (Outcome, error) {
 	if len(bids) == 0 || len(recorded) == 0 {
 		return Outcome{}, ErrNoBids
+	}
+	// Every opening must reproduce its own commitment before the set is even
+	// compared. This is what makes a commitment binding rather than decorative.
+	for _, b := range bids {
+		if !b.Opens() {
+			return Outcome{}, ErrOpeningMismatch
+		}
 	}
 	if err := matchesRecorded(recorded, bids); err != nil {
 		return Outcome{}, err

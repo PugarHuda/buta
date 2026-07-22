@@ -9,6 +9,7 @@ import (
 
 	"extension-scaffold/pkg/auction"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	teetypes "github.com/flare-foundation/tee-node/pkg/types"
@@ -88,6 +89,7 @@ type commitBidRequest struct {
 	Bidder     string `json:"bidder"`
 	Commitment string `json:"commitment"` // 0x + 32 bytes, recorded on-chain
 	Amount     uint64 `json:"amount"`     // decrypted opening; stays in the enclave
+	Nonce      string `json:"nonce"`      // 0x + 32 bytes; blinds the commitment
 }
 
 type commitBidResponse struct {
@@ -168,7 +170,24 @@ func (e *Extension) processCommitBid(action teetypes.Action, df *instruction.Dat
 	var c auction.Commitment
 	copy(c[:], raw)
 
+	nonceRaw, err := hexutil.Decode(req.Nonce)
+	if err != nil || len(nonceRaw) != 32 {
+		return buildResult(action, df, nil, 0, errors.New("nonce must be 32 bytes"))
+	}
+	var nonce [32]byte
+	copy(nonce[:], nonceRaw)
+
 	bidder := strings.ToLower(req.Bidder)
+	addr := common.HexToAddress(bidder)
+
+	// Recompute the commitment from the opening here, at ingest, so a bid that
+	// doesn't open to what the chain recorded never enters the set. Clear()
+	// checks this again at settlement; a bad opening should fail at the door.
+	var addrBytes [20]byte
+	copy(addrBytes[:], addr.Bytes())
+	if auction.Commit(req.Amount, nonce, addrBytes) != c {
+		return buildResult(action, df, nil, 0, auction.ErrOpeningMismatch)
+	}
 
 	e.rfqs.mu.Lock()
 	defer e.rfqs.mu.Unlock()
@@ -191,7 +210,9 @@ func (e *Extension) processCommitBid(action teetypes.Action, df *instruction.Dat
 	}
 
 	r.Recorded = append(r.Recorded, c)
-	r.Openings = append(r.Openings, auction.Bid{Commitment: c, Bidder: bidder, Amount: req.Amount})
+	r.Openings = append(r.Openings, auction.Bid{
+		Commitment: c, Bidder: bidder, Amount: req.Amount, Nonce: nonce, Addr: addrBytes,
+	})
 
 	b, _ := json.Marshal(commitBidResponse{RfqID: r.ID, BidCount: len(r.Recorded)})
 	return buildResult(action, df, b, 1, nil)

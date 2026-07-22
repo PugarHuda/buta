@@ -3,8 +3,12 @@ package extension
 import (
 	"bytes"
 	"encoding/json"
+	"strings"
 	"testing"
 
+	"extension-scaffold/pkg/auction"
+
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	teetypes "github.com/flare-foundation/tee-node/pkg/types"
@@ -33,11 +37,20 @@ func post(t *testing.T, e *Extension, req postRfqRequest) uint64 {
 	return r.RfqID
 }
 
-func commit(t *testing.T, e *Extension, id uint64, bidder string, c byte, amount uint64) []byte {
+func commit(t *testing.T, e *Extension, id uint64, bidder string, seed byte, amount uint64) []byte {
 	t.Helper()
-	var comm [32]byte
-	comm[31] = c
-	req := commitBidRequest{RfqID: id, Bidder: bidder, Commitment: hexutil.Encode(comm[:]), Amount: amount}
+	// A real commitment: the enclave recomputes keccak(amount||nonce||addr) and
+	// rejects the bid if it doesn't match, so the test has to supply the true one.
+	var nonce [32]byte
+	nonce[0] = seed
+	var addrBytes [20]byte
+	copy(addrBytes[:], common.HexToAddress(strings.ToLower(bidder)).Bytes())
+	comm := auction.Commit(amount, nonce, addrBytes)
+
+	req := commitBidRequest{
+		RfqID: id, Bidder: bidder, Amount: amount,
+		Commitment: hexutil.Encode(comm[:]), Nonce: hexutil.Encode(nonce[:]),
+	}
 	body, _ := json.Marshal(req)
 	ar := e.processCommitBid(teetypes.Action{}, &instruction.DataFixed{}, body)
 	if ar.Status != 1 {
@@ -116,7 +129,12 @@ func TestCommitAfterClearRejected(t *testing.T) {
 	body, _ := json.Marshal(clearAuctionRequest{RfqID: id})
 	e.processClearAuction(teetypes.Action{}, &instruction.DataFixed{}, body)
 
-	req := commitBidRequest{RfqID: id, Bidder: "0xb", Commitment: hexutil.Encode(make([]byte, 32)), Amount: 99}
+	var n [32]byte
+	var ab [20]byte
+	copy(ab[:], common.HexToAddress("0xb").Bytes())
+	comm := auction.Commit(99, n, ab)
+	req := commitBidRequest{RfqID: id, Bidder: "0xb", Amount: 99,
+		Commitment: hexutil.Encode(comm[:]), Nonce: hexutil.Encode(n[:])}
 	cb, _ := json.Marshal(req)
 	if ar := e.processCommitBid(teetypes.Action{}, &instruction.DataFixed{}, cb); ar.Status != 0 {
 		t.Fatal("commit after clear should have failed")
@@ -130,8 +148,15 @@ func TestDirectRailRejectsUninvited(t *testing.T) {
 	// invited party (case-normalised) is fine
 	commit(t, e, id, "0xalice", 1, 10)
 
-	// anyone else is refused
-	req := commitBidRequest{RfqID: id, Bidder: "0xbob", Commitment: hexutil.Encode([]byte{2}), Amount: 20}
+	// anyone else is refused — with a valid commitment, so the refusal is about
+	// the invite, not a malformed bid.
+	var n [32]byte
+	n[0] = 2
+	var ab [20]byte
+	copy(ab[:], common.HexToAddress("0xbob").Bytes())
+	comm := auction.Commit(20, n, ab)
+	req := commitBidRequest{RfqID: id, Bidder: "0xbob", Amount: 20,
+		Commitment: hexutil.Encode(comm[:]), Nonce: hexutil.Encode(n[:])}
 	body, _ := json.Marshal(req)
 	if ar := e.processCommitBid(teetypes.Action{}, &instruction.DataFixed{}, body); ar.Status != 0 {
 		t.Fatal("uninvited bidder should have been refused")

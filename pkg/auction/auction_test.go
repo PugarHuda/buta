@@ -2,28 +2,36 @@ package auction
 
 import "testing"
 
-func c(b byte) Commitment {
-	var out Commitment
-	out[31] = b
-	return out
+// bid builds an opening whose commitment is REAL: the id seeds the address and
+// nonce, and Commit() produces the commitment, so Bid.Opens() holds. Tests that
+// want to break the binding do so explicitly.
+func bid(id byte, who string, amt uint64) Bid {
+	var nonce [32]byte
+	nonce[0] = id
+	var addr [20]byte
+	addr[19] = id
+	return Bid{Commitment: Commit(amt, nonce, addr), Bidder: who, Amount: amt, Nonce: nonce, Addr: addr}
 }
 
-func bid(id byte, who string, amt uint64) Bid {
-	return Bid{Commitment: c(id), Bidder: who, Amount: amt}
+// recOf is the commitment set the contract would have recorded for these bids.
+func recOf(bids ...Bid) []Commitment {
+	out := make([]Commitment, len(bids))
+	for i, b := range bids {
+		out[i] = b.Commitment
+	}
+	return out
 }
 
 // The whole product in one assertion: highest bidder wins, pays the runner-up's
 // price, and the losing amounts are not in the returned struct at all.
 func TestClearPaysSecondPrice(t *testing.T) {
-	rec := []Commitment{c(1), c(2), c(3), c(4)}
 	bids := []Bid{
 		bid(1, "0xaaa", 5194),
 		bid(2, "0xbbb", 5218),
 		bid(3, "0xccc", 5107),
 		bid(4, "0xddd", 5263),
 	}
-
-	got, err := Clear(rec, bids, 5000)
+	got, err := Clear(recOf(bids...), bids, 5000)
 	if err != nil {
 		t.Fatalf("Clear: %v", err)
 	}
@@ -41,12 +49,14 @@ func TestClearPaysSecondPrice(t *testing.T) {
 // The attack this contract exists to stop: hand the enclave a subset so the
 // winner clears at its own ask instead of the true second price.
 func TestClearRefusesTrimmedSet(t *testing.T) {
-	rec := []Commitment{c(1), c(2), c(3)}
-	trimmed := []Bid{
+	full := []Bid{
 		bid(1, "0xaaa", 5194),
+		bid(2, "0xbbb", 5218),
 		bid(3, "0xccc", 5107),
 	}
-	if _, err := Clear(rec, trimmed, 5000); err != ErrSetMismatch {
+	recorded := recOf(full...) // the contract recorded all three
+	trimmed := []Bid{full[0], full[2]}
+	if _, err := Clear(recorded, trimmed, 5000); err != ErrSetMismatch {
 		t.Fatalf("err = %v, want ErrSetMismatch", err)
 	}
 }
@@ -54,23 +64,33 @@ func TestClearRefusesTrimmedSet(t *testing.T) {
 // Same size, different membership — must also fail, or substitution replaces
 // trimming as the attack.
 func TestClearRefusesSubstitutedBid(t *testing.T) {
-	rec := []Commitment{c(1), c(2)}
-	swapped := []Bid{
-		bid(1, "0xaaa", 5194),
-		bid(9, "0xzzz", 9999),
-	}
-	if _, err := Clear(rec, swapped, 5000); err != ErrSetMismatch {
+	real := []Bid{bid(1, "0xaaa", 5194), bid(2, "0xbbb", 5218)}
+	recorded := recOf(real...)
+	swapped := []Bid{real[0], bid(9, "0xzzz", 9999)}
+	if _, err := Clear(recorded, swapped, 5000); err != ErrSetMismatch {
 		t.Fatalf("err = %v, want ErrSetMismatch", err)
 	}
 }
 
+// A bidder committed on-chain to one number and revealed another. The opening
+// no longer reproduces its commitment, so the whole clearing is refused.
+func TestClearRefusesLyingOpening(t *testing.T) {
+	honest := bid(1, "0xaaa", 5194)
+	liar := bid(2, "0xbbb", 5218)
+	recorded := recOf(honest, liar)
+
+	liar.Amount = 9999 // keep the recorded commitment, change the revealed value
+	if _, err := Clear(recorded, []Bid{honest, liar}, 5000); err != ErrOpeningMismatch {
+		t.Fatalf("err = %v, want ErrOpeningMismatch", err)
+	}
+}
+
 func TestClearFloorsAtReserve(t *testing.T) {
-	rec := []Commitment{c(1), c(2)}
 	bids := []Bid{
 		bid(1, "0xaaa", 5300),
 		bid(2, "0xbbb", 5010), // below reserve, so the reserve is the floor
 	}
-	got, err := Clear(rec, bids, 5100)
+	got, err := Clear(recOf(bids...), bids, 5100)
 	if err != nil {
 		t.Fatalf("Clear: %v", err)
 	}
@@ -80,8 +100,8 @@ func TestClearFloorsAtReserve(t *testing.T) {
 }
 
 func TestClearLoneBidderPaysReserve(t *testing.T) {
-	rec := []Commitment{c(1)}
-	got, err := Clear(rec, []Bid{bid(1, "0xaaa", 9000)}, 5100)
+	b := bid(1, "0xaaa", 9000)
+	got, err := Clear(recOf(b), []Bid{b}, 5100)
 	if err != nil {
 		t.Fatalf("Clear: %v", err)
 	}
@@ -91,9 +111,8 @@ func TestClearLoneBidderPaysReserve(t *testing.T) {
 }
 
 func TestClearRejectsWhenNothingMeetsReserve(t *testing.T) {
-	rec := []Commitment{c(1), c(2)}
 	bids := []Bid{bid(1, "0xaaa", 100), bid(2, "0xbbb", 200)}
-	if _, err := Clear(rec, bids, 5000); err != ErrReserveUnmet {
+	if _, err := Clear(recOf(bids...), bids, 5000); err != ErrReserveUnmet {
 		t.Fatalf("err = %v, want ErrReserveUnmet", err)
 	}
 }
@@ -101,15 +120,15 @@ func TestClearRejectsWhenNothingMeetsReserve(t *testing.T) {
 // Two enclaves running the attested image must agree on a tie, or the
 // signature over the outcome is worthless.
 func TestClearTieIsDeterministic(t *testing.T) {
-	rec := []Commitment{c(7), c(3)}
-	a := []Bid{bid(7, "0xseven", 5000), bid(3, "0xthree", 5000)}
-	b := []Bid{bid(3, "0xthree", 5000), bid(7, "0xseven", 5000)}
+	seven := bid(7, "0xseven", 5000)
+	three := bid(3, "0xthree", 5000)
+	rec := recOf(seven, three)
 
-	ra, err := Clear(rec, a, 1000)
+	ra, err := Clear(rec, []Bid{seven, three}, 1000)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rb, err := Clear(rec, b, 1000)
+	rb, err := Clear(rec, []Bid{three, seven}, 1000)
 	if err != nil {
 		t.Fatal(err)
 	}
