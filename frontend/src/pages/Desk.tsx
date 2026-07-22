@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Address } from "viem";
+import { Folio } from "./Folio";
 
 import {
   clearAuction,
@@ -85,7 +86,7 @@ export function Desk() {
   const { address } = useAccount();
   const [rfqs, setRfqs] = useState<RfqState[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
-  const [tab, setTab] = useState<"bid" | "post">("bid");
+  const [tab, setTab] = useState<"bid" | "post" | "folio">("bid");
   const [log, setLog] = useState<string>("");
   const [offline, setOffline] = useState(false);
 
@@ -206,7 +207,7 @@ export function Desk() {
         {/* ── actions ── */}
         <section className="bg-bg">
           <div className="flex border-b border-line">
-            {(["bid", "post"] as const).map((t) => (
+            {(["bid", "post", "folio"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -215,7 +216,7 @@ export function Desk() {
                   (tab === t ? "bg-fg text-bg" : "text-fg-mute hover:text-fg")
                 }
               >
-                {t === "bid" ? "Seal a bid" : "Post a block"}
+                {t === "bid" ? "Seal a bid" : t === "post" ? "Post a block" : "Portfolio"}
               </button>
             ))}
           </div>
@@ -223,8 +224,10 @@ export function Desk() {
           <div className="p-4">
             {tab === "bid" ? (
               <BidForm sel={sel} address={address} onDone={(m) => { setLog(m); refresh(); }} />
-            ) : (
+            ) : tab === "post" ? (
               <PostForm address={address} onDone={(m, id) => { setLog(m); setSelected(id); refresh(); }} />
+            ) : (
+              <Folio address={address} onLog={setLog} />
             )}
 
             {sel && !sel.cleared && (
@@ -280,7 +283,7 @@ function BidForm(props: {
 }) {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
-  const [receipt, setReceipt] = useState<{ commitment: string; nonce: string } | null>(null);
+  const [receipt, setReceipt] = useState<{ commitment: string; nonce: string; amount: string } | null>(null);
   const { signMessageAsync } = useSignMessage();
 
   if (!props.sel) {
@@ -325,7 +328,7 @@ function BidForm(props: {
                 amount: amt,
                 sign: (raw) => signMessageAsync({ message: { raw } }),
               });
-              setReceipt({ commitment: r.commitment, nonce: r.nonce });
+              setReceipt({ commitment: r.commitment, nonce: r.nonce, amount: amt.toString() });
               props.onDone(`Sealed. You are bid #${r.bidCount} on RFQ ${r.rfqId}.`);
               setAmount("");
             } catch (e) {

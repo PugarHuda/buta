@@ -206,6 +206,8 @@ func (e *Extension) processDirect(action teetypes.Action) (int, []byte) {
 	switch {
 	case di.OPCommand == teeutils.ToHash(config.OPCommandListRfqs):
 		ar = e.processListRfqs(action, df, di.Message)
+	case di.OPCommand == teeutils.ToHash(config.OPCommandGetMyBids):
+		ar = e.processGetMyBids(action, df, di.Message)
 	case di.OPCommand == teeutils.ToHash(config.OPCommandGetRfqState):
 		ar = e.processGetRfqState(action, df, di.Message)
 	case config.AllowDirectAuctionOps && di.OPCommand == teeutils.ToHash(config.OPCommandPostRfq):

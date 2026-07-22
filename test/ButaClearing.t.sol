@@ -251,4 +251,33 @@ contract ButaClearingTest is Test {
         vm.prank(bob);   buta.commitBid(other, keccak256("bob"), hex"beef");
         assertEq(buta.commitmentDigest(other), buta.commitmentDigest(rfqId));
     }
+
+    function test_ReclaimLotRefundsMakerWhenUnsold() public {
+        // fresh RFQ, no bids, deadline passed
+        vm.roll(block.number - 101);
+        vm.prank(maker);
+        uint256 empty = buta.postRfq(
+            address(fxrp), address(lot), 500, uint64(block.number + 10), address(0), hex"c0ffee"
+        );
+        uint256 makerBefore = lot.balanceOf(maker);
+        // escrowed 500 above; setUp left ~1000 spare
+        vm.roll(block.number + 11);
+
+        buta.reclaimLot(empty); // anyone may call
+        assertEq(lot.balanceOf(maker), makerBefore + 500, "maker gets the lot back");
+
+        // and it cannot be reclaimed twice, nor cleared afterwards
+        vm.expectRevert(ButaInstructionSender.AlreadyCleared.selector);
+        buta.reclaimLot(empty);
+    }
+
+    function test_ReclaimLotRejectedBeforeDeadline() public {
+        vm.roll(block.number - 101);
+        vm.prank(maker);
+        uint256 live = buta.postRfq(
+            address(fxrp), address(lot), 1, uint64(block.number + 50), address(0), hex"c0ffee"
+        );
+        vm.expectRevert(ButaInstructionSender.DeadlineNotReached.selector);
+        buta.reclaimLot(live);
+    }
 }

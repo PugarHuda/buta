@@ -79,6 +79,7 @@ contract ButaInstructionSender {
     event RfqPosted(uint256 indexed rfqId, address indexed maker, uint256 lot, uint64 deadlineBlock);
     event BidCommitted(uint256 indexed rfqId, address indexed bidder, bytes32 commitment, uint256 index);
     event AuctionCleared(uint256 indexed rfqId, address indexed winner, uint256 clearingPrice, bytes32 setDigest);
+    event LotReclaimed(uint256 indexed rfqId, address indexed maker, uint256 lot);
 
     error NotAdmin();
     error TeeAlreadySet();
@@ -219,6 +220,25 @@ contract ButaInstructionSender {
         if (block.number <= r.deadlineBlock) revert DeadlineNotReached();
 
         _sendInstruction(OP_COMMAND_CLEAR_AUCTION, abi.encode(rfqId));
+    }
+
+    /// @notice Reclaim the escrowed lot when an auction ends without a sale:
+    ///         no bids, or none clearing the reserve. Anyone may call after the
+    ///         deadline; the lot only ever goes back to its maker.
+    ///
+    /// This is the counterpart to relayClearing's happy path — a maker's
+    /// collateral is never stranded because bidding came in soft. The enclave
+    /// is not consulted: "the deadline passed and nothing was awarded" is a
+    /// fact the contract already knows from its own `cleared` flag.
+    function reclaimLot(uint256 rfqId) external {
+        Rfq storage r = rfqs[rfqId];
+        if (r.maker == address(0)) revert ZeroAddress();
+        if (r.cleared) revert AlreadyCleared();
+        if (block.number <= r.deadlineBlock) revert DeadlineNotReached();
+
+        r.cleared = true; // closes the auction; no winner, no clearing price
+        require(IERC20(r.lotToken).transfer(r.maker, r.lot), "lot refund failed");
+        emit LotReclaimed(rfqId, r.maker, r.lot);
     }
 
     /// @notice Relay the enclave's signed outcome and settle.

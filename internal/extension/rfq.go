@@ -135,6 +135,20 @@ type rfqStateResponse struct {
 	ClearingPrice uint64 `json:"clearingPrice,omitempty"`
 }
 
+type myBidsRequest struct {
+	Bidder string `json:"bidder"`
+}
+
+// myBidEntry is one bid the caller placed. It carries the commitment (public)
+// and outcome, never an amount — the bidder holds their own amount locally.
+type myBidEntry struct {
+	RfqID      uint64 `json:"rfqId"`
+	Pair       string `json:"pair"`
+	Commitment string `json:"commitment"`
+	Cleared    bool   `json:"cleared"`
+	Won        bool   `json:"won"`
+}
+
 // ── handlers ────────────────────────────────────────────────────────────────
 
 // processPostRfq opens an auction. On-chain instruction: the deadline block and
@@ -389,4 +403,41 @@ func verifyBidSig(sigHex string, rfqID uint64, c auction.Commitment, addr common
 		return errBadBidSig
 	}
 	return nil
+}
+
+// processGetMyBids lists the commitments a bidder placed, across auctions.
+// No amounts: the endpoint returns what is already public (the commitment) plus
+// the outcome, so a bidder can find their bids without the enclave disclosing
+// any number to the wire.
+func (e *Extension) processGetMyBids(action teetypes.Action, df *instruction.DataFixed, msg hexutil.Bytes) teetypes.ActionResult {
+	var req myBidsRequest
+	if err := json.Unmarshal(msg, &req); err != nil {
+		return buildResult(action, df, nil, 0, fmt.Errorf("decoding get_my_bids: %w", err))
+	}
+	who := strings.ToLower(req.Bidder)
+
+	e.rfqs.mu.RLock()
+	out := make([]myBidEntry, 0)
+	for id := e.rfqs.next; id >= 1; id-- {
+		r, ok := e.rfqs.rfqs[id]
+		if !ok {
+			continue
+		}
+		for _, b := range r.Openings {
+			if b.Bidder != who {
+				continue
+			}
+			out = append(out, myBidEntry{
+				RfqID:      r.ID,
+				Pair:       r.Pair,
+				Commitment: hexutil.Encode(b.Commitment[:]),
+				Cleared:    r.Cleared,
+				Won:        r.Cleared && r.Outcome.Winner == who,
+			})
+		}
+	}
+	e.rfqs.mu.RUnlock()
+
+	b, _ := json.Marshal(out)
+	return buildResult(action, df, b, 1, nil)
 }
