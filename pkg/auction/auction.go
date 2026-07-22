@@ -167,19 +167,21 @@ func matchesRecorded(recorded []Commitment, bids []Bid) error {
 	return nil
 }
 
-// digest folds the recorded set into one value the contract can re-derive.
-// Order-independent so the contract and the enclave cannot disagree over
-// insertion order.
-//
-// ponytail: XOR fold, not a Merkle root. It binds the set for the demo and is
-// cheap on both sides. Swap for keccak over the sorted set before anything with
-// real money touches this — XOR is not collision resistant.
+// digest is keccak256 over the commitment set sorted bytewise ascending.
+// Order-independent (the sort), collision-resistant (the keccak), and
+// byte-identical to Solidity's commitmentDigest — both sides pin the same
+// test vector so a drift fails CI on whichever side moved.
 func digest(recorded []Commitment) Commitment {
-	var out Commitment
-	for _, c := range recorded {
-		for i := range c {
-			out[i] ^= c[i]
-		}
+	sorted := make([]Commitment, len(recorded))
+	copy(sorted, recorded)
+	sort.Slice(sorted, func(i, j int) bool {
+		return bytes.Compare(sorted[i][:], sorted[j][:]) < 0
+	})
+	h := sha3.NewLegacyKeccak256()
+	for _, c := range sorted {
+		h.Write(c[:])
 	}
+	var out Commitment
+	copy(out[:], h.Sum(nil))
 	return out
 }

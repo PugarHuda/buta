@@ -277,16 +277,22 @@ contract ButaInstructionSender {
         return _commitments[rfqId].length;
     }
 
-    /// @notice Order-independent fold of the recorded set.
-    /// @dev ponytail: XOR fold, matching pkg/auction.digest. Cheap and enough to
-    ///      bind the set for a demo, but NOT collision resistant — two different
-    ///      sets can fold to the same value. Replace both sides with keccak over
-    ///      the sorted commitments before this touches real money.
-    function commitmentDigest(uint256 rfqId) public view returns (bytes32 out) {
-        bytes32[] storage cs = _commitments[rfqId];
-        for (uint256 i = 0; i < cs.length; i++) {
-            out ^= cs[i];
+    /// @notice keccak256 over the commitment set, sorted bytewise ascending.
+    /// @dev Order-independent and collision-resistant. Must stay byte-identical
+    ///      to pkg/auction digest(); both sides pin the same test vector.
+    ///      Insertion sort in memory — the set is small by construction.
+    function commitmentDigest(uint256 rfqId) public view returns (bytes32) {
+        bytes32[] memory cs = _commitments[rfqId];
+        for (uint256 i = 1; i < cs.length; i++) {
+            bytes32 key = cs[i];
+            uint256 j = i;
+            while (j > 0 && cs[j - 1] > key) {
+                cs[j] = cs[j - 1];
+                j--;
+            }
+            cs[j] = key;
         }
+        return keccak256(abi.encodePacked(cs));
     }
 
     // --- Internals ---------------------------------------------------------

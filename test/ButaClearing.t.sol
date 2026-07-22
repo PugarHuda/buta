@@ -228,9 +228,27 @@ contract ButaClearingTest is Test {
         buta.requestClearing(open);
     }
 
-    function test_CommitmentDigestIsOrderIndependent() public view {
+    /// Pinned to the exact vector pkg/auction's TestDigestCrossLanguageVector
+    /// pins (computed independently with viem). A drift on either side fails.
+    function test_CommitmentDigestMatchesCrossLanguageVector() public view {
         bytes32 d = buta.commitmentDigest(rfqId);
-        bytes32 manual = keccak256("carol") ^ keccak256("bob") ^ keccak256("alice");
-        assertEq(d, manual, "digest must not depend on insertion order");
+        assertEq(
+            d,
+            bytes32(0xfe920ed06a5a02cd2a78548c40b9b76e355331fc61c0e14bff27319febdb8a03),
+            "digest must match the Go/viem vector"
+        );
+    }
+
+    /// Same commitments, different insertion order, different RFQ — same digest.
+    function test_CommitmentDigestIsOrderIndependent() public {
+        vm.roll(block.number - 101);
+        vm.prank(maker);
+        uint256 other = buta.postRfq(
+            address(fxrp), address(lot), 1, uint64(block.number + 50), address(0), hex"c0ffee"
+        );
+        vm.prank(carol); buta.commitBid(other, keccak256("carol"), hex"beef");
+        vm.prank(alice); buta.commitBid(other, keccak256("alice"), hex"beef");
+        vm.prank(bob);   buta.commitBid(other, keccak256("bob"), hex"beef");
+        assertEq(buta.commitmentDigest(other), buta.commitmentDigest(rfqId));
     }
 }

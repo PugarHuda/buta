@@ -1,6 +1,7 @@
 package extension
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	teetypes "github.com/flare-foundation/tee-node/pkg/types"
 )
@@ -90,6 +92,7 @@ type commitBidRequest struct {
 	Commitment string `json:"commitment"` // 0x + 32 bytes, recorded on-chain
 	Amount     uint64 `json:"amount"`     // decrypted opening; stays in the enclave
 	Nonce      string `json:"nonce"`      // 0x + 32 bytes; blinds the commitment
+	Sig        string `json:"sig"`        // 65-byte personal_sign over bidSigPayload
 }
 
 type commitBidResponse struct {
@@ -187,6 +190,14 @@ func (e *Extension) processCommitBid(action teetypes.Action, df *instruction.Dat
 	copy(addrBytes[:], addr.Bytes())
 	if auction.Commit(req.Amount, nonce, addrBytes) != c {
 		return buildResult(action, df, nil, 0, auction.ErrOpeningMismatch)
+	}
+
+	// The sender field is bound to a wallet signature — the hole the reference
+	// orderbook documents in its own threat model ("the TEE takes sender at
+	// face value") and leaves open. Without this, anyone who reaches the proxy
+	// can bid as anyone.
+	if err := verifyBidSig(req.Sig, req.RfqID, c, addr); err != nil {
+		return buildResult(action, df, nil, 0, err)
 	}
 
 	e.rfqs.mu.Lock()
@@ -307,4 +318,46 @@ func (e *Extension) processListRfqs(action teetypes.Action, df *instruction.Data
 
 	b, _ := json.Marshal(out)
 	return buildResult(action, df, b, 1, nil)
+}
+
+// bidSigPayload is what the bidder's wallet signs (as a personal_sign over the
+// raw 32 bytes): keccak256("BUTA_BID" || uint256(rfqId) || commitment).
+// Binding the rfqId means a signature for one auction cannot be replayed into
+// another; binding the commitment means it authorises exactly one sealed bid.
+func bidSigPayload(rfqID uint64, c auction.Commitment) common.Hash {
+	var id [32]byte
+	binary.BigEndian.PutUint64(id[24:], rfqID)
+	return crypto.Keccak256Hash([]byte("BUTA_BID"), id[:], c[:])
+}
+
+var errBadBidSig = errors.New("bid signature does not recover to the bidder")
+
+func verifyBidSig(sigHex string, rfqID uint64, c auction.Commitment, addr common.Address) error {
+	sig, err := hexutil.Decode(sigHex)
+	if err != nil || len(sig) != 65 {
+		return errBadBidSig
+	}
+	// personal_sign wraps the raw payload in the Ethereum message prefix.
+	payload := bidSigPayload(rfqID, c)
+	ethHash := crypto.Keccak256Hash([]byte("\x19Ethereum Signed Message:\n32"), payload[:])
+
+	v := sig[64]
+	if v >= 27 {
+		v -= 27
+	}
+	if v > 1 {
+		return errBadBidSig
+	}
+	sigCopy := make([]byte, 65)
+	copy(sigCopy, sig)
+	sigCopy[64] = v
+
+	pub, err := crypto.SigToPub(ethHash[:], sigCopy)
+	if err != nil {
+		return errBadBidSig
+	}
+	if crypto.PubkeyToAddress(*pub) != addr {
+		return errBadBidSig
+	}
+	return nil
 }

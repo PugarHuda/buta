@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Address } from "viem";
 
@@ -281,6 +281,7 @@ function BidForm(props: {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<{ commitment: string; nonce: string } | null>(null);
+  const { signMessageAsync } = useSignMessage();
 
   if (!props.sel) {
     return <p className="text-fg-mute">Select an auction on the left to bid on it.</p>;
@@ -318,7 +319,12 @@ function BidForm(props: {
             if (amt <= 0n) return props.onDone("Bid must be a positive whole number.");
             setBusy(true);
             try {
-              const r = await sealBid({ rfqId: props.sel!.rfqId, bidder, amount: amt });
+              const r = await sealBid({
+                rfqId: props.sel!.rfqId,
+                bidder,
+                amount: amt,
+                sign: (raw) => signMessageAsync({ message: { raw } }),
+              });
               setReceipt({ commitment: r.commitment, nonce: r.nonce });
               props.onDone(`Sealed. You are bid #${r.bidCount} on RFQ ${r.rfqId}.`);
               setAmount("");

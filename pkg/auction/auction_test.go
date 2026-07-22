@@ -1,6 +1,11 @@
 package auction
 
-import "testing"
+import (
+	"encoding/hex"
+	"testing"
+
+	"golang.org/x/crypto/sha3"
+)
 
 // bid builds an opening whose commitment is REAL: the id seeds the address and
 // nonce, and Commit() produces the commitment, so Bid.Opens() holds. Tests that
@@ -143,5 +148,23 @@ func TestClearTieIsDeterministic(t *testing.T) {
 func TestClearEmpty(t *testing.T) {
 	if _, err := Clear(nil, nil, 0); err != ErrNoBids {
 		t.Fatalf("err = %v, want ErrNoBids", err)
+	}
+}
+
+// Pins the digest to the exact bytes Solidity's commitmentDigest produces for
+// the same set (vector computed independently with viem). If either side
+// changes its digest, this fails on whichever side moved.
+func TestDigestCrossLanguageVector(t *testing.T) {
+	names := []string{"alice", "bob", "carol"}
+	rec := make([]Commitment, len(names))
+	for i, n := range names {
+		h := sha3.NewLegacyKeccak256()
+		h.Write([]byte(n))
+		copy(rec[i][:], h.Sum(nil))
+	}
+	got := digest(rec)
+	want := "fe920ed06a5a02cd2a78548c40b9b76e355331fc61c0e14bff27319febdb8a03"
+	if hex.EncodeToString(got[:]) != want {
+		t.Fatalf("digest = %x, want %s", got, want)
 	}
 }
