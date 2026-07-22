@@ -12,4 +12,7 @@ export const env = {
   /** Override for the deployed OrderbookInstructionSender contract address.
    *  Falls back to the value baked into generated.ts by sync-config. */
   instructionSender: import.meta.env.VITE_INSTRUCTION_SENDER as string || "",
+  /** Settlement/delivery token overrides (Coston2 FXRP / USDT0). */
+  fxrp: import.meta.env.VITE_FXRP as string || "",
+  usdt0: import.meta.env.VITE_USDT0 as string || "",
 } as const;

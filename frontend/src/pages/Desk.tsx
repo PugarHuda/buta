@@ -12,6 +12,7 @@ import { useAccount, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Address } from "viem";
 import { Folio } from "./Folio";
+import { TOKENS } from "../config/tokens";
 
 import {
   clearAuction,
@@ -120,6 +121,14 @@ export function Desk() {
             [ SEALED-BID OTC DESK ]
           </span>
           <span className="flex-1" />
+          <a
+            href={`https://coston2-explorer.flare.network/address/${TOKENS.FXRP.address}`}
+            target="_blank" rel="noopener"
+            className="hidden lg:block text-[10px] tracking-[0.1em] uppercase text-fg-mute hover:text-accent"
+            title="FXRP on Coston2"
+          >
+            SETTLES IN FXRP <Red>///</Red> {TOKENS.FXRP.address.slice(0, 6)}…
+          </a>
           <span className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">
             {offline ? <Red>EXTENSION OFFLINE</Red> : <>COSTON2 <Red>///</Red> SIMULATED TEE</>}
           </span>
