@@ -1,0 +1,72 @@
+// Seed the dev facade with a book that reads like a working desk:
+// cleared receipts, open auctions with sealed bids, an empty fresh one, and a
+// directed (invite-only) block. Run with the facade up:
+//
+//   BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev     (from buta/)
+//   node scripts/seed.mjs                            (from buta/frontend/)
+//
+// State lives in extension memory — reseed after every facade restart.
+
+import { encodePacked, keccak256 } from "viem";
+
+const BASE = process.env.FACADE_URL || "http://127.0.0.1:6674";
+const b32 = (s) => "0x" + [...new TextEncoder().encode(s)].map((b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0");
+const hexJson = (o) => "0x" + [...new TextEncoder().encode(JSON.stringify(o))].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+async function call(cmd, payload) {
+  const r = await fetch(`${BASE}/direct`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ opType: b32("BUTA"), opCommand: b32(cmd), message: hexJson(payload) }),
+  });
+  const { data: { id } } = await r.json();
+  const res = await (await fetch(`${BASE}/action/result/${id}`)).json();
+  if (res.result.status !== 1) throw new Error(`${cmd}: ${res.result.log}`);
+  const hex = res.result.data.slice(2);
+  return JSON.parse(new TextDecoder().decode(Uint8Array.from(hex.match(/../g).map((h) => parseInt(h, 16)))));
+}
+
+let nonceCounter = 1n;
+async function seal(rfqId, bidder, amount) {
+  const nonce = "0x" + (nonceCounter++).toString(16).padStart(64, "0");
+  const commitment = keccak256(encodePacked(["uint256", "bytes32", "address"], [BigInt(amount), nonce, bidder]));
+  return call("COMMIT_BID", { rfqId, bidder, amount, commitment, nonce });
+}
+
+const W = (n) => `0x${String(n).repeat(40).slice(0, 40)}`; // deterministic demo wallets
+
+// ── the book ──────────────────────────────────────────────────────────────
+
+// 1: a settled block — the desk's proof it works
+let { rfqId: r1 } = await call("POST_RFQ", { maker: W(1), pair: "FXRP/USDT0", lot: 250_000, reserve: 122_000, deadline: 24_109_880, invited: "" });
+await seal(r1, W(2), 129_850);
+await seal(r1, W(3), 130_450);
+await seal(r1, W(4), 127_900);
+await seal(r1, W(5), 126_300);
+await call("CLEAR_AUCTION", { rfqId: r1 });
+
+// 2: a whale block, sealed and live
+let { rfqId: r2 } = await call("POST_RFQ", { maker: W(6), pair: "FXRP/USDT0", lot: 1_200_000, reserve: 590_000, deadline: 24_121_400, invited: "" });
+await seal(r2, W(7), 615_000);
+await seal(r2, W(8), 604_200);
+
+// 3: fresh, no bids yet
+await call("POST_RFQ", { maker: W(9), pair: "FXRP/USDT0", lot: 80_000, reserve: 38_500, deadline: 24_118_000, invited: "" });
+
+// 4: directed block — one invited counterparty, one sealed quote
+let { rfqId: r4 } = await call("POST_RFQ", { maker: W(1), pair: "FXRP/USDT0", lot: 500_000, reserve: 243_000, deadline: 24_125_000, invited: W(7) });
+await seal(r4, W(7), 251_500);
+
+// 5: lone bidder cleared at the reserve — the honest edge case, on display
+let { rfqId: r5 } = await call("POST_RFQ", { maker: W(3), pair: "FXRP/USDT0", lot: 60_000, reserve: 29_400, deadline: 24_100_000, invited: "" });
+await seal(r5, W(2), 31_000);
+await call("CLEAR_AUCTION", { rfqId: r5 });
+
+const book = await call("LIST_RFQS", {});
+console.log(`seeded ${book.length} auctions:`);
+for (const r of book) {
+  console.log(
+    `  ${String(r.rfqId).padStart(3, "0")}  ${r.pair}  lot ${r.lot.toLocaleString()}  bids ${r.bidCount}  ` +
+    (r.cleared ? `CLEARED @ ${r.clearingPrice.toLocaleString()}` : "SEALED")
+  );
+}
