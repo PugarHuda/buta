@@ -281,3 +281,30 @@ func (e *Extension) processGetRfqState(action teetypes.Action, df *instruction.D
 	b, _ := json.Marshal(resp)
 	return buildResult(action, df, b, 1, nil)
 }
+
+// processListRfqs returns the public view of every auction, newest first.
+// Same disclosure rule as GET_RFQ_STATE: size, deadline, count, outcome —
+// never a reserve, never an amount that lost.
+func (e *Extension) processListRfqs(action teetypes.Action, df *instruction.DataFixed, _ hexutil.Bytes) teetypes.ActionResult {
+	e.rfqs.mu.RLock()
+	out := make([]rfqStateResponse, 0, len(e.rfqs.rfqs))
+	for id := e.rfqs.next; id >= 1; id-- {
+		r, ok := e.rfqs.rfqs[id]
+		if !ok {
+			continue
+		}
+		item := rfqStateResponse{
+			RfqID: r.ID, Maker: r.Maker, Pair: r.Pair, Lot: r.Lot,
+			Deadline: r.Deadline, BidCount: len(r.Recorded), Cleared: r.Cleared,
+		}
+		if r.Cleared {
+			item.Winner = r.Outcome.Winner
+			item.ClearingPrice = r.Outcome.ClearingPrice
+		}
+		out = append(out, item)
+	}
+	e.rfqs.mu.RUnlock()
+
+	b, _ := json.Marshal(out)
+	return buildResult(action, df, b, 1, nil)
+}

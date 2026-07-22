@@ -29,6 +29,7 @@ const (
 	OPCommandDirectSettle = "DIRECT_SETTLE"
 	OPCommandGetRfqState  = "GET_RFQ_STATE"
 	OPCommandGetMyBids    = "GET_MY_BIDS"
+	OPCommandListRfqs     = "LIST_RFQS"
 
 	OPTypeOrderbook        = "ORDERBOOK"
 	OPCommandDeposit       = "DEPOSIT"
@@ -45,6 +46,13 @@ const (
 
 // Defaults.
 var (
+	// AllowDirectAuctionOps lets POST_RFQ / COMMIT_BID / CLEAR_AUCTION arrive as
+	// direct actions instead of on-chain instructions. Demo convenience for the
+	// simulated-TEE path while the Coston2 FCC round trip is being reworked.
+	// In production these MUST come from the chain — a direct post has no
+	// escrow and a direct clear has no deadline check behind it.
+	AllowDirectAuctionOps = false
+
 	ExtensionPort   = 8080
 	SignPort        = 9090
 	TypesServerPort = 8100
@@ -73,6 +81,12 @@ func LoadTradingPairs(path string) ([]TradingPairConfig, error) {
 }
 
 // Environment variables override defaults.
+func init() {
+	if v, ok := os.LookupEnv("BUTA_ALLOW_DIRECT_AUCTION"); ok {
+		AllowDirectAuctionOps = v == "1" || strings.EqualFold(v, "true")
+	}
+}
+
 func init() {
 	if v := os.Getenv("EXTENSION_PORT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {

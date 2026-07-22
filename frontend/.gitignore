@@ -8,3 +8,4 @@ dist
 !book-ui.png
 tsconfig.tsbuildinfo
 .vercel
+dist/

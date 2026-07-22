@@ -4,23 +4,26 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0a0a0a;
-  --bg-1: #0e0e0e;
-  --bg-2: #141414;
-  --bg-3: #1a1a1a;
-  --line: #1f1f1f;
-  --line-2: #262626;
-  --fg: #e8e8e3;
-  --fg-dim: #8a8a82;
-  --fg-mute: #5a5a54;
-  --accent: #c96aa8;
-  --bid: #26a269;
-  --ask: #c01c28;
-  --bid-soft: rgba(38,162,105,0.12);
-  --ask-soft: rgba(192,28,40,0.12);
-  --flash: rgba(201,106,168,0.18);
-  --f-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --f-serif: 'Instrument Serif', 'Times New Roman', serif;
+  /* Swiss Industrial Print — same substrate as the landing page.
+     Variable NAMES are kept so every component keeps working. */
+  --bg: #F4F4F0;
+  --bg-1: #EFEEE9;
+  --bg-2: #EAE8E3;
+  --bg-3: #E2E0DA;
+  --line: #C9C7BF;
+  --line-2: #B4B2A9;
+  --fg: #0A0A0A;
+  --fg-dim: #3B3B38;
+  --fg-mute: #6E6E68;
+  --accent: #CE1414;         /* aviation red, 5.1:1 on the paper */
+  --bid: #1F5C4D;
+  --ask: #CE1414;
+  --bid-soft: rgba(31,92,77,0.10);
+  --ask-soft: rgba(206,20,20,0.08);
+  --flash: rgba(206,20,20,0.12);
+  --f-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  --f-serif: 'Playfair Display', 'Times New Roman', serif;
+  --f-macro: 'Archivo Black', 'Arial Black', Haettenschweiler, Impact, sans-serif;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -43,9 +46,9 @@ body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  background: repeating-linear-gradient(0deg, rgba(10,10,10,0.02) 0, rgba(10,10,10,0.02) 1px, transparent 1px, transparent 3px);
   z-index: 9999;
-  mix-blend-mode: overlay;
+  mix-blend-mode: multiply;
 }
 
 ::selection { background: var(--accent); color: var(--bg); }

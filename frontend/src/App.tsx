@@ -1,15 +1,15 @@
 import "@rainbow-me/rainbowkit/styles.css";
 
-import { getDefaultConfig, RainbowKitProvider, darkTheme } from "@rainbow-me/rainbowkit";
+import { getDefaultConfig, RainbowKitProvider, lightTheme } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { coston2 } from "./config/chain";
 import { env } from "./config/env";
 import { ToastProvider } from "./components/ui/Toast";
-import { Trade } from "./pages/Trade";
+import { Desk } from "./pages/Desk";
 
 const config = getDefaultConfig({
-  appName: "FLARE",
+  appName: "BUTA",
   projectId: env.walletConnectProjectId || "placeholder-project-id",
   chains: [coston2],
 });
@@ -20,9 +20,9 @@ export default function App() {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider theme={darkTheme({ accentColor: '#c96aa8', accentColorForeground: '#0a0a0a', borderRadius: 'none', fontStack: 'system' })}>
+        <RainbowKitProvider theme={lightTheme({ accentColor: '#CE1414', accentColorForeground: '#F4F4F0', borderRadius: 'none', fontStack: 'system' })}>
           <ToastProvider>
-            <Trade />
+            <Desk />
           </ToastProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
