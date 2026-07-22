@@ -65,7 +65,7 @@ Buta is the build where an attested enclave finally removes that reader.
 
 **Smart contract addresses / deployment details**
 - Network: Coston2 (chain 114), simulated-TEE path.
-- `ButaInstructionSender`: _[paste after `forge script script/Deploy.s.sol`]_
+- `ButaInstructionSender`: `0x20d9CcAA7140bf38AD91D2F102bA996417798e8f` — https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f
 - Deploy runbook: `docs/DEPLOY.md`.
 
 **Short roadmap / next steps**
