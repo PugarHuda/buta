@@ -1,207 +1,106 @@
-# Confidential Orderbook on Flare
+# Buta
 
-> A reference exchange implementation for **Flare Confidential Compute (FCC)**. Matching runs inside a TEE, open orders never touch the chain, and withdrawals are authorised by a TEE signature that the on-chain vault verifies before releasing funds.
+**A sealed-bid OTC desk on Flare Confidential Compute where the auctioneer itself cannot read the bids.**
 
-![Orderbook trading UI](frontend/book-ui.png)
+Bids are ECIES-encrypted to an attested enclave; the enclave clears them at the
+Vickrey second price and forgets them; the winner and clearing price are public,
+but every losing amount — and the winner's own bid — stays sealed forever. A
+bidder can still prove their exact bid to a chosen auditor without it becoming
+public.
 
-This repository is aimed at teams evaluating FCC as a platform for a **serious on-chain product** — exchanges, structured-product vaults, settlement layers, or anything where pure smart contracts can't give you the privacy, fairness, or custody you need. The orderbook is deliberately non-trivial: price-time priority matching, real deposit and withdrawal custody, a working frontend, and a load-testing harness. Use it as a template, not a toy.
+Built for **Flare Summer Signal 2026**, Bounty 2 (Confidential Compute).
 
----
-
-## TL;DR
-
-- **Private orderbook.** Open orders live only in TEE memory — never on-chain, never in a public mempool, never in the proxy's logs. No book-level MEV, no front-running, no sandwich attacks on resting orders.
-- **Fair, deterministic matching.** Price-time priority, enforced by code that's pinned to a hash registered on-chain. Fills happen instantly inside the TEE — no per-fill gas, no on-chain settlement round trip.
-- **Trust-minimised custody.** An on-chain vault holds tokens. Funds release only when the TEE produces a signed authorisation — and the TEE's signing key never leaves attested hardware and is backed up across data providers, so no single operator can drain the vault.
-- **Uses the full FCC platform.** On-chain instructions for deposits and withdrawals, off-chain direct actions for trading and reads, and outbound TEE signatures for settlement. All three integration paths are used here, end-to-end.
-
----
-
-## Why Build This on FCC?
-
-A classic on-chain orderbook is stuck between three bad options: keep orders on-chain and watch them get front-run, encrypt them with heavy cryptography that's expensive and fragile, or run matching off-chain with centralised custody and end up rebuilding a centralised exchange. FCC lets the book stay private *and* the custody stay trust-minimised at the same time.
-
-Three concrete properties fall out of this repo:
-
-1. **Orders are private while they rest.** The matching engine exists only inside the TEE. The proxy sees opaque action bodies; the chain sees nothing until a withdrawal is executed. A trader's intent doesn't leak between submission and match.
-2. **Matching is deterministic and attested.** The exact code that runs the matching is pinned to a hash registered on-chain. Changing it requires a public, governable rollout — not a silent server swap. What you audit is what runs.
-3. **Custody follows the signature, not the operator.** The vault releases funds on a signature from the TEE, not on a call from a privileged operator. You don't trust the team running the TEE — you trust the code hash and the data-provider consensus that admits it.
-
+- **Landing:** https://buta-desk.vercel.app
+- **Contract (Coston2):** [`0x20d9CcAA7140bf38AD91D2F102bA996417798e8f`](https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f)
+- **Full write-up:** [`SUBMISSION.md`](SUBMISSION.md) · **Demo script:** [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) · **Deploy:** [`docs/DEPLOY.md`](docs/DEPLOY.md)
 
 ---
 
-## Architecture
+## Why an enclave, and not just a smart contract?
 
-```mermaid
-flowchart LR
-  U[User / Frontend]
-  V[InstructionSender.sol<br/>vault + entrypoint]
-  P[TEE Proxy<br/>public]
-  DP[Data Providers<br/>≥50% weight]
-  T[TEE Machine<br/>attested code hash]
-  OB[(Orderbook<br/>Balances<br/>History<br/><br/>in-memory)]
+A Vickrey (second-price) auction **cannot be run honestly on a transparent
+chain.** To compute the second price you must know every bid; to know every bid
+on-chain is to publish it; to publish it is to destroy the sealed auction.
 
-  U -- "POST /direct<br/>PLACE_ORDER, GET_STATE" --> P
-  U -- "tx: deposit / withdraw" --> V
-  V -- "instruction event" --> DP
-  DP -- "signed instruction" --> P
-  P -- "action queue" --> T
-  T --- OB
-  T -- "signed authorisation" --> P
-  P -- "result" --> U
-  U -- "tx: executeWithdrawal(sig)" --> V
-  V -- "verify TEE signature" --> V
+Every on-chain "dark" venue leaves one reader standing — whatever clears the
+auction can read every bid, and can lie about it. Zero-knowledge doesn't remove
+that reader (the prover holds the openings); threshold decryption doesn't
+(whoever satisfies the policy reads them); a private ledger doesn't (the buyer
+sees all quotes); homomorphic evaluation is too expensive to rank N bids for one
+trade. **An attested enclave is the first mechanism that both computes the
+clearing correctly and holds the bids where no interested party can read them.**
+
+## The security chain (each link has a test that tries to break it)
+
+```
+bid ECIES-encrypted to the enclave      → operator sees only ciphertext
+opening reproduces its commitment       → keccak(amount‖nonce‖addr), or it bounces
+bid bound to a wallet signature         → ecrecover == bidder, or it bounces
+opening set matches what chain recorded → a trimmed set is refused
+enclave signs a digest of that set      → keccak over the sorted commitments
+contract verifies the TEE signature     → domain-separated ecrecover + replay guard
+contract rejects a mismatched digest    → "award a subset" reverts on-chain
 ```
 
-There are exactly three ways into a TEE and one way back out:
+The last link is the point: the contract records the commitment set **before
+anyone knows what is in it**, and refuses any clearing whose digest doesn't match
+— so the auctioneer cannot quietly drop a bid to move the price. It stops being
+a policy promise and becomes a transaction that reverts.
 
-| Direction | Channel | Used for |
-|---|---|---|
-| In (on-chain) | `InstructionSender.sol` → data providers → proxy → TEE | `DEPOSIT`, `WITHDRAW` — actions that must be tied to a real on-chain transaction |
-| In (off-chain) | Frontend → proxy → TEE (a "direct action") | `PLACE_ORDER`, `CANCEL_ORDER`, `GET_MY_STATE`, `GET_BOOK_STATE` — trading and reads |
-| Out | TEE → proxy → user → chain | `executeWithdrawal(sig)` — user presents a TEE-signed authorisation to the vault |
+## Run it
 
-The orderbook, the per-user balance ledger (available + held), and the pending-order state live entirely in the TEE's memory. Nothing is persisted outside of it except the audit trail a user can pull with `EXPORT_HISTORY`.
-
----
-
-## How Users Interact
-
-### 1. Deposit
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant U as User
-  participant V as InstructionSender
-  participant DP as Data Providers
-  participant T as TEE
-  U->>V: approve(token, amount)
-  U->>V: deposit(token, amount)
-  V->>V: transfer tokens into vault
-  V-->>DP: emit DEPOSIT instruction
-  DP->>T: cosigned instruction (≥50% weight)
-  T->>T: credit user's balance
-  T-->>U: DepositResponse (polled via proxy)
-```
-
-The user approves the vault and calls `deposit(token, amount)`. ERC20 tokens move to the vault; the vault emits a `DEPOSIT` instruction. Data providers cosign it, the proxy forwards it to the TEE once the consensus threshold is met, and the TEE credits the user's available balance in memory. The frontend polls the proxy for the result.
-
-The on-chain transfer *is* the authorisation — there is no separate signed deposit message. That's deliberate: only deposits that actually happened on-chain can credit a balance, because every instruction has to be cosigned above the consensus threshold before the TEE will act on it.
-
-### 2. Trade
-
-Placing and cancelling orders never hits the chain. The frontend sends a **direct action** straight to the proxy:
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant U as User
-  participant P as TEE Proxy
-  participant T as TEE
-  U->>P: POST /direct { PLACE_ORDER, pair, side, price, qty }
-  P->>T: action
-  T->>T: lock funds for the order
-  T->>T: match against opposite side (price-time priority)
-  T->>T: swap funds for each fill
-  T-->>U: { status: filled | partial | resting }
-```
-
-Inside the TEE, the order's funds are moved from available to locked, and the matching engine walks the opposite side of the book in price-time priority. Every fill is an atomic swap between maker and taker — no per-fill settlement, no signatures, no gas. If only part of an order fills, the rest stays resting in the TEE until it's matched or cancelled.
-
-Reads use the same channel and are gasless: `GET_MY_STATE` returns the caller's balances, open orders, and personal trade history; `GET_BOOK_STATE` returns public depth and recent matches.
-
-### 3. Withdraw — the novel part
-
-Withdrawal is a **two-step, two-transaction** flow, and this is where the TEE-as-custodian model does its real work:
-
-```mermaid
-sequenceDiagram
-  autonumber
-  participant U as User
-  participant V as InstructionSender
-  participant DP as Data Providers
-  participant T as TEE
-  U->>V: withdraw(token, amount, to)
-  V-->>DP: emit WITHDRAW instruction
-  DP->>T: cosigned instruction (≥50% weight)
-  T->>T: debit user's balance
-  T->>T: sign authorisation slip
-  T-->>U: WithdrawResponse { signature, withdrawalId }
-  U->>V: executeWithdrawal(token, amount, to, withdrawalId, signature)
-  V->>V: verify signature came from TEE signing key ✓
-  V->>V: mark withdrawal id used
-  V-->>U: transfer tokens to `to`
-```
-
-1. The user calls `withdraw(token, amount, to)` on the vault. This relays a `WITHDRAW` instruction to the TEE via the data providers.
-2. Inside the TEE, the request is checked against the user's available balance, the balance is debited, and the TEE signs an authorisation slip carrying the token, amount, destination, and a unique withdrawal id.
-3. The signed slip comes back through the proxy to the user.
-4. The user (or anyone, on their behalf) submits `executeWithdrawal(...)` with the slip. The vault verifies the signature came from the registered TEE signing address, marks the withdrawal id used so it can't be replayed, and transfers the tokens.
-
-The important consequence: **anyone** can broadcast `executeWithdrawal`. The signature is the authorisation, not the caller. That makes gas sponsorship, meta-transactions, and asynchronous settlement trivial to build on top — the vault doesn't need to know who the user is, only that the TEE said "pay `to`, once, for this amount".
-
-The TEE's signing address is registered on the vault exactly once, at setup. Rotating it requires a new deployment (or a deliberate governance extension you add). A rogue operator can't silently swap signers.
-
-For the exact signature preimage and on-chain verification logic, see [docs/flows/withdrawal.md](docs/flows/withdrawal.md).
-
----
-
-## Security Model
-
-**What the TEE guarantees**
-
-- **Code attestation.** Every signed action is produced by a TEE binary whose code hash is registered on-chain. Changing matching, fees, or withdrawal logic requires registering and rolling out a new hash — a visible, governable event.
-- **Consensus on inbound instructions.** On-chain `DEPOSIT` and `WITHDRAW` instructions are only executed if signed by data providers holding ≥50% of the current epoch's weight (up to 100 providers per 3.5-day rotation).
-- **Replay protection.** Each withdrawal carries a unique id, generated on-chain. The vault rejects any id it has already executed.
-- **Key resilience.** The TEE's signing key is split across data providers using Shamir secret sharing. Losing a single TEE doesn't leak the key, and the signing identity survives a TEE replacement.
-- **In-memory isolation.** Order state, pending matches, and per-user balances never leave the TEE's attested address space unless a user explicitly exports their own history.
-
-**What the TEE does not guarantee**
-
-- **Ordering.** FCC is explicitly "fire and forget": two direct actions submitted in quick succession may arrive at the TEE in either order. The matching engine is designed around this — it is single-writer per pair — but any logic you add on top must be safe without ordering assumptions.
-- **Liveness.** The public proxy can delay or drop actions. Withdrawals remain recoverable via the consensus-signed on-chain instruction path, but a sustained proxy outage halts new trading.
-- **Hardware trust.** If a TEE vendor is compromised or the attestation chain is broken, the code-hash guarantee collapses. This is mitigated operationally — running across multiple TEE vendors, rotating attestation — not by FCC itself.
-
----
-
-## Try It Locally
-
-Bring up the chain, proxy, TEE, and extension in one command:
+Simulated-TEE path (accepted by Flare for the hackathon):
 
 ```bash
-./scripts/full-setup.sh 
+# 1. the extension + a dev facade (real extension code, simplified transport)
+BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev
+
+# 2. seed a book that looks alive, then start the desk
+cd frontend
+node scripts/seed.mjs
+npm run dev            # desk on http://localhost:5173
 ```
 
-Then start the frontend:
+Post a block, seal a bid (real wallet signature + ECIES), clear at the second
+price, and disclose your bid to an auditor from the Portfolio tab.
+
+## Tests
 
 ```bash
-cd frontend && npm install && npm run dev
+go test ./pkg/auction/... ./internal/extension/...   # clearing + handlers, no-leak assertions
+forge test                                            # 15 tests — relayClearing, trimmed-set, replay, reclaim
 ```
 
-Open `http://localhost:5173`. The footer shows **NETWORK COSTON2** and **TEE ONLINE** when everything is connected. Use the in-app faucet to get test tokens, deposit into the vault, and place your first order.
+## Layout
 
----
+```
+pkg/auction/            Vickrey clearing engine (enclave-only); losing amounts never returned
+internal/extension/     RFQ store + handlers: POST_RFQ / COMMIT_BID / CLEAR_AUCTION / disclosure
+  decrypt.go            ECIES decryptor interface — tee-node /decrypt in prod, local key in dev
+contracts/              ButaInstructionSender.sol — commitment set, set-digest binding, TEE-sig verify
+script/Deploy.s.sol     one-command Coston2 deploy
+cmd/dev/                one-process dev facade (extension + the two proxy routes the desk uses)
+frontend/               the desk — post / seal / clear / disclose, Swiss-industrial print
+landing/                the landing page (buta-desk.vercel.app)
+```
 
-## Testing
+## Prior work — declared
 
-- **Unit and end-to-end tests** — `go test ./...` plus a scripted E2E runner. See [docs/testing.md](docs/testing.md).
-- **Stress and soak** — a multi-persona load generator with tiers ranging from a one-minute smoke to multi-day soak runs with live price oracles. See [docs/stress-test.md](docs/stress-test.md).
+We built this same sealed-bid thesis five times before, on five other chains
+(iExec, Stellar, Sui, Zama, Canton). Each left the same open problem: *the
+settler still sees the bids.* Buta is the build where an attested enclave finally
+removes that reader. See [`SUBMISSION.md`](SUBMISSION.md) for the full separation
+of what carried over vs what is new for Flare.
 
----
+## Scope
 
-## Further Reading
+Not audited. Not for real assets. The clearing price is public by design
+(Vickrey pays the second price). Hiding the openings even from the enclave would
+need MPC — honest future work. Built on the simulated-TEE path; the deployed
+contract is live but TEE registration against the FCC diamond is the next step
+(`docs/DEPLOY.md`).
 
-- [docs/architecture.md](docs/architecture.md) — full system map: contracts, Go packages, state model, signing architecture
-- [docs/flows/deposit.md](docs/flows/deposit.md), [orders.md](docs/flows/orders.md), [withdrawal.md](docs/flows/withdrawal.md) — per-flow deep dives with ABI layouts and code refs
-- [docs/extension-guide.md](docs/extension-guide.md) — extension internals, if you want to fork this as a template for your own product
-- [docs/instruction-sender.md](docs/instruction-sender.md) — on-chain contract patterns
-- [docs/types-server.md](docs/types-server.md) — how the proxy decodes extension payloads
-- [docs/testing.md](docs/testing.md) — test runner, unit + integration setup
-- [docs/stress-test.md](docs/stress-test.md) — load generator and soak profiles
+## License
 
----
-
-## Built On
-
-Flare Confidential Compute — see the [FCC overview](https://dev.flare.network/fcc/overview) for the underlying primitives (extensions, signing policies, data providers, attestation, Protocol Managed Wallets).
+Apache-2.0. Forks `flare-foundation/fce-orderbook` for vault custody and the
+signing path; the sealed-bid mechanism, commitment binding, and desk are new.
