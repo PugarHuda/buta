@@ -27,6 +27,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	teetypes "github.com/flare-foundation/tee-node/pkg/types"
 
@@ -47,6 +48,18 @@ func main() {
 	}
 
 	ext := extension.New(config.ExtensionPort, config.SignPort)
+
+	// Simulated enclave key. In production this lives inside the attested node
+	// and the extension reaches it over the sign server; here it sits in this
+	// process, which is exactly what SIMULATED_TEE means — same crypto, no
+	// hardware isolation.
+	teeKey, err := crypto.GenerateKey()
+	if err != nil {
+		logger.Fatalf("keygen: %v", err)
+	}
+	ext.SetDecryptor(extension.NewLocalDecryptor(teeKey))
+	pub := teeKey.PublicKey
+
 	store := &resultStore{m: make(map[common.Hash]json.RawMessage)}
 
 	mux := http.NewServeMux()
@@ -111,6 +124,22 @@ func main() {
 		_, _ = w.Write([]byte(`{"result":`))
 		_, _ = w.Write(raw)
 		_, _ = w.Write([]byte(`}`))
+	})
+
+	// GET /info — the frontend reads machineData.publicKey (x, y) from here and
+	// ECIES-encrypts each bid to it before sending. Mirrors the real proxy's
+	// /info shape closely enough for the client's teePublicKeyToBuffer.
+	mux.HandleFunc("GET /info", func(w http.ResponseWriter, _ *http.Request) {
+		cors(w)
+		x := common.BytesToHash(pub.X.Bytes())
+		y := common.BytesToHash(pub.Y.Bytes())
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"machineData": map[string]any{
+				"publicKey": map[string]string{"x": x.Hex(), "y": y.Hex()},
+			},
+			"simulated": true,
+		})
 	})
 
 	mux.HandleFunc("OPTIONS /", func(w http.ResponseWriter, _ *http.Request) {

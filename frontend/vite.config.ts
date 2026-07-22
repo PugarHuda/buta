@@ -6,11 +6,15 @@ export default defineConfig(({ mode }) => {
   const upstream = env.VITE_PROXY_UPSTREAM || "http://localhost:6674";
   return {
     plugins: [react()],
+    define: { global: "globalThis" },
+    resolve: { alias: { buffer: "buffer/" } },
+    optimizeDeps: { include: ["buffer", "ecies-geth"] },
     server: {
       proxy: {
         "/direct": { target: upstream, changeOrigin: true },
         "/state": { target: upstream, changeOrigin: true },
         "/action": { target: upstream, changeOrigin: true },
+        "/info": { target: upstream, changeOrigin: true },
       },
     },
   };

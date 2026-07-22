@@ -7,8 +7,12 @@
 //
 // State lives in extension memory — reseed after every facade restart.
 
-import { encodePacked, keccak256 } from "viem";
+import { Buffer } from "buffer";
+globalThis.Buffer = Buffer;
+import { encodePacked, keccak256, hexToBytes } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import eciesPkg from "ecies-geth";
+const { encrypt } = eciesPkg;
 
 const BASE = process.env.FACADE_URL || "http://127.0.0.1:6674";
 const b32 = (s) => "0x" + [...new TextEncoder().encode(s)].map((b) => b.toString(16).padStart(2, "0")).join("").padEnd(64, "0");
@@ -35,11 +39,18 @@ async function seal(rfqId, acct, amount) {
   // the enclave recovers this signature and refuses a sender mismatch
   const payload = keccak256(encodePacked(["string", "uint256", "bytes32"], ["BUTA_BID", BigInt(rfqId), commitment]));
   const sig = await acct.signMessage({ message: { raw: payload } });
-  return call("COMMIT_BID", { rfqId, bidder, amount, commitment, nonce, sig });
+  const ct = await encrypt(TEE_KEY, Buffer.from(JSON.stringify({ amount, nonce, sig })));
+  return call("COMMIT_BID", { rfqId, bidder, commitment, ciphertext: "0x" + ct.toString("hex") });
 }
 
 // deterministic demo wallets, keyed 1..9
 const W = (n) => privateKeyToAccount(("0x" + String(n).padStart(64, "0")));
+
+// TEE public key, fetched once. Bids are sealed to it before they leave here.
+const info = await (await fetch(`${BASE}/info`)).json();
+const _x = hexToBytes(info.machineData.publicKey.x);
+const _y = hexToBytes(info.machineData.publicKey.y);
+const TEE_KEY = Buffer.concat([Buffer.from([0x04]), Buffer.from(_x), Buffer.from(_y)]);
 
 // ── the book ──────────────────────────────────────────────────────────────
 

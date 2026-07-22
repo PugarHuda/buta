@@ -93,6 +93,13 @@ type commitBidRequest struct {
 	Amount     uint64 `json:"amount"`     // decrypted opening; stays in the enclave
 	Nonce      string `json:"nonce"`      // 0x + 32 bytes; blinds the commitment
 	Sig        string `json:"sig"`        // 65-byte personal_sign over bidSigPayload
+
+	// Ciphertext, when present, is the ECIES envelope over {amount, nonce, sig}
+	// encrypted to the TEE public key. It is the real path: the operator sees
+	// only this blob in transit. The three plaintext fields above are then
+	// ignored — filled from the decrypted opening. On the simulated/testing
+	// path with no decryptor wired, callers send the plaintext fields directly.
+	Ciphertext string `json:"ciphertext"`
 }
 
 type commitBidResponse struct {
@@ -164,6 +171,28 @@ func (e *Extension) processCommitBid(action teetypes.Action, df *instruction.Dat
 	var req commitBidRequest
 	if err := json.Unmarshal(msg, &req); err != nil {
 		return buildResult(action, df, nil, 0, fmt.Errorf("decoding commit_bid: %w", err))
+	}
+
+	// If the bid arrived sealed, open it inside the enclave and fill the
+	// opening fields from the plaintext. This is the only place the amount is
+	// ever in the clear, and it never leaves this process.
+	if req.Ciphertext != "" {
+		if e.decryptor == nil {
+			return buildResult(action, df, nil, 0, errors.New("no decryptor: cannot open a sealed bid"))
+		}
+		ctBytes, err := hexutil.Decode(req.Ciphertext)
+		if err != nil {
+			return buildResult(action, df, nil, 0, errors.New("ciphertext must be 0x-hex"))
+		}
+		plain, err := e.decryptor.Decrypt(ctBytes)
+		if err != nil {
+			return buildResult(action, df, nil, 0, fmt.Errorf("opening sealed bid: %w", err))
+		}
+		var open sealedOpening
+		if err := json.Unmarshal(plain, &open); err != nil {
+			return buildResult(action, df, nil, 0, fmt.Errorf("malformed opening: %w", err))
+		}
+		req.Amount, req.Nonce, req.Sig = open.Amount, open.Nonce, open.Sig
 	}
 
 	raw, err := hexutil.Decode(req.Commitment)

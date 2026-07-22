@@ -63,6 +63,7 @@ type Extension struct {
 	rfqs          *rfqStore                                                              // sealed auctions, keyed by RFQ id
 	admins        map[string]bool                                                        // admin addresses
 	signPort      int                                                                    // TEE sign server port
+	decryptor     Decryptor                                                              // ECIES decrypt; nil = plaintext-only (sim/tests)
 }
 
 func New(extensionPort, signPort int) *Extension {
@@ -111,6 +112,8 @@ func New(extensionPort, signPort int) *Extension {
 
 	// Periodically sweep zero-balance users so the manager's user-keyed map
 	// doesn't grow unboundedly under churn (mock MMs spin up new addresses).
+	e.decryptor = newTeeNodeDecryptor(signPort)
+
 	go e.sweepEmptyBalances(5 * time.Minute)
 
 	return e
