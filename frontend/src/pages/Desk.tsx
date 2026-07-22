@@ -13,6 +13,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Address } from "viem";
 import { Folio } from "./Folio";
 import { TOKENS } from "../config/tokens";
+import { DEMO_BOOK } from "../lib/demoData";
 
 import {
   clearAuction,
@@ -90,14 +91,19 @@ export function Desk() {
   const [tab, setTab] = useState<"bid" | "post" | "folio">("bid");
   const [log, setLog] = useState<string>("");
   const [offline, setOffline] = useState(false);
+  const [demo, setDemo] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const list = await listRfqs();
       setRfqs(list);
       setOffline(false);
+      setDemo(false);
     } catch {
+      // No extension reachable — show the demo book so the desk is never empty.
+      setRfqs(DEMO_BOOK);
       setOffline(true);
+      setDemo(true);
     }
   }, []);
 
@@ -137,6 +143,11 @@ export function Desk() {
         <div className="h-[3px] bg-fg" />
       </header>
 
+      {demo && (
+        <div className="px-4 py-1.5 bg-accent text-bg text-[10px] tracking-[0.12em] uppercase">
+          Demo data — no extension reachable from here. Run <span className="opacity-80">BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev</span> locally for the live flow.
+        </div>
+      )}
       {/* who this is for — the first thing a judge reads */}
       <p className="px-4 py-3 max-w-[72ch] text-[12.5px] leading-relaxed text-fg-dim">
         For desks moving size. Post a block, collect sealed bids, clear at the fair second
