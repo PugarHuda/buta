@@ -44,7 +44,14 @@ type Rfq struct {
 
 	Recorded []auction.Commitment // the set, in the order the contract accepted it
 	Openings []auction.Bid        // decrypted bids; never leaves this struct
-	Invited  string               // direct rail: the only address allowed to bid ("" = open)
+	// Invited is the direct rail: a maker scopes a block to one counterparty
+	// ("" = open to anyone). A directed RFQ with a single sealed bid IS a
+	// bilateral OTC settle — the lone bidder clears at the reserve (Clear floors
+	// at reserve when there is no second price). So there is no separate
+	// DIRECT_SETTLE opcode: the invited-auction path already is one, with the
+	// same commitment, signature, and set-digest guarantees. ponytail: one
+	// mechanism, two products.
+	Invited string
 
 	Cleared bool
 	Outcome auction.Outcome
