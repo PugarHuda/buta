@@ -1,0 +1,10 @@
+out/
+cache/
+lib/
+node_modules/
+.env
+config/proxy/*.toml
+!config/proxy/*.example
+frontend/node_modules/
+frontend/.next/
+*.log

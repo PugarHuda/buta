@@ -1,0 +1,144 @@
+// Package auction holds the sealed-bid clearing engine.
+//
+// This is the part of Buta that must run inside the enclave and nowhere else.
+// Bids arrive as ciphertext, are decrypted in TEE memory, and are ranked here.
+// Only the outcome leaves: the winner, the clearing price, and the digest of the
+// bid set that produced them. Losing amounts are never returned, never logged,
+// and never written to a response.
+//
+// The clearing rule is Vickrey: the highest bid wins and pays the second-highest
+// price, floored at the maker's reserve. A bidder therefore has no reason to
+// shade — which is the whole point of running a sealed auction, and the reason
+// the auctioneer must not be able to read the book.
+package auction
+
+import (
+	"bytes"
+	"errors"
+	"sort"
+)
+
+var (
+	ErrNoBids        = errors.New("auction: no bids")
+	ErrReserveUnmet  = errors.New("auction: no bid clears the reserve")
+	ErrSetMismatch   = errors.New("auction: bid set does not match the recorded commitments")
+	ErrDuplicateBid  = errors.New("auction: duplicate commitment")
+	ErrAlreadyClosed = errors.New("auction: already cleared")
+)
+
+// Commitment is the 32-byte handle the contract records for a sealed bid.
+// The enclave clears over exactly the commitments the contract holds, so a
+// caller cannot present a trimmed set to suppress the second price.
+type Commitment [32]byte
+
+// Bid is a decrypted bid. It exists only inside the enclave.
+type Bid struct {
+	Commitment Commitment
+	Bidder     string // lowercase hex address
+	Amount     uint64 // quote units; never leaves the enclave
+}
+
+// Outcome is everything the enclave is willing to say out loud.
+type Outcome struct {
+	Winner        string
+	ClearingPrice uint64
+	BidCount      int
+	SetDigest     Commitment // binds the outcome to the recorded set
+}
+
+// Clear ranks the decrypted bids and returns the Vickrey outcome.
+//
+// recorded is the commitment set the contract accepted, in the order it
+// accepted them. bids are the openings the enclave decrypted. The two must
+// describe the same set or clearing is refused: that refusal is the mechanism
+// that makes "award a subset" impossible rather than merely discouraged.
+//
+// reserve is the maker's hidden floor. A clearing price is never below it, and
+// never below the runner-up's bid.
+func Clear(recorded []Commitment, bids []Bid, reserve uint64) (Outcome, error) {
+	if len(bids) == 0 || len(recorded) == 0 {
+		return Outcome{}, ErrNoBids
+	}
+	if err := matchesRecorded(recorded, bids); err != nil {
+		return Outcome{}, err
+	}
+
+	// Sort by amount descending. Ties break on the commitment bytes so the
+	// result is deterministic across machines — the code hash is attested, so
+	// two enclaves running the same set must agree exactly.
+	ranked := make([]Bid, len(bids))
+	copy(ranked, bids)
+	sort.Slice(ranked, func(i, j int) bool {
+		if ranked[i].Amount != ranked[j].Amount {
+			return ranked[i].Amount > ranked[j].Amount
+		}
+		return bytes.Compare(ranked[i].Commitment[:], ranked[j].Commitment[:]) < 0
+	})
+
+	top := ranked[0]
+	if top.Amount < reserve {
+		return Outcome{}, ErrReserveUnmet
+	}
+
+	// Vickrey: pay the second price. With a single qualifying bid there is no
+	// second price, so the reserve stands in for it — otherwise a lone bidder
+	// would clear at zero.
+	clearing := reserve
+	if len(ranked) > 1 && ranked[1].Amount > clearing {
+		clearing = ranked[1].Amount
+	}
+
+	return Outcome{
+		Winner:        top.Winner(),
+		ClearingPrice: clearing,
+		BidCount:      len(ranked),
+		SetDigest:     digest(recorded),
+	}, nil
+}
+
+// Winner is a small accessor so callers never reach for b.Amount by habit.
+func (b Bid) Winner() string { return b.Bidder }
+
+// matchesRecorded checks the openings against the recorded commitments as
+// multisets. Order is irrelevant; membership is not.
+func matchesRecorded(recorded []Commitment, bids []Bid) error {
+	if len(recorded) != len(bids) {
+		return ErrSetMismatch
+	}
+	want := make(map[Commitment]int, len(recorded))
+	for _, c := range recorded {
+		want[c]++
+	}
+	for _, b := range bids {
+		n, ok := want[b.Commitment]
+		if !ok {
+			return ErrSetMismatch
+		}
+		if n == 1 {
+			delete(want, b.Commitment)
+		} else {
+			want[b.Commitment] = n - 1
+		}
+	}
+	if len(want) != 0 {
+		return ErrSetMismatch
+	}
+	return nil
+}
+
+// digest folds the recorded set into one value the contract can re-derive.
+// Order-independent so the contract and the enclave cannot disagree over
+// insertion order.
+//
+// ponytail: XOR fold, not a Merkle root. It binds the set for the demo and is
+// cheap on both sides. Swap for keccak over the sorted set before anything with
+// real money touches this — XOR is not collision resistant.
+func digest(recorded []Commitment) Commitment {
+	var out Commitment
+	for _, c := range recorded {
+		for i := range c {
+			out[i] ^= c[i]
+		}
+	}
+	return out
+}
