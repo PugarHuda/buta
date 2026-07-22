@@ -8,3 +8,4 @@ config/proxy/*.toml
 frontend/node_modules/
 frontend/.next/
 *.log
+.env.deployer
