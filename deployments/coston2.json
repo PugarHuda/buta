@@ -8,5 +8,7 @@
   "teeManager": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
   "deployer": "0x100158159dD923E6009a1eD56fB2e8b2347aF42f",
   "explorer": "https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f",
-  "note": "Simulated-TEE path for the hackathon. setExtensionId/setTeeAddress pending TEE registration."
+  "note": "Extension registered in the FCC diamond (id 65642); setExtensionId + setTeeAddress done. Simulated-TEE path for the hackathon \u2014 processing needs a registered TEE machine (Level 2).",
+  "extensionId": 65642,
+  "teeAddress": "0x100158159dD923E6009a1eD56fB2e8b2347aF42f"
 }

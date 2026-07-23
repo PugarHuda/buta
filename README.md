@@ -11,7 +11,7 @@ public.
 Built for **Flare Summer Signal 2026**, Bounty 2 (Confidential Compute).
 
 - **Landing:** https://buta-desk.vercel.app
-- **Contract (Coston2):** [`0x20d9CcAA7140bf38AD91D2F102bA996417798e8f`](https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f)
+- **Contract (Coston2, verified):** [`0x20d9CcAA7140bf38AD91D2F102bA996417798e8f`](https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f) — registered in the FCC diamond as extension `65642`. Verify with `node scripts/onchain-status.mjs`.
 - **Full write-up:** [`SUBMISSION.md`](SUBMISSION.md) · **Demo script:** [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) · **Deploy:** [`docs/DEPLOY.md`](docs/DEPLOY.md)
 
 ---
@@ -96,9 +96,10 @@ of what carried over vs what is new for Flare.
 
 Not audited. Not for real assets. The clearing price is public by design
 (Vickrey pays the second price). Hiding the openings even from the enclave would
-need MPC — honest future work. Built on the simulated-TEE path; the deployed
-contract is live but TEE registration against the FCC diamond is the next step
-(`docs/DEPLOY.md`).
+need MPC — honest future work. The contract is deployed, verified, and
+registered in the FCC diamond (extension 65642); the product runs on the
+simulated-TEE path Flare accepts. Registering a real attested TEE machine
+(Level 2) is the next step (`docs/DEPLOY.md`).
 
 ## License
 

@@ -65,11 +65,11 @@ Everything here was written against Flare FCC during Summer Signal, forking Flar
 
 ## What is deployed / how far we got
 
-- **Coston2, simulated-TEE path** (accepted by Flare for this hackathon). The full flow runs end to end: post an RFQ, seal ECIES-encrypted bids, clear at the Vickrey second price, settle, disclose.
+- **Coston2** — `ButaInstructionSender` is deployed, **source-verified on the explorer**, and **registered in the live FCC diamond** as extension **65642** (`setExtensionId` + `setTeeAddress` done on-chain). Run `node scripts/onchain-status.mjs` to confirm every line from public reads. The full product flow (post → seal ECIES bids → Vickrey clear → settle → disclose) runs end to end on the simulated-TEE path Flare accepts.
 - **Verified live, not just unit-tested:** `/info` → `ecies-geth` encrypt → 348-byte ciphertext → enclave decrypts, recovers the wallet signature, records the bid; clearing returns the winner and second price with **no hidden number anywhere in the outcome**; an unsigned or lying bid bounces with a named error.
 - **Tests:** Go `pkg/auction` + `internal/extension` (full sealed lifecycle, forged sender, replayed signature, lying opening, no-leak assertion); 15 Foundry tests on the contract (the security-critical `relayClearing`, the trimmed-set rejection, signature and replay checks, `reclaimLot`).
 - **Landing page:** https://buta-desk.vercel.app
-- **Contract address (Coston2):** `0x20d9CcAA7140bf38AD91D2F102bA996417798e8f` — [explorer](https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f)
+- **Contract (Coston2, verified):** `0x20d9CcAA7140bf38AD91D2F102bA996417798e8f` — [explorer](https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f) · FCC extension id **65642**
 
 > Honest scope, on the record: the clearing price is public by design (Vickrey pays the second price, so that number is on-chain — what stays sealed is which bid produced it and every amount that lost). FCC itself is pre-production and being reworked on Coston2; we build against it in simulated mode as Flare advised.
 
