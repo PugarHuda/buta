@@ -6,13 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
-	"time"
 
-	"extension-scaffold/internal/config"
-	"extension-scaffold/pkg/balance"
-	"extension-scaffold/pkg/orderbook"
-	"extension-scaffold/pkg/types"
+	"buta/internal/config"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -23,85 +18,38 @@ import (
 	"github.com/flare-foundation/tee-node/pkg/processorutils"
 )
 
-// History tracks per-user deposit/withdrawal/order/match records.
-// All slices are kept bounded (see caps.go); the oldest entries fall off silently.
+// Extension is the Buta sealed-bid extension handler.
 //
-// Note: orders are stored BY VALUE, not by pointer. They are a snapshot at
-// place time. This avoids races between the matching engine (which mutates
-// the live *Order on each fill) and the eviction path (which used to mutate
-// Remaining=0). EXPORT_HISTORY thus reports the order as placed; for the
-// up-to-date book state of an open order, use GET_MY_STATE.
-type History struct {
-	deposits    map[string][]types.DepositRecord    // user -> deposits
-	withdrawals map[string][]types.WithdrawalRecord // user -> withdrawals
-	orders      map[string][]orderbook.Order        // user -> all orders (snapshot at place time)
-	matches     map[string][]orderbook.Match        // user -> matches
-}
-
-func newHistory() *History {
-	return &History{
-		deposits:    make(map[string][]types.DepositRecord),
-		withdrawals: make(map[string][]types.WithdrawalRecord),
-		orders:      make(map[string][]orderbook.Order),
-		matches:     make(map[string][]orderbook.Match),
-	}
-}
-
-// Extension is the orderbook extension handler.
+// There is no balance manager here on purpose. The fork arrived with a vault
+// (deposit, withdraw, per-token balances), but Buta settles the lot and the
+// payment inside ButaInstructionSender itself — that contract has no deposit
+// or withdraw function, so nothing could ever reach those handlers. Custody
+// that cannot be entered is worse than no custody: it reads like a feature.
 type Extension struct {
 	mu     sync.RWMutex
 	Server *http.Server
 
-	orderbooks    map[string]*orderbook.OrderBook                                        // pair name -> orderbook
-	balances      *balance.Manager                                                       // per-(user, token) balances
-	pairs         map[string]config.TradingPairConfig                                    // pair name -> token addresses
-	matchesByPair map[string]*orderbook.Ring[orderbook.Match]                            // pair -> ring of recent matches
-	candles       map[string]map[orderbook.Timeframe]*orderbook.Ring[orderbook.Candle]   // pair -> tf -> ring
-	orders        map[string]string                                                      // orderID -> pair (for cancel routing)
-	userOrders    map[string][]string                                                    // user address -> list of orderIDs
-	history       *History                                                               // deposit/withdrawal/order history per user
-	rfqs          *rfqStore                                                              // sealed auctions, keyed by RFQ id
-	admins        map[string]bool                                                        // admin addresses
-	signPort      int                                                                    // TEE sign server port
-	decryptor     Decryptor                                                              // ECIES decrypt; nil = plaintext-only (sim/tests)
+	pairs     map[string]config.TradingPairConfig // pair name -> token addresses
+	rfqs      *rfqStore                           // sealed auctions, keyed by RFQ id
+	admins    map[string]bool                     // admin addresses
+	signPort  int                                 // TEE sign server port
+	decryptor Decryptor                           // ECIES decrypt; nil = plaintext-only (sim/tests)
 }
 
 func New(extensionPort, signPort int) *Extension {
 	e := &Extension{
-		orderbooks:    make(map[string]*orderbook.OrderBook),
-		balances:      balance.NewManager(),
-		rfqs:          newRfqStore(),
-		pairs:         make(map[string]config.TradingPairConfig),
-		matchesByPair: make(map[string]*orderbook.Ring[orderbook.Match]),
-		candles:       make(map[string]map[orderbook.Timeframe]*orderbook.Ring[orderbook.Candle]),
-		orders:        make(map[string]string),
-		userOrders:    make(map[string][]string),
-		history:       newHistory(),
-		admins:        make(map[string]bool),
-		signPort:      signPort,
+		rfqs:     newRfqStore(),
+		pairs:    make(map[string]config.TradingPairConfig),
+		admins:   make(map[string]bool),
+		signPort: signPort,
 	}
 
 	for _, addr := range config.AdminAddresses {
 		e.admins[strings.ToLower(addr)] = true
 	}
 
-	if config.BalancesPath != "" {
-		if err := e.balances.SetPersistPath(config.BalancesPath); err != nil {
-			logger.Errorf("balance persistence load failed at %s: %v (starting empty)", config.BalancesPath, err)
-		} else {
-			logger.Infof("balance persistence enabled at %s", config.BalancesPath)
-		}
-	}
-
 	for _, pair := range config.TradingPairs {
 		e.pairs[pair.Name] = pair
-		e.orderbooks[pair.Name] = orderbook.NewOrderBook(pair.Name)
-		e.matchesByPair[pair.Name] = orderbook.NewRing[orderbook.Match](MaxMatchesPerPair)
-		tfRings := make(map[orderbook.Timeframe]*orderbook.Ring[orderbook.Candle], len(orderbook.Timeframes))
-		for _, tf := range orderbook.Timeframes {
-			tfRings[tf] = orderbook.NewRing[orderbook.Candle](MaxCandlesPerTF)
-		}
-		e.candles[pair.Name] = tfRings
 		logger.Infof("registered trading pair: %s (base=%s, quote=%s)", pair.Name, pair.BaseToken.Hex(), pair.QuoteToken.Hex())
 	}
 
@@ -110,26 +58,9 @@ func New(extensionPort, signPort int) *Extension {
 
 	e.Server = &http.Server{Addr: fmt.Sprintf(":%d", extensionPort), Handler: mux}
 
-	// Periodically sweep zero-balance users so the manager's user-keyed map
-	// doesn't grow unboundedly under churn (mock MMs spin up new addresses).
 	e.decryptor = newTeeNodeDecryptor(signPort)
 
-	go e.sweepEmptyBalances(5 * time.Minute)
-
 	return e
-}
-
-// sweepEmptyBalances runs forever, calling balances.EvictEmpty at the given interval.
-// This goroutine is intentionally fire-and-forget; the process exits when the
-// container stops.
-func (e *Extension) sweepEmptyBalances(interval time.Duration) {
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for range t.C {
-		if n := e.balances.EvictEmpty(); n > 0 {
-			logger.Infof("balance manager: evicted %d empty user records", n)
-		}
-	}
 }
 
 // processAction routes by action type (instruction vs direct) and then by OPType/OPCommand.
@@ -161,10 +92,6 @@ func (e *Extension) processInstruction(action teetypes.Action) (int, []byte) {
 	var ar teetypes.ActionResult
 
 	switch {
-	case df.OPCommand == teeutils.ToHash(config.OPCommandDeposit):
-		ar = e.processDeposit(action, df)
-	case df.OPCommand == teeutils.ToHash(config.OPCommandWithdraw):
-		ar = e.processWithdraw(action, df)
 	case df.OPCommand == teeutils.ToHash(config.OPCommandPostRfq):
 		ar = e.processPostRfq(action, df, df.OriginalMessage)
 	case df.OPCommand == teeutils.ToHash(config.OPCommandCommitBid):
@@ -216,18 +143,6 @@ func (e *Extension) processDirect(action teetypes.Action) (int, []byte) {
 		ar = e.processCommitBid(action, df, di.Message)
 	case config.AllowDirectAuctionOps && di.OPCommand == teeutils.ToHash(config.OPCommandClearAuction):
 		ar = e.processClearAuction(action, df, di.Message)
-	case di.OPCommand == teeutils.ToHash(config.OPCommandPlaceOrder):
-		ar = e.processPlaceOrder(action, df, di.Message)
-	case di.OPCommand == teeutils.ToHash(config.OPCommandCancelOrder):
-		ar = e.processCancelOrder(action, df, di.Message)
-	case di.OPCommand == teeutils.ToHash(config.OPCommandGetMyState):
-		ar = e.processGetMyState(action, df, di.Message)
-	case di.OPCommand == teeutils.ToHash(config.OPCommandGetBookState):
-		ar = e.processGetBookState(action, df, di.Message)
-	case di.OPCommand == teeutils.ToHash(config.OPCommandGetCandles):
-		ar = e.processGetCandles(action, df, di.Message)
-	case di.OPCommand == teeutils.ToHash(config.OPCommandExportHistory):
-		ar = e.processExportHistory(action, df, di.Message)
 	default:
 		return http.StatusNotImplemented, []byte(fmt.Sprintf(
 			"unsupported direct op command: %s", di.OPCommand.Hex(),
@@ -238,48 +153,8 @@ func (e *Extension) processDirect(action teetypes.Action) (int, []byte) {
 	return http.StatusOK, b
 }
 
-// getUserOpenOrders returns all currently-resting orders for a user.
-// Caller must hold e.mu (read or write).
-func (e *Extension) getUserOpenOrders(user string) []orderbook.Order {
-	ids := e.userOrders[user]
-	if len(ids) == 0 {
-		return nil
-	}
-	orders := make([]orderbook.Order, 0, len(ids))
-	for _, id := range ids {
-		pair, ok := e.orders[id]
-		if !ok {
-			continue
-		}
-		ob, ok := e.orderbooks[pair]
-		if !ok {
-			continue
-		}
-		if o := ob.GetOrder(id); o != nil {
-			orders = append(orders, *o)
-		}
-	}
-	return orders
-}
-
-// getUserMatches returns the bounded ring of matches involving a user.
-// Caller must hold e.mu (read or write).
-func (e *Extension) getUserMatches(user string) []orderbook.Match {
-	return e.history.matches[user]
-}
-
-// nextOrderID generates a unique order ID. Concurrent-safe: the counter is
-// incremented atomically and combined with a nanosecond timestamp.
-var orderCounter atomic.Uint64
-
-func (e *Extension) nextOrderID() string {
-	n := orderCounter.Add(1)
-	return fmt.Sprintf("ORD-%d-%d", time.Now().UnixNano(), n)
-}
-
-// supportedOPType accepts the Buta op type, and still tolerates the ORDERBOOK
-// type the fork was born with so the legacy handlers keep answering while the
-// sealed-bid rails are wired up. Drop the second case once pkg/orderbook goes.
+// supportedOPType accepts only the Buta op type. The fork was born speaking
+// ORDERBOOK; that rail and its handlers are gone.
 func supportedOPType(h common.Hash) bool {
-	return h == teeutils.ToHash(config.OPTypeButa) || h == teeutils.ToHash(config.OPTypeOrderbook)
+	return h == teeutils.ToHash(config.OPTypeButa)
 }

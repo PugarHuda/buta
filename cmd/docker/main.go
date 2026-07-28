@@ -14,8 +14,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	teeServer "github.com/flare-foundation/tee-node/pkg/server"
 
-	"extension-scaffold/internal/config"
-	extserver "extension-scaffold/pkg/server"
+	"buta/internal/config"
+	extserver "buta/pkg/server"
 )
 
 func main() {

@@ -1,12 +1,12 @@
 package support
 
 import (
+	"buta/tools/pkg/configs"
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	stderrors "errors"
-	"extension-scaffold/tools/pkg/configs"
 	"fmt"
 	"math/big"
 	"os"

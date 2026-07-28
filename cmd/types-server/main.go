@@ -4,10 +4,10 @@ package main
 import (
 	"log"
 
-	"extension-scaffold/internal/config"
-	"extension-scaffold/internal/typesserver"
-	"extension-scaffold/pkg/decoder"
-	"extension-scaffold/pkg/types"
+	"buta/internal/config"
+	"buta/internal/typesserver"
+	"buta/pkg/decoder"
+	"buta/pkg/types"
 )
 
 func main() {

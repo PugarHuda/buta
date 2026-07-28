@@ -1,9 +1,9 @@
 package fccutils
 
 import (
+	"buta/tools/pkg/support"
 	"context"
 	"math/big"
-	"extension-scaffold/tools/pkg/support"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -88,7 +88,6 @@ func SetupExtension(
 
 	return extensionID, nil
 }
-
 
 func AddSupportedKeyTypes(s *support.Support, extensionId *big.Int, keyTypes []common.Hash) error {
 	opts, err := bind.NewKeyedTransactorWithChainID(s.Prv, s.ChainID)

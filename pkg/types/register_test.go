@@ -3,28 +3,35 @@ package types
 import (
 	"testing"
 
-	"extension-scaffold/pkg/decoder"
+	"buta/pkg/decoder"
 )
 
-// TestRegisterDecoders_AllOPCommandsCovered asserts every OPCommand the extension
-// answers has both message and result decoders. Catches drift when a new command
-// is added to internal/config/config.go but forgotten here.
-func TestRegisterDecoders_AllOPCommandsCovered(t *testing.T) {
+// TestRegisterDecoders_NoAuctionPayloads is the one that matters: a registered
+// decoder for a sealed-auction command would hand anyone holding a registry a
+// way to read a bid opening.
+func TestRegisterDecoders_NoAuctionPayloads(t *testing.T) {
 	r := decoder.NewRegistry()
 	RegisterDecoders(r)
 
-	commands := []string{
-		"DEPOSIT", "WITHDRAW",
-		"PLACE_ORDER", "CANCEL_ORDER",
-		"GET_MY_STATE", "GET_BOOK_STATE", "GET_CANDLES", "EXPORT_HISTORY",
-	}
-
-	for _, cmd := range commands {
-		if _, err := r.Lookup("ORDERBOOK", cmd, decoder.KindMessage); err != nil {
-			t.Errorf("no message decoder for %s: %v", cmd, err)
+	for _, cmd := range []string{"POST_RFQ", "COMMIT_BID", "CLEAR_AUCTION", "GET_MY_BIDS"} {
+		for _, kind := range []decoder.DataKind{decoder.KindMessage, decoder.KindResult} {
+			if _, err := r.Lookup("BUTA", cmd, kind); err == nil {
+				t.Errorf("auction command %s must not have a registered decoder (%v)", cmd, kind)
+			}
 		}
-		if _, err := r.Lookup("ORDERBOOK", cmd, decoder.KindResult); err != nil {
-			t.Errorf("no result decoder for %s: %v", cmd, err)
+	}
+}
+
+// TestRegisterDecoders_NoOrderbookKeys guards the migration: nothing may remain
+// registered under the op type the fork was born with, since dispatch no longer
+// accepts it.
+func TestRegisterDecoders_NoOrderbookKeys(t *testing.T) {
+	r := decoder.NewRegistry()
+	RegisterDecoders(r)
+
+	for _, cmd := range []string{"DEPOSIT", "WITHDRAW", "PLACE_ORDER", "GET_BOOK_STATE"} {
+		if _, err := r.Lookup("ORDERBOOK", cmd, decoder.KindMessage); err == nil {
+			t.Errorf("ORDERBOOK/%s is still registered", cmd)
 		}
 	}
 }

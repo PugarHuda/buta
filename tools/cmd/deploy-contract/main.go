@@ -6,11 +6,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"extension-scaffold/tools/pkg/configs"
-	"extension-scaffold/tools/pkg/fccutils"
-	"extension-scaffold/tools/pkg/support"
-	instrutils "extension-scaffold/tools/pkg/utils"
-	"extension-scaffold/tools/pkg/validate"
+	"buta/tools/pkg/configs"
+	"buta/tools/pkg/fccutils"
+	"buta/tools/pkg/support"
+	instrutils "buta/tools/pkg/utils"
+	"buta/tools/pkg/validate"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"

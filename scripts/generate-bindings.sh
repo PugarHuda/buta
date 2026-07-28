@@ -10,8 +10,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # --- Contract name and Go package ---
-CONTRACT_NAME="OrderbookInstructionSender"
-GO_PKG="orderbook"
+CONTRACT_NAME="ButaInstructionSender"
+SOURCE_FILE="ButaInstructionSender.sol"
+GO_PKG="buta"
 BINDINGS_DIR="$PROJECT_DIR/tools/pkg/contracts/$GO_PKG"
 
 cd "$PROJECT_DIR"
@@ -20,15 +21,15 @@ echo "=== Step 1: Compile Solidity contracts ==="
 forge build
 
 # Verify the contract name in the source matches what we expect
-if ! grep -q "contract ${CONTRACT_NAME}" "$PROJECT_DIR/contracts/InstructionSender.sol" 2>/dev/null; then
+if ! grep -q "contract ${CONTRACT_NAME}" "$PROJECT_DIR/contracts/${SOURCE_FILE}" 2>/dev/null; then
     echo ""
-    echo "ERROR: Contract name '${CONTRACT_NAME}' not found in contracts/InstructionSender.sol."
-    echo "Make sure the contract name in InstructionSender.sol matches CONTRACT_NAME in this script."
+    echo "ERROR: Contract name '${CONTRACT_NAME}' not found in contracts/${SOURCE_FILE}."
+    echo "Make sure the contract name in ${SOURCE_FILE} matches CONTRACT_NAME in this script."
     exit 1
 fi
 
 echo "=== Step 2: Extract ABI and BIN ==="
-FORGE_OUT="$PROJECT_DIR/out/InstructionSender.sol/${CONTRACT_NAME}.json"
+FORGE_OUT="$PROJECT_DIR/out/${SOURCE_FILE}/${CONTRACT_NAME}.json"
 if [[ ! -f "$FORGE_OUT" ]]; then
     echo "ERROR: forge output not found at $FORGE_OUT"
     echo "Check that CONTRACT_NAME matches your Solidity contract name."

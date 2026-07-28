@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"extension-scaffold/tools/pkg/configs"
-	"extension-scaffold/tools/pkg/support"
-	"extension-scaffold/tools/pkg/validate"
+	"buta/tools/pkg/configs"
+	"buta/tools/pkg/support"
+	"buta/tools/pkg/validate"
 
 	"github.com/ethereum/go-ethereum/common"
 )

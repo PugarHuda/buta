@@ -1,9 +1,9 @@
-module extension-scaffold/tools
+module buta/tools
 
 go 1.25.1
 
 require (
-	extension-scaffold v0.0.0
+	buta v0.0.0
 	github.com/ethereum/go-ethereum v1.16.7
 	github.com/flare-foundation/go-flare-common v1.2.1-0.20260424152410-876c09e65794
 	github.com/flare-foundation/tee-node v0.0.20
@@ -91,7 +91,7 @@ require (
 )
 
 replace (
-	extension-scaffold => ../
+	buta => ../
 	github.com/flare-foundation/tee-node => ../../../tee-node
 	github.com/flare-foundation/tee-proxy => ../../../tee-proxy
 )

@@ -1,16 +1,16 @@
 package main
 
 import (
+	"buta/tools/pkg/configs"
+	"buta/tools/pkg/fccutils"
+	"buta/tools/pkg/support"
 	"crypto/ecdsa"
 	"flag"
-	"os"
-	"strings"
-	"extension-scaffold/tools/pkg/configs"
-	"extension-scaffold/tools/pkg/fccutils"
-	"extension-scaffold/tools/pkg/support"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"os"
+	"strings"
 )
 
 func main() {

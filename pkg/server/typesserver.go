@@ -1,9 +1,9 @@
 package server
 
 import (
-	"extension-scaffold/internal/typesserver"
-	"extension-scaffold/pkg/decoder"
-	"extension-scaffold/pkg/types"
+	"buta/internal/typesserver"
+	"buta/pkg/decoder"
+	"buta/pkg/types"
 )
 
 // StartTypesServer creates the decoder registry, registers all decoders,

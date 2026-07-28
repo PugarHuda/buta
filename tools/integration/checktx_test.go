@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"extension-scaffold/tools/pkg/contracts/orderbook"
-	"extension-scaffold/tools/pkg/support"
+	"buta/tools/pkg/contracts/buta"
+	"buta/tools/pkg/support"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,7 +31,7 @@ func TestCheckTx_SuccessfulTx(t *testing.T) {
 	deployer := crypto.PubkeyToAddress(testSupport.Prv.PublicKey)
 	admins := []common.Address{deployer}
 
-	_, tx, _, err := orderbook.DeployOrderbookInstructionSender(
+	_, tx, _, err := buta.DeployButaInstructionSender(
 		opts, testSupport.ChainClient,
 		testSupport.Addresses.FlareTeeManager,
 		testSupport.Addresses.FlareTeeManager,

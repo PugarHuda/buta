@@ -30,11 +30,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"extension-scaffold/tools/pkg/configs"
-	"extension-scaffold/tools/pkg/contracts/orderbook"
-	"extension-scaffold/tools/pkg/fccutils"
-	"extension-scaffold/tools/pkg/support"
-	instrutils "extension-scaffold/tools/pkg/utils"
+	"buta/tools/pkg/configs"
+	"buta/tools/pkg/contracts/buta"
+	"buta/tools/pkg/fccutils"
+	"buta/tools/pkg/support"
+	instrutils "buta/tools/pkg/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -251,7 +251,7 @@ func addressesFromExistingPairs(pairs []pairConfig, addrs map[string]common.Addr
 }
 
 func allowUser(s *support.Support, instructionSenderAddr, user common.Address) error {
-	sender, err := orderbook.NewOrderbookInstructionSender(instructionSenderAddr, s.ChainClient)
+	sender, err := buta.NewButaInstructionSender(instructionSenderAddr, s.ChainClient)
 	if err != nil {
 		return fmt.Errorf("binding contract: %w", err)
 	}

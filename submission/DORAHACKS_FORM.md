@@ -43,8 +43,8 @@ commitment set, verifies the enclave's signature over the result with a
 domain-separated `ecrecover`, and refuses any clearing whose set-digest doesn't
 match the commitments it recorded — so the auctioneer cannot drop a bid to move
 the price. Settlement is in FXRP (FAssets), with an XRPL delivery leg on the
-roadmap. The project forks Flare's own `fce-orderbook` reference for vault
-custody and the signing path.
+roadmap. The project forks Flare's own `fce-orderbook` reference for the TEE
+signing path and extension plumbing.
 
 **What was newly built / ported / integrated / improved**
 New for Flare during the program: the Vickrey clearing engine that never returns
@@ -53,6 +53,8 @@ on-chain commitment recording + set-digest binding (Go/Solidity byte-parity);
 ECIES-sealed bids; wallet-signature-bound bids (closing the "sender at face
 value" hole the reference orderbook documents in its own threat model);
 selective disclosure; two-sided settlement with `reclaimLot`; the desk UI.
+Also removed: the fork's order book and deposit/withdraw vault, ~11,000 lines
+that this contract's direct settlement had made unreachable.
 Improved on Flare's reference specifically: bids arrive as ciphertext (the
 reference posts plaintext the proxy can read), requests are wallet-signed, and
 the bid set is anchored on-chain (the reference keeps it in enclave memory and

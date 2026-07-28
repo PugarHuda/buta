@@ -29,9 +29,9 @@ import (
 	"testing"
 	"time"
 
-	"extension-scaffold/tools/pkg/contracts/orderbook"
-	"extension-scaffold/tools/pkg/fccutils"
-	"extension-scaffold/tools/pkg/support"
+	"buta/tools/pkg/contracts/buta"
+	"buta/tools/pkg/fccutils"
+	"buta/tools/pkg/support"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -91,7 +91,7 @@ func TestMain(m *testing.M) {
 // deployFreshInstructionSender deploys a new InstructionSender contract using
 // the registry addresses from testSupport. Returns the deployed address and
 // bound contract instance.
-func deployFreshInstructionSender(t *testing.T) (common.Address, *orderbook.OrderbookInstructionSender) {
+func deployFreshInstructionSender(t *testing.T) (common.Address, *buta.ButaInstructionSender) {
 	t.Helper()
 	time.Sleep(rpcDelay)
 
@@ -103,7 +103,7 @@ func deployFreshInstructionSender(t *testing.T) (common.Address, *orderbook.Orde
 	deployer := crypto.PubkeyToAddress(testSupport.Prv.PublicKey)
 	admins := []common.Address{deployer}
 
-	address, tx, contract, err := orderbook.DeployOrderbookInstructionSender(
+	address, tx, contract, err := buta.DeployButaInstructionSender(
 		opts, testSupport.ChainClient,
 		testSupport.Addresses.FlareTeeManager,
 		testSupport.Addresses.FlareTeeManager,
@@ -142,7 +142,7 @@ func deployInstructionSenderRaw(t *testing.T, registryAddr, machineRegistryAddr 
 	deployer := crypto.PubkeyToAddress(testSupport.Prv.PublicKey)
 	admins := []common.Address{deployer}
 
-	_, _, _, err = orderbook.DeployOrderbookInstructionSender(
+	_, _, _, err = buta.DeployButaInstructionSender(
 		opts, testSupport.ChainClient,
 		registryAddr, machineRegistryAddr,
 		admins,

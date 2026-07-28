@@ -31,15 +31,8 @@ const (
 	OPCommandGetMyBids    = "GET_MY_BIDS"
 	OPCommandListRfqs     = "LIST_RFQS"
 
-	OPTypeOrderbook        = "ORDERBOOK"
-	OPCommandDeposit       = "DEPOSIT"
-	OPCommandWithdraw      = "WITHDRAW"
-	OPCommandPlaceOrder    = "PLACE_ORDER"
-	OPCommandCancelOrder   = "CANCEL_ORDER"
-	OPCommandGetMyState    = "GET_MY_STATE"
-	OPCommandGetBookState  = "GET_BOOK_STATE"
-	OPCommandGetCandles    = "GET_CANDLES"
-	OPCommandExportHistory = "EXPORT_HISTORY"
+	OPCommandDeposit  = "DEPOSIT"
+	OPCommandWithdraw = "WITHDRAW"
 
 	TimeoutShutdown = 5 * time.Second
 )

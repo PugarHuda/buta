@@ -10,13 +10,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strings"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
-	"extension-scaffold/tools/pkg/fccutils"
-	echoserver "extension-scaffold/pkg/server"
+	echoserver "buta/pkg/server"
+	"buta/tools/pkg/fccutils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"

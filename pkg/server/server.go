@@ -1,6 +1,6 @@
 package server
 
-import extension "extension-scaffold/internal/extension"
+import extension "buta/internal/extension"
 
 // StartExtension creates and starts the template extension server in a goroutine.
 // Returns an error channel that receives any ListenAndServe failure (e.g., port already in use).

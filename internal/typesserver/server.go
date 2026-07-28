@@ -7,8 +7,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"extension-scaffold/internal/config"
-	"extension-scaffold/pkg/decoder"
+	"buta/internal/config"
+	"buta/pkg/decoder"
 )
 
 type decodeRequest struct {

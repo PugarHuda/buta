@@ -1,4 +1,4 @@
-module extension-scaffold
+module buta
 
 go 1.25.1
 

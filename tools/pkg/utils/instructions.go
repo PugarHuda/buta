@@ -5,9 +5,9 @@ import (
 	"math/big"
 	"time"
 
-	"extension-scaffold/tools/pkg/contracts/orderbook"
-	"extension-scaffold/tools/pkg/fccutils"
-	"extension-scaffold/tools/pkg/support"
+	"buta/tools/pkg/contracts/buta"
+	"buta/tools/pkg/fccutils"
+	"buta/tools/pkg/support"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func DeployInstructionSender(s *support.Support) (common.Address, *orderbook.OrderbookInstructionSender, error) {
+func DeployInstructionSender(s *support.Support) (common.Address, *buta.ButaInstructionSender, error) {
 	opts, err := bind.NewKeyedTransactorWithChainID(s.Prv, s.ChainID)
 	if err != nil {
 		return common.Address{}, nil, errors.Errorf("failed to create transactor: %s", err)
@@ -27,7 +27,7 @@ func DeployInstructionSender(s *support.Support) (common.Address, *orderbook.Ord
 
 	// Both registry args are the FlareTeeManager diamond proxy: the diamond
 	// routes ExtensionManager and MachineManager calls to the right facets.
-	address, tx, contract, err := orderbook.DeployOrderbookInstructionSender(
+	address, tx, contract, err := buta.DeployButaInstructionSender(
 		opts, s.ChainClient, s.Addresses.FlareTeeManager, s.Addresses.FlareTeeManager, admins,
 	)
 	if err != nil {
@@ -49,7 +49,7 @@ func DeployInstructionSender(s *support.Support) (common.Address, *orderbook.Ord
 }
 
 func SetExtensionId(s *support.Support, instructionSenderAddress common.Address) error {
-	sender, err := orderbook.NewOrderbookInstructionSender(instructionSenderAddress, s.ChainClient)
+	sender, err := buta.NewButaInstructionSender(instructionSenderAddress, s.ChainClient)
 	if err != nil {
 		return errors.Errorf("failed to bind contract: %s", err)
 	}
@@ -63,7 +63,7 @@ func SetExtensionId(s *support.Support, instructionSenderAddress common.Address)
 	if err != nil {
 		reason := fccutils.DecodeRevertReason(err)
 		if reason == "" {
-			parsed, _ := orderbook.OrderbookInstructionSenderMetaData.GetAbi()
+			parsed, _ := buta.ButaInstructionSenderMetaData.GetAbi()
 			if parsed != nil {
 				callData, packErr := parsed.Pack("setExtensionId")
 				if packErr == nil {
@@ -86,7 +86,7 @@ func SetExtensionId(s *support.Support, instructionSenderAddress common.Address)
 	}
 
 	if receipt.Status != types.ReceiptStatusSuccessful {
-		parsed, _ := orderbook.OrderbookInstructionSenderMetaData.GetAbi()
+		parsed, _ := buta.ButaInstructionSenderMetaData.GetAbi()
 		if parsed != nil {
 			callData, packErr := parsed.Pack("setExtensionId")
 			if packErr == nil {
@@ -106,7 +106,7 @@ func SetExtensionId(s *support.Support, instructionSenderAddress common.Address)
 }
 
 func Deposit(s *support.Support, instructionSenderAddress common.Address, token common.Address, amount *big.Int) (common.Hash, common.Hash, error) {
-	sender, err := orderbook.NewOrderbookInstructionSender(instructionSenderAddress, s.ChainClient)
+	sender, err := buta.NewButaInstructionSender(instructionSenderAddress, s.ChainClient)
 	if err != nil {
 		return common.Hash{}, common.Hash{}, errors.Errorf("failed to bind contract: %s", err)
 	}
@@ -129,7 +129,7 @@ func Deposit(s *support.Support, instructionSenderAddress common.Address, token 
 		if !IsRetryableTxError(sendErr) {
 			reason := fccutils.DecodeRevertReason(sendErr)
 			if reason == "" {
-				parsed, _ := orderbook.OrderbookInstructionSenderMetaData.GetAbi()
+				parsed, _ := buta.ButaInstructionSenderMetaData.GetAbi()
 				if parsed != nil {
 					callData, packErr := parsed.Pack("deposit", token, amount)
 					if packErr == nil {
@@ -162,7 +162,7 @@ func Deposit(s *support.Support, instructionSenderAddress common.Address, token 
 	}
 
 	if receipt.Status != 1 {
-		parsed, _ := orderbook.OrderbookInstructionSenderMetaData.GetAbi()
+		parsed, _ := buta.ButaInstructionSenderMetaData.GetAbi()
 		if parsed != nil {
 			callData, packErr := parsed.Pack("deposit", token, amount)
 			if packErr == nil {
@@ -188,7 +188,7 @@ func Deposit(s *support.Support, instructionSenderAddress common.Address, token 
 }
 
 func Withdraw(s *support.Support, instructionSenderAddress common.Address, token common.Address, amount *big.Int, to common.Address) (common.Hash, common.Hash, error) {
-	sender, err := orderbook.NewOrderbookInstructionSender(instructionSenderAddress, s.ChainClient)
+	sender, err := buta.NewButaInstructionSender(instructionSenderAddress, s.ChainClient)
 	if err != nil {
 		return common.Hash{}, common.Hash{}, errors.Errorf("failed to bind contract: %s", err)
 	}

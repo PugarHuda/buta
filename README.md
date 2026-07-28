@@ -103,5 +103,7 @@ simulated-TEE path Flare accepts. Registering a real attested TEE machine
 
 ## License
 
-Apache-2.0. Forks `flare-foundation/fce-orderbook` for vault custody and the
-signing path; the sealed-bid mechanism, commitment binding, and desk are new.
+Apache-2.0. Forks `flare-foundation/fce-orderbook` for the TEE signing path and
+extension plumbing; the sealed-bid mechanism, commitment binding, and desk are
+new. The fork's order book and deposit/withdraw vault have been deleted — this
+contract settles directly, so neither could ever be reached.

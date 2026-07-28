@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"extension-scaffold/pkg/auction"
+	"buta/pkg/auction"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"

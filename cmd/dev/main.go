@@ -31,8 +31,8 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	teetypes "github.com/flare-foundation/tee-node/pkg/types"
 
-	"extension-scaffold/internal/config"
-	extension "extension-scaffold/internal/extension"
+	"buta/internal/config"
+	extension "buta/internal/extension"
 )
 
 const facadePort = 6674
@@ -178,8 +178,8 @@ type recorder struct {
 	status int
 }
 
-func (r *recorder) Header() http.Header       { return r.header }
+func (r *recorder) Header() http.Header         { return r.header }
 func (r *recorder) Write(b []byte) (int, error) { return r.body.Write(b) }
-func (r *recorder) WriteHeader(code int)      { r.status = code }
+func (r *recorder) WriteHeader(code int)        { r.status = code }
 
 var _ io.Writer = (*recorder)(nil)

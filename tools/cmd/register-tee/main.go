@@ -1,10 +1,10 @@
 package main
 
 import (
+	"buta/tools/pkg/configs"
+	"buta/tools/pkg/fccutils"
+	"buta/tools/pkg/support"
 	"encoding/hex"
-	"extension-scaffold/tools/pkg/configs"
-	"extension-scaffold/tools/pkg/fccutils"
-	"extension-scaffold/tools/pkg/support"
 	"flag"
 	"os"
 

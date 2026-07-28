@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"extension-scaffold/tools/pkg/support"
+	"buta/tools/pkg/support"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"

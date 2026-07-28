@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"extension-scaffold/tools/pkg/fccutils"
-	instrutils "extension-scaffold/tools/pkg/utils"
+	"buta/tools/pkg/fccutils"
+	instrutils "buta/tools/pkg/utils"
 )
 
 // --- 2.2: setExtensionId Error Handling ---

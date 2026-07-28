@@ -46,7 +46,9 @@ Because a **Vickrey (second-price) auction cannot be run honestly on a transpare
 
 ## What was newly built during the program
 
-Everything here was written against Flare FCC during Summer Signal, forking Flare's own `fce-orderbook` reference for vault custody and the signing path, then going past it:
+Everything here was written against Flare FCC during Summer Signal, forking Flare's own `fce-orderbook` reference for the TEE signing path and the extension plumbing, then going past it.
+
+The fork also arrived with a central-limit order book and a deposit/withdraw vault. Both are **deleted**, not disabled: `ButaInstructionSender` settles the lot and the payment itself and has no deposit or withdraw function, so those handlers could never be reached. Custody you cannot enter reads like a feature when it is dead code. That removal is 11,000 lines — the repo is now only the sealed-bid desk.
 
 | Area | New work | Where |
 |---|---|---|

@@ -1,86 +1,23 @@
 package types
 
-import "extension-scaffold/pkg/decoder"
+import "buta/pkg/decoder"
 
-// RegisterDecoders registers all type decoders for the orderbook extension.
+// RegisterDecoders registers payload decoders for the Buta extension.
+//
+// It registers nothing, and that is the design.
+//
+// The fork arrived registering DEPOSIT, WITHDRAW and the CLOB commands under op
+// type "ORDERBOOK". Buta answers only the op type "BUTA", so every one of those
+// keys had become unreachable — decoders for messages that can no longer
+// arrive. The vault they served is gone too: ButaInstructionSender settles
+// directly and has no deposit or withdraw function.
+//
+// What remains are the sealed-auction commands, and those must stay
+// unregistered. A decoder is a recipe for turning a payload back into fields;
+// handing one out for COMMIT_BID would let anyone holding a registry read a bid
+// opening. The enclave decodes them and nothing else does.
+//
+// If a public, non-secret command is ever added, register it here.
 func RegisterDecoders(r *decoder.Registry) {
-	// DEPOSIT message + result
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "DEPOSIT", Kind: decoder.KindMessage},
-		decoder.NewJSONDecoder[DepositRequest](),
-	)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "DEPOSIT", Kind: decoder.KindResult},
-		decoder.NewJSONDecoder[DepositResponse](),
-	)
-
-	// WITHDRAW message + result
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "WITHDRAW", Kind: decoder.KindMessage},
-		decoder.NewJSONDecoder[WithdrawRequest](),
-	)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "WITHDRAW", Kind: decoder.KindResult},
-		decoder.NewJSONDecoder[WithdrawResponse](),
-	)
-
-	// PLACE_ORDER message + result
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "PLACE_ORDER", Kind: decoder.KindMessage},
-		decoder.NewJSONDecoder[PlaceOrderRequest](),
-	)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "PLACE_ORDER", Kind: decoder.KindResult},
-		decoder.NewJSONDecoder[PlaceOrderResponse](),
-	)
-
-	// CANCEL_ORDER message + result
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "CANCEL_ORDER", Kind: decoder.KindMessage},
-		decoder.NewJSONDecoder[CancelOrderRequest](),
-	)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "CANCEL_ORDER", Kind: decoder.KindResult},
-		decoder.NewJSONDecoder[CancelOrderResponse](),
-	)
-
-	// GET_MY_STATE (request + result)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "GET_MY_STATE", Kind: decoder.KindMessage},
-		decoder.NewJSONDecoder[GetMyStateRequest](),
-	)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "GET_MY_STATE", Kind: decoder.KindResult},
-		decoder.NewJSONDecoder[GetMyStateResponse](),
-	)
-
-	// GET_BOOK_STATE (request + result — response reuses StateResponse)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "GET_BOOK_STATE", Kind: decoder.KindMessage},
-		decoder.NewJSONDecoder[GetBookStateRequest](),
-	)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "GET_BOOK_STATE", Kind: decoder.KindResult},
-		decoder.NewJSONDecoder[StateResponse](),
-	)
-
-	// GET_CANDLES (request + result)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "GET_CANDLES", Kind: decoder.KindMessage},
-		decoder.NewJSONDecoder[GetCandlesRequest](),
-	)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "GET_CANDLES", Kind: decoder.KindResult},
-		decoder.NewJSONDecoder[GetCandlesResponse](),
-	)
-
-	// EXPORT_HISTORY message + result
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "EXPORT_HISTORY", Kind: decoder.KindMessage},
-		decoder.NewJSONDecoder[ExportHistoryRequest](),
-	)
-	r.Register(
-		decoder.RegistryKey{OPType: "ORDERBOOK", OPCommand: "EXPORT_HISTORY", Kind: decoder.KindResult},
-		decoder.NewJSONDecoder[ExportHistoryResponse](),
-	)
+	_ = r
 }

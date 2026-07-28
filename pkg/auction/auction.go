@@ -22,11 +22,11 @@ import (
 )
 
 var (
-	ErrNoBids        = errors.New("auction: no bids")
-	ErrReserveUnmet  = errors.New("auction: no bid clears the reserve")
-	ErrSetMismatch   = errors.New("auction: bid set does not match the recorded commitments")
-	ErrDuplicateBid  = errors.New("auction: duplicate commitment")
-	ErrAlreadyClosed = errors.New("auction: already cleared")
+	ErrNoBids          = errors.New("auction: no bids")
+	ErrReserveUnmet    = errors.New("auction: no bid clears the reserve")
+	ErrSetMismatch     = errors.New("auction: bid set does not match the recorded commitments")
+	ErrDuplicateBid    = errors.New("auction: duplicate commitment")
+	ErrAlreadyClosed   = errors.New("auction: already cleared")
 	ErrOpeningMismatch = errors.New("auction: opening does not match its commitment")
 )
 
