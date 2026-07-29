@@ -154,16 +154,61 @@ cast call 0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE \
 An address instead of a `TooMany()` revert means the blocker is gone, and
 `postRfq` can be called on-chain for the first time.
 
-## The availability check may need a public URL
+## Where the run actually got to (29 July)
+
+The indexer caught up on its own, the proxy went healthy, and `post-build.sh`
+ran. It got further than anything before it:
+
+```
+policy consistency OK: FTDC proxy signing policy 5874 matches on-chain reward epoch 5874
+availability check sent, instructionId: ca440c37eef8691ce929b308510ed6679778fcdaf48db07452bd2dd3d927f520
+action result status not ok: got: 404 for 0xca440c37…, https://tee-proxy-coston2-1.flare.rocks
+```
+
+So: the version is allowed, governance is set, the machine is pre-registered,
+the policy pre-flight passes, and the availability check is **on-chain**. What
+does not come back is its result — the data providers cannot reach the machine,
+because the host URL recorded on-chain is `http://localhost:6674`.
+
+`getRandomTeeIds(65642, 1)` still reverts `TooMany()`: the machine is
+INITIALIZED, not PRODUCTION, and only PRODUCTION machines land in
+`extensionActiveTeeIds`.
+
+`NORMAL_PROXY_URL` is Flare's own Coston2 FTDC proxy,
+`https://tee-proxy-coston2-1.flare.rocks` — that one is the documented endpoint,
+unlike the orderbook proxy the frontend used to borrow.
+
+## The availability check needs a public URL
 
 `register-tee` asks the FTDC layer to confirm the machine is reachable at the
 host URL recorded on-chain. `localhost` is not reachable from a data provider,
 so that step may need a tunnel:
 
+**Not a quick tunnel.** `cloudflared tunnel --url …` hands out a hostname that
+changes on every restart, and the one the data providers push to is the one
+written on-chain. Quantic's pinned message says the machines sitting at
+INITIALIZED right now are mostly there for exactly this reason. It needs a
+**named** cloudflared tunnel or a reserved ngrok domain, which means logging
+into an account.
+
 ```bash
-cloudflared tunnel --url http://localhost:6674
-EXT_PROXY_HOST_URL=https://<tunnel-host> ./scripts/post-build.sh
+cloudflared tunnel login                       # your account
+cloudflared tunnel create buta
+cloudflared tunnel route dns buta buta-tee.<your-domain>
+cloudflared tunnel run --url http://localhost:6674 buta
+
+EXT_PROXY_HOST_URL=https://buta-tee.<your-domain> \
+  ./scripts/post-build.sh
 ```
 
-This is B0.3 in `TASKS.md`. It is only worth setting up once the proxy starts,
-which is why it has not been done yet.
+Then confirm the URL on-chain is the one being served, which is the check the
+pinned message recommends before asking anyone for help:
+
+```bash
+cast call 0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE \
+  "getTeeMachine(address)((address,address,string))" <teeId>
+cast call 0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE \
+  "getTeeMachineStatus(address)(uint8)" <teeId>     # 1 = INITIALIZED, 2 = PRODUCTION
+```
+
+This is B0.3 in `TASKS.md`, and it is now the only thing left.
