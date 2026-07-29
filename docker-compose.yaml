@@ -17,8 +17,15 @@ services:
     volumes:
       - ./config/proxy/extension_proxy.docker.toml:/app/config/config.toml:ro
     environment:
-      - PROXY_PRIVATE_KEY=${PROXY_PRIVATE_KEY:-983760a4ebf75b2ac3a93531168a0f225d01e5dc6e3568adbd46233ba1fb4fa4}
-      - DIRECT_API_KEY=${DIRECT_API_KEY:-test-api-key-change-me}
+      # No default. That constant is the scaffold's published devnet key, so
+      # every fork that leaves it alone shares one proxy identity — and ours was
+      # written on-chain as this machine's proxyId. Generate one:
+      #   PROXY_PRIVATE_KEY=$(openssl rand -hex 32)
+      - PROXY_PRIVATE_KEY=${PROXY_PRIVATE_KEY:?set PROXY_PRIVATE_KEY, do not reuse the scaffold default}
+      # Also no default. /direct is the endpoint that posts instructions to the
+      # extension, and once a tunnel makes this proxy reachable, a key printed in
+      # every fork of the scaffold is not a gate.
+      - DIRECT_API_KEY=${DIRECT_API_KEY:?set DIRECT_API_KEY, do not reuse the scaffold default}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:

@@ -184,6 +184,28 @@ unlike the orderbook proxy the frontend used to borrow.
 host URL recorded on-chain. `localhost` is not reachable from a data provider,
 so that step may need a tunnel:
 
+### Two shared defaults to replace before anything is public
+
+The compose file used to default both of these to constants the scaffold
+publishes, so every fork that left them alone shared one identity and one key.
+Ours went on-chain: the machine's `proxyId` is
+`0xF4E021377420Afe90c1A7D2b8968904946633a64`, which is the address of the
+scaffold's devnet key. Neither has a default now — compose refuses to start
+without them.
+
+```bash
+# in .env, which is gitignored
+PROXY_PRIVATE_KEY=$(openssl rand -hex 32)
+DIRECT_API_KEY=$(openssl rand -hex 24)
+```
+
+`DIRECT_API_KEY` is the one that matters once a tunnel exists: `/direct` is how
+instructions reach the extension, and a key printed in every fork is not a gate.
+Changing `PROXY_PRIVATE_KEY` changes the proxyId, so the machine has to be
+registered again — which it does anyway, because the host URL is changing too.
+
+### The tunnel itself
+
 **Not a quick tunnel.** `cloudflared tunnel --url …` hands out a hostname that
 changes on every restart, and the one the data providers push to is the one
 written on-chain. Quantic's pinned message says the machines sitting at
