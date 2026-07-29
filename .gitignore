@@ -16,3 +16,7 @@ frontend/.next/
 tools/pkg/contracts/*/autogen.go
 tools/pkg/contracts/*/*.abi
 tools/pkg/contracts/*/*.bin
+
+# register-tee resume state: machine-local, and committing it makes a fresh
+# clone skip steps for a machine that does not exist there.
+config/register-tee.state
