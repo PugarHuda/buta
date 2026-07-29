@@ -1,5 +1,5 @@
-# Build context must be tee/ (the parent of both tee-node/ and extension-examples/) so the
-# replace directive `github.com/flare-foundation/tee-node => ../../tee-node` in go.mod resolves.
+# Build context is this repository:
+#   docker build -t local/buta-extension .
 
 # pin base image by digest so every build starts from the same bytes
 FROM golang:1.25.1-trixie@sha256:ff83f3762390c2cccb53618ccc18af23e556aff9b1db4428637e9f63287c8171 AS builder
@@ -30,12 +30,14 @@ RUN \
   : "Clean up for improving reproducibility (optional)" && \
   rm -rf /var/log/* /var/cache/ldconfig/aux-cache
 
-# bring in both modules; tee-node sits next to orderbook so the replace directive resolves
+# One repo. This used to copy tee-node/ from a sibling directory, because go.mod
+# replaced the module with a checkout next door — which meant the image could not
+# be built from a clone of this repository at all. tee-node and tee-proxy are
+# published modules; the replace is gone and so is that requirement.
 # explicit chmod/chown on COPY so file metadata does not depend on host umask or ownership
-COPY --chmod=644 --chown=0:0 tee-node/ ./tee-node/
-COPY --chmod=644 --chown=0:0 extension-examples/orderbook/ ./extension-examples/orderbook/
+COPY --chmod=644 --chown=0:0 . ./buta/
 
-WORKDIR /build/extension-examples/orderbook
+WORKDIR /build/buta
 RUN go mod download
 RUN go mod verify
 
@@ -50,7 +52,12 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOFLAGS="-buildvcs=false" \
 # NOTE: buildkit's rewrite-timestamp only clamps mtimes down to SOURCE_DATE_EPOCH (moby/buildkit#3180)
 # files older than SOURCE_DATE_EPOCH are left at their original non-deterministic mtime
 # touch every path to SOURCE_DATE_EPOCH explicitly so timestamps are normalized in both directions
-RUN find /app -exec touch -h -d @${SOURCE_DATE_EPOCH} {} +
+RUN test -n "${SOURCE_DATE_EPOCH}" || { \
+      echo "SOURCE_DATE_EPOCH is empty. Pass the commit timestamp, e.g."; \
+      echo "  docker build --build-arg SOURCE_DATE_EPOCH=\$(git log -1 --format=%ct) ."; \
+      echo "Without it the clamp below fails with 'invalid date format @', which says nothing."; \
+      exit 1; } && \
+    find /app -exec touch -h -d @${SOURCE_DATE_EPOCH} {} +
 
 # empty base image so nothing outside these explicit copies ends up in the final layers
 FROM gcr.io/distroless/static
@@ -62,7 +69,7 @@ WORKDIR /app
 COPY --chmod=644 --chown=65532:65532 --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --chmod=755 --chown=65532:65532 --from=builder /app/extension-tee /app/extension-tee
 ARG NETWORK=coston
-COPY --chmod=644 --chown=65532:65532 extension-examples/orderbook/config/${NETWORK}/pairs.json /app/config/pairs.json
+COPY --chmod=644 --chown=65532:65532 config/${NETWORK}/pairs.json /app/config/pairs.json
 
 # MODE: 0 = production (real TEE attestation), 1 = local (no attestation).
 # Defaults to local; pass --build-arg MODE=0 for a prod image. Runtime override

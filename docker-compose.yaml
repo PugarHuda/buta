@@ -36,8 +36,8 @@ services:
 
   extension-tee:
     build:
-      context: ../..
-      dockerfile: extension-examples/orderbook/Dockerfile
+      context: .
+      dockerfile: Dockerfile
       args:
         NETWORK: ${CHAIN:-coston}
         SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH:-}

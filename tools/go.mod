@@ -6,8 +6,8 @@ require (
 	buta v0.0.0
 	github.com/ethereum/go-ethereum v1.17.2
 	github.com/flare-foundation/go-flare-common v1.2.2-0.20260619092858-10bd8c2bb674
-	github.com/flare-foundation/tee-node v0.0.21-0.20260619120252-31fc839ae6d2
-	github.com/flare-foundation/tee-proxy v0.0.1
+	github.com/flare-foundation/tee-node v0.0.22
+	github.com/flare-foundation/tee-proxy v0.0.19
 	github.com/joho/godotenv v1.5.1
 	github.com/pkg/errors v0.9.1
 )
@@ -95,8 +95,4 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
 
-replace (
-	buta => ../
-	github.com/flare-foundation/tee-node => ../../../tee-node
-	github.com/flare-foundation/tee-proxy => ../../../tee-proxy
-)
+replace buta => ../

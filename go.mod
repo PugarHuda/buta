@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/ethereum/go-ethereum v1.17.2
 	github.com/flare-foundation/go-flare-common v1.2.2-0.20260619092858-10bd8c2bb674
-	github.com/flare-foundation/tee-node v0.0.0
+	github.com/flare-foundation/tee-node v0.0.22
 	golang.org/x/crypto v0.50.0
 )
 
@@ -57,5 +57,3 @@ require (
 	gorm.io/driver/mysql v1.6.0 // indirect
 	gorm.io/gorm v1.31.0 // indirect
 )
-
-replace github.com/flare-foundation/tee-node => ../../tee-node
