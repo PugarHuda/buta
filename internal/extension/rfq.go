@@ -298,6 +298,11 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 		return buildResult(action, df, nil, 0, auction.ErrAlreadyClosed)
 	}
 
+	// Unscreened on purpose. auction.ClearScreened would pass over a winner who
+	// cannot settle — without it, an unfunded top bid reverts relayClearing and
+	// kills the auction outright, taking the runner-up's willing bid with it.
+	// Wiring it needs a chain client inside the enclave to read FXRP balances,
+	// which this extension does not have yet.
 	out, err := auction.Clear(r.Recorded, r.Openings, r.Reserve)
 	if err != nil {
 		return buildResult(action, df, nil, 0, err)

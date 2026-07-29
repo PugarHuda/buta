@@ -168,3 +168,119 @@ func TestDigestCrossLanguageVector(t *testing.T) {
 		t.Fatalf("digest = %x, want %s", got, want)
 	}
 }
+
+// --- solvency screening ---------------------------------------------------
+
+// solvent returns a CanPay that refuses the named bidders outright.
+func solvent(broke ...string) CanPay {
+	set := map[string]bool{}
+	for _, b := range broke {
+		set[b] = true
+	}
+	return func(bidder string, _ uint64) bool { return !set[bidder] }
+}
+
+// Without screening, a winner who cannot settle takes the auction down with
+// them: the transferFrom in relayClearing reverts and the clearing can never be
+// relayed at all. The runner-up who was willing and able gets nothing.
+func TestScreenSkipsABidderWhoCannotSettle(t *testing.T) {
+	bids := []Bid{
+		bid(1, "0xaaa", 5100),
+		bid(2, "0xbbb", 5200),
+		bid(3, "0xccc", 5300), // highest, and broke
+	}
+	got, err := ClearScreened(recOf(bids...), bids, 5000, solvent("0xccc"))
+	if err != nil {
+		t.Fatalf("ClearScreened: %v", err)
+	}
+	if got.Winner != "0xbbb" {
+		t.Errorf("winner = %q, want 0xbbb", got.Winner)
+	}
+	// 0xbbb pays the best price it actually beat, which is 0xaaa's 5100 — not
+	// the 5200 it would have paid if the insolvent bid still counted.
+	if got.ClearingPrice != 5100 {
+		t.Errorf("clearing = %d, want 5100", got.ClearingPrice)
+	}
+}
+
+// The property that makes the screen safe rather than merely helpful: bidding
+// costs nothing, so if an unfunded bid still set the price, anyone could inflate
+// what the real winner pays for free. Skipping it re-runs the auction without
+// it, and the shill buys nothing.
+func TestInsolventBidCannotInflateThePrice(t *testing.T) {
+	real := []Bid{bid(1, "0xaaa", 5100), bid(2, "0xbbb", 5200)}
+	honest, err := ClearScreened(recOf(real...), real, 5000, solvent())
+	if err != nil {
+		t.Fatalf("ClearScreened: %v", err)
+	}
+
+	shilled := append([]Bid{bid(9, "0xdead", 9999)}, real...)
+	got, err := ClearScreened(recOf(shilled...), shilled, 5000, solvent("0xdead"))
+	if err != nil {
+		t.Fatalf("ClearScreened: %v", err)
+	}
+	if got.Winner != honest.Winner || got.ClearingPrice != honest.ClearingPrice {
+		t.Errorf("shill changed the outcome: %v/%d, want %v/%d",
+			got.Winner, got.ClearingPrice, honest.Winner, honest.ClearingPrice)
+	}
+}
+
+// A lone survivor still pays the reserve, never zero.
+func TestScreenLeavesOneBidderPayingTheReserve(t *testing.T) {
+	bids := []Bid{bid(1, "0xaaa", 5100), bid(2, "0xbbb", 5200)}
+	got, err := ClearScreened(recOf(bids...), bids, 5000, solvent("0xbbb"))
+	if err != nil {
+		t.Fatalf("ClearScreened: %v", err)
+	}
+	if got.Winner != "0xaaa" || got.ClearingPrice != 5000 {
+		t.Errorf("got %s at %d, want 0xaaa at 5000", got.Winner, got.ClearingPrice)
+	}
+}
+
+func TestScreenRejectsWhenNobodyCanSettle(t *testing.T) {
+	bids := []Bid{bid(1, "0xaaa", 5100), bid(2, "0xbbb", 5200)}
+	if _, err := ClearScreened(recOf(bids...), bids, 5000, solvent("0xaaa", "0xbbb")); err != ErrNoSolventBid {
+		t.Fatalf("err = %v, want ErrNoSolventBid", err)
+	}
+}
+
+// The screen is asked about the price the bidder would actually owe, not their
+// own bid — a bidder can be good for the second price and not for their own.
+func TestScreenIsAskedAboutThePriceOwedNotTheBid(t *testing.T) {
+	bids := []Bid{bid(1, "0xaaa", 5100), bid(2, "0xbbb", 9000)}
+	var asked []uint64
+	got, err := ClearScreened(recOf(bids...), bids, 5000, func(_ string, price uint64) bool {
+		asked = append(asked, price)
+		return price <= 6000
+	})
+	if err != nil {
+		t.Fatalf("ClearScreened: %v", err)
+	}
+	if got.Winner != "0xbbb" {
+		t.Errorf("winner = %q, want 0xbbb — it owes 5100, not its own 9000", got.Winner)
+	}
+	if len(asked) != 1 || asked[0] != 5100 {
+		t.Errorf("screen was asked %v, want [5100]", asked)
+	}
+}
+
+// Screening must not leak how many bidders were passed over.
+func TestScreenDoesNotRevealHowManyWereSkipped(t *testing.T) {
+	bids := []Bid{bid(1, "0xaaa", 5100), bid(2, "0xbbb", 5200), bid(3, "0xccc", 5300)}
+	got, err := ClearScreened(recOf(bids...), bids, 5000, solvent("0xccc", "0xbbb"))
+	if err != nil {
+		t.Fatalf("ClearScreened: %v", err)
+	}
+	if got.BidCount != 3 {
+		t.Errorf("BidCount = %d, want 3 — the recorded set, not the survivors", got.BidCount)
+	}
+}
+
+// A nil screen has to behave exactly like the unscreened rule, including its
+// error, or every existing caller silently changes meaning.
+func TestNilScreenIsUnchangedBehaviour(t *testing.T) {
+	bids := []Bid{bid(1, "0xaaa", 100)}
+	if _, err := ClearScreened(recOf(bids...), bids, 5000, nil); err != ErrReserveUnmet {
+		t.Fatalf("err = %v, want ErrReserveUnmet", err)
+	}
+}

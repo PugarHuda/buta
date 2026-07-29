@@ -10,6 +10,12 @@
 // price, floored at the maker's reserve. A bidder therefore has no reason to
 // shade — which is the whole point of running a sealed auction, and the reason
 // the auctioneer must not be able to read the book.
+//
+// Solvency screening (ClearScreened) is implemented and tested here but is NOT
+// wired into the extension: the enclave has no chain client today, so there is
+// nothing to read a bidder's FXRP balance with. Clear() is what the handler
+// calls, and it screens nobody. Said plainly so the tests below are not mistaken
+// for a live defence.
 package auction
 
 import (
@@ -24,6 +30,7 @@ import (
 var (
 	ErrNoBids          = errors.New("auction: no bids")
 	ErrReserveUnmet    = errors.New("auction: no bid clears the reserve")
+	ErrNoSolventBid    = errors.New("auction: no bid both clears the reserve and can settle")
 	ErrSetMismatch     = errors.New("auction: bid set does not match the recorded commitments")
 	ErrDuplicateBid    = errors.New("auction: duplicate commitment")
 	ErrAlreadyClosed   = errors.New("auction: already cleared")
@@ -80,6 +87,16 @@ type Outcome struct {
 	SetDigest     Commitment // binds the outcome to the recorded set
 }
 
+// CanPay reports whether a bidder could actually settle a given clearing price.
+//
+// The enclave is the only place this can be asked without telling anyone what
+// was bid: it already holds the decrypted amounts, and it can read a bidder's
+// FXRP balance and allowance. Everything it learns stays inside.
+//
+// nil means "assume everyone can pay", which is the behaviour a desk has when
+// it does not screen.
+type CanPay func(bidder string, price uint64) bool
+
 // Clear ranks the decrypted bids and returns the Vickrey outcome.
 //
 // recorded is the commitment set the contract accepted, in the order it
@@ -90,6 +107,21 @@ type Outcome struct {
 // reserve is the maker's hidden floor. A clearing price is never below it, and
 // never below the runner-up's bid.
 func Clear(recorded []Commitment, bids []Bid, reserve uint64) (Outcome, error) {
+	return ClearScreened(recorded, bids, reserve, nil)
+}
+
+// ClearScreened is Clear with a solvency screen.
+//
+// Without one, a winner who cannot pay does not merely lose the lot: the
+// settlement transferFrom reverts, so the whole clearing can never be relayed
+// and the auction dies. The runner-up, who was willing and able, gets nothing,
+// and the maker gets their lot back and a wasted deadline. Bidding costs
+// nothing, so this is not a rare accident — it is an attack on the maker.
+//
+// The screen walks down the ranking and awards to the first bidder who can
+// settle at the price they would owe. That price depends on who is skipped, so
+// it is recomputed at each step rather than fixed up front.
+func ClearScreened(recorded []Commitment, bids []Bid, reserve uint64, canPay CanPay) (Outcome, error) {
 	if len(bids) == 0 || len(recorded) == 0 {
 		return Outcome{}, ErrNoBids
 	}
@@ -116,25 +148,40 @@ func Clear(recorded []Commitment, bids []Bid, reserve uint64) (Outcome, error) {
 		return bytes.Compare(ranked[i].Commitment[:], ranked[j].Commitment[:]) < 0
 	})
 
-	top := ranked[0]
-	if top.Amount < reserve {
-		return Outcome{}, ErrReserveUnmet
+	// Walk the ranking. Without a screen this runs exactly once and is the
+	// plain Vickrey rule; with one, a bidder who cannot settle is passed over
+	// and the next bidder pays the next price down.
+	for i := range ranked {
+		winner := ranked[i]
+		if winner.Amount < reserve {
+			break // ranked descending, so nothing below here clears either
+		}
+
+		// Vickrey: pay the price of the best bid you beat. With nobody left
+		// below, the reserve stands in — otherwise a lone bidder clears at zero.
+		clearing := reserve
+		if i+1 < len(ranked) && ranked[i+1].Amount > clearing {
+			clearing = ranked[i+1].Amount
+		}
+
+		if canPay != nil && !canPay(winner.Winner(), clearing) {
+			continue
+		}
+
+		return Outcome{
+			Winner:        winner.Winner(),
+			ClearingPrice: clearing,
+			// The count is of the recorded set, not of who survived screening:
+			// how many bidders were skipped is itself information about the book.
+			BidCount:  len(ranked),
+			SetDigest: digest(recorded),
+		}, nil
 	}
 
-	// Vickrey: pay the second price. With a single qualifying bid there is no
-	// second price, so the reserve stands in for it — otherwise a lone bidder
-	// would clear at zero.
-	clearing := reserve
-	if len(ranked) > 1 && ranked[1].Amount > clearing {
-		clearing = ranked[1].Amount
+	if canPay != nil {
+		return Outcome{}, ErrNoSolventBid
 	}
-
-	return Outcome{
-		Winner:        top.Winner(),
-		ClearingPrice: clearing,
-		BidCount:      len(ranked),
-		SetDigest:     digest(recorded),
-	}, nil
+	return Outcome{}, ErrReserveUnmet
 }
 
 // Winner is a small accessor so callers never reach for b.Amount by habit.

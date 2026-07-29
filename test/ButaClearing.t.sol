@@ -190,6 +190,60 @@ contract ButaClearingTest is Test {
         buta.relayClearing(rfqId, bob, clearing, digest, bytes32("a3"), "tag", 1, sig);
     }
 
+    /// What a maker can actually do when the winner turns out to be broke.
+    ///
+    /// The clearing reverts whole, so nothing is half-done — but the auction is
+    /// also stuck: this signed outcome can never be relayed. The maker is not
+    /// trapped, because the revert also rolled back `cleared`, so reclaimLot
+    /// still works and the lot comes home. What is lost is the sale: the
+    /// runner-up who could have paid gets nothing.
+    ///
+    /// This is why solvency screening belongs in the enclave, where bid amounts
+    /// already live. Documented as a test rather than a comment so the
+    /// behaviour is pinned.
+    function test_UnfundedWinnerStrandsTheSaleButNotTheLot() public {
+        bytes32 digest = buta.commitmentDigest(rfqId);
+        uint256 clearing = 5218e4;
+
+        // alice wins on paper and cannot pay
+        bytes memory sig = _sign(TEE_PK, rfqId, alice, clearing, digest, bytes32("a4"), "tag", 1);
+        vm.expectRevert();
+        buta.relayClearing(rfqId, alice, clearing, digest, bytes32("a4"), "tag", 1, sig);
+
+        // the auction is still open as far as the contract is concerned
+        (, , , , , , bool cleared, , ) = buta.rfqs(rfqId);
+        assertFalse(cleared, "the revert rolled the clearing back");
+
+        // so the maker gets the lot back rather than losing it to a bidder who
+        // never paid — but bob, who was good for it, was never awarded anything
+        uint256 before = lot.balanceOf(maker);
+        buta.reclaimLot(rfqId);
+        assertEq(lot.balanceOf(maker), before + LOT, "maker reclaims the lot");
+        assertEq(lot.balanceOf(bob), 0, "the runner-up got nothing");
+    }
+
+    /// The same action id cannot be reused after a failed settlement — the
+    /// revert rolled back `usedActionIds` too, so the enclave's outcome is
+    /// replayable if the winner later funds themselves. That is the desirable
+    /// half of the same rollback.
+    function test_AFailedSettlementCanBeRetriedOnceTheWinnerFunds() public {
+        bytes32 digest = buta.commitmentDigest(rfqId);
+        uint256 clearing = 5218e4;
+        bytes memory sig = _sign(TEE_PK, rfqId, alice, clearing, digest, bytes32("a5"), "tag", 1);
+
+        vm.expectRevert();
+        buta.relayClearing(rfqId, alice, clearing, digest, bytes32("a5"), "tag", 1, sig);
+
+        // alice funds and approves, and the very same signed outcome settles
+        fxrp.mint(alice, clearing);
+        vm.prank(alice);
+        fxrp.approve(address(buta), clearing);
+        buta.relayClearing(rfqId, alice, clearing, digest, bytes32("a5"), "tag", 1, sig);
+
+        assertEq(lot.balanceOf(alice), LOT, "the lot is delivered on the retry");
+        assertEq(fxrp.balanceOf(maker), clearing, "and the maker is paid");
+    }
+
     // ── the attack this contract exists to stop ─────────────────────────────
 
     function test_RelayClearingRejectsTrimmedSet() public {
