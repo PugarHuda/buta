@@ -91,13 +91,28 @@ func (e *Extension) processInstruction(action teetypes.Action) (int, []byte) {
 
 	var ar teetypes.ActionResult
 
+	// On this path the payload is what the contract produced with abi.encode,
+	// not the JSON the desk posts. Translate before the handler sees it —
+	// see onchain.go.
 	switch {
 	case df.OPCommand == teeutils.ToHash(config.OPCommandPostRfq):
-		ar = e.processPostRfq(action, df, df.OriginalMessage)
+		msg, derr := decodePostRfq(df.OriginalMessage, e.decryptor)
+		if derr != nil {
+			return http.StatusBadRequest, []byte(derr.Error())
+		}
+		ar = e.processPostRfq(action, df, msg)
 	case df.OPCommand == teeutils.ToHash(config.OPCommandCommitBid):
-		ar = e.processCommitBid(action, df, df.OriginalMessage)
+		msg, derr := decodeCommitBid(df.OriginalMessage)
+		if derr != nil {
+			return http.StatusBadRequest, []byte(derr.Error())
+		}
+		ar = e.processCommitBid(action, df, msg)
 	case df.OPCommand == teeutils.ToHash(config.OPCommandClearAuction):
-		ar = e.processClearAuction(action, df, df.OriginalMessage)
+		msg, derr := decodeClearAuction(df.OriginalMessage)
+		if derr != nil {
+			return http.StatusBadRequest, []byte(derr.Error())
+		}
+		ar = e.processClearAuction(action, df, msg)
 	default:
 		return http.StatusNotImplemented, []byte(fmt.Sprintf(
 			"unsupported instruction op command: %s", df.OPCommand.Hex(),

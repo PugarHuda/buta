@@ -81,6 +81,13 @@ func (s *rfqStore) get(id uint64) (*Rfq, error) {
 // ── wire types ──────────────────────────────────────────────────────────────
 
 type postRfqRequest struct {
+	// RfqID is the id the CONTRACT assigned (`rfqId = ++rfqCount`), carried in
+	// the instruction. It is authoritative: relayClearing and commitmentDigest
+	// are both keyed by it, so an enclave that numbers auctions on its own
+	// agrees with the chain only by coincidence — and stops agreeing the first
+	// time this process restarts, since the book lives in volatile memory.
+	// Zero means the simulated path, where no contract has spoken yet.
+	RfqID    uint64 `json:"rfqId"`
 	Maker    string `json:"maker"`
 	Pair     string `json:"pair"`
 	Lot      uint64 `json:"lot"`
@@ -170,8 +177,22 @@ func (e *Extension) processPostRfq(action teetypes.Action, df *instruction.DataF
 	}
 
 	e.rfqs.mu.Lock()
-	e.rfqs.next++
-	id := e.rfqs.next
+	id := req.RfqID
+	if id == 0 {
+		// Simulated path: nobody has assigned one, so keep our own sequence.
+		e.rfqs.next++
+		id = e.rfqs.next
+	} else {
+		if _, exists := e.rfqs.rfqs[id]; exists {
+			e.rfqs.mu.Unlock()
+			return buildResult(action, df, nil, 0, fmt.Errorf("rfq %d already exists", id))
+		}
+		// Keep the local sequence ahead of anything the chain has used, so a
+		// later simulated post cannot collide with a real one.
+		if id > e.rfqs.next {
+			e.rfqs.next = id
+		}
+	}
 	e.rfqs.rfqs[id] = &Rfq{
 		ID:       id,
 		Maker:    strings.ToLower(req.Maker),

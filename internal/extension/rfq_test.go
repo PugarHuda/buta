@@ -233,3 +233,60 @@ func TestDirectRailRejectsUninvited(t *testing.T) {
 		t.Fatalf("expected invite rejection, got: %s", log)
 	}
 }
+
+// The contract assigns the rfq id, and relayClearing and commitmentDigest are
+// both keyed by it. An enclave that numbers auctions on its own agrees with the
+// chain only by coincidence — and stops agreeing the moment this process
+// restarts, because the book is in volatile memory.
+func TestPostRfqUsesTheContractsId(t *testing.T) {
+	e := newAuctionExtension()
+	id := post(t, e, postRfqRequest{RfqID: 4211, Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
+	if id != 4211 {
+		t.Fatalf("id = %d, want 4211 — the enclave renumbered the auction", id)
+	}
+	if _, err := e.rfqs.get(4211); err != nil {
+		t.Fatalf("rfq 4211 not stored: %v", err)
+	}
+}
+
+// A restart is the case that breaks a local counter: the chain is at 4211 and
+// the enclave's book is empty, so its own sequence would hand out 1.
+func TestRestartDoesNotRenumberAuctions(t *testing.T) {
+	first := newAuctionExtension()
+	post(t, first, postRfqRequest{RfqID: 4211, Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
+
+	restarted := newAuctionExtension() // fresh memory, as after a redeploy
+	if id := post(t, restarted, postRfqRequest{RfqID: 4212, Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1}); id != 4212 {
+		t.Fatalf("id = %d, want 4212", id)
+	}
+}
+
+// The same instruction arriving twice must not quietly replace an auction that
+// already has bids in it.
+func TestPostRfqRejectsADuplicateId(t *testing.T) {
+	e := newAuctionExtension()
+	post(t, e, postRfqRequest{RfqID: 7, Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
+
+	msg, _ := json.Marshal(postRfqRequest{RfqID: 7, Maker: "0xm", Pair: "P", Lot: 2, Reserve: 1, Deadline: 1})
+	ar := e.processPostRfq(teetypes.Action{}, &instruction.DataFixed{}, msg)
+	if ar.Status == 1 {
+		t.Fatal("a duplicate rfq id was accepted")
+	}
+	r, err := e.rfqs.get(7)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Lot != 1 {
+		t.Errorf("lot = %d, want 1 — the original auction was overwritten", r.Lot)
+	}
+}
+
+// Mixing the two paths must not collide: after the chain has used 9, a
+// simulated post has to land above it, not on top of it.
+func TestLocalSequenceStaysAheadOfTheChain(t *testing.T) {
+	e := newAuctionExtension()
+	post(t, e, postRfqRequest{RfqID: 9, Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
+	if id := post(t, e, postRfqRequest{Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1}); id <= 9 {
+		t.Fatalf("simulated id = %d, want > 9", id)
+	}
+}
