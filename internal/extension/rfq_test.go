@@ -290,3 +290,66 @@ func TestLocalSequenceStaysAheadOfTheChain(t *testing.T) {
 		t.Fatalf("simulated id = %d, want > 9", id)
 	}
 }
+
+// Listing has to depend on how many auctions there are, not on how high the
+// chain's counter happens to be. The old loop counted down from next, which was
+// the auction count only while the enclave did its own numbering.
+func TestListingIsIndependentOfTheChainsCounter(t *testing.T) {
+	e := newAuctionExtension()
+	post(t, e, postRfqRequest{RfqID: 4211, Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
+	post(t, e, postRfqRequest{RfqID: 9_000_000, Maker: "0xm", Pair: "Q", Lot: 2, Reserve: 1, Deadline: 1})
+
+	ar := e.processListRfqs(teetypes.Action{}, &instruction.DataFixed{}, nil)
+	if ar.Status != 1 {
+		t.Fatalf("list_rfqs failed: %s", ar.Log)
+	}
+	var got []rfqStateResponse
+	if err := json.Unmarshal(ar.Data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("listed %d auctions, want 2", len(got))
+	}
+	// newest first, and sparse ids must not disturb the order
+	if got[0].RfqID != 9_000_000 || got[1].RfqID != 4211 {
+		t.Errorf("order = %d, %d; want 9000000, 4211", got[0].RfqID, got[1].RfqID)
+	}
+}
+
+// The same for a bidder's own view, which walked the same counter.
+func TestMyBidsIsIndependentOfTheChainsCounter(t *testing.T) {
+	e := newAuctionExtension()
+	b := newBidder(t, 3)
+	id := post(t, e, postRfqRequest{RfqID: 4211, Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
+	commit(t, e, id, b, 3, 100)
+
+	body, _ := json.Marshal(myBidsRequest{Bidder: b.hex()})
+	ar := e.processGetMyBids(teetypes.Action{}, &instruction.DataFixed{}, body)
+	if ar.Status != 1 {
+		t.Fatalf("get_my_bids failed: %s", ar.Log)
+	}
+	var got []myBidEntry
+	if err := json.Unmarshal(ar.Data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].RfqID != 4211 {
+		t.Fatalf("got %+v, want one entry for rfq 4211", got)
+	}
+}
+
+// An envelope nobody could have meant as a bid is refused before the enclave
+// spends anything decoding it.
+func TestOversizedCiphertextIsRefused(t *testing.T) {
+	e := newAuctionExtension()
+	id := post(t, e, postRfqRequest{Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
+
+	huge := "0x" + strings.Repeat("ab", MaxCiphertextBytes+1)
+	body, _ := json.Marshal(commitBidRequest{RfqID: id, Bidder: "0xaaa", Commitment: "0x00", Ciphertext: huge})
+	ar := e.processCommitBid(teetypes.Action{}, &instruction.DataFixed{}, body)
+	if ar.Status == 1 {
+		t.Fatal("an oversized ciphertext was accepted")
+	}
+	if !strings.Contains(ar.Log, "too large") {
+		t.Errorf("log = %q, want it to say the ciphertext is too large", ar.Log)
+	}
+}

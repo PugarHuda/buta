@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 )
@@ -27,11 +29,24 @@ type teeNodeDecryptor struct {
 	client  *http.Client
 }
 
+// MaxCiphertextBytes bounds a sealed envelope. A bid opening is a few hundred
+// bytes; anything approaching this is not a bid. Without a ceiling, the cost of
+// making the enclave allocate is a string, and the enclave is the one component
+// that cannot be restarted casually.
+const MaxCiphertextBytes = 8 << 10
+
+// maxPlaintextBytes bounds what the sign server is allowed to hand back, so a
+// misbehaving or compromised sign server cannot make the enclave read forever.
+const maxPlaintextBytes = 64 << 10
+
 // newTeeNodeDecryptor targets http://127.0.0.1:{signPort}/decrypt.
 func newTeeNodeDecryptor(signPort int) *teeNodeDecryptor {
 	return &teeNodeDecryptor{
 		signURL: fmt.Sprintf("http://127.0.0.1:%d/decrypt", signPort),
-		client:  &http.Client{},
+		// A zero-value http.Client waits forever. The sign server is a separate
+		// process; if it wedges, every bid after it wedges too, and the auction
+		// closes with the book half-read.
+		client: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -49,7 +64,7 @@ func (d *teeNodeDecryptor) Decrypt(ciphertext []byte) ([]byte, error) {
 	var out struct {
 		DecryptedMessage []byte `json:"decryptedMessage"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxPlaintextBytes)).Decode(&out); err != nil {
 		return nil, err
 	}
 	return out.DecryptedMessage, nil

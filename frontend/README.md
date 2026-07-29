@@ -1,112 +1,84 @@
-# Orderbook Frontend
+# Buta desk
 
-A classic orderbook trading UI for the Flare TEE orderbook extension. Connect a wallet, deposit, trade, and withdraw — all from a browser on Coston2 (chain ID 114).
+The browser half of the sealed-bid desk: post a block, seal a bid, clear at the
+second price, disclose the outcome. Coston2 (chain 114).
 
-## Quickstart (local dev)
+This directory arrived as the reference order book's frontend. What survives is
+the wallet plumbing; the book itself, its deposit and withdraw rails and forty
+unreachable components went with the vault. A file here still talking about
+trading pairs and a book is a leftover, and a bug.
 
-Prerequisites: the orderbook extension must be running locally (see the parent README).
+## Local dev
 
-```bash
-cd frontend
-cp .env.example .env
-npm install
-npm run dev                 # opens http://localhost:5173
-```
-
-That's it. Vite's dev server proxies `/direct`, `/state`, `/action` to the TEE proxy directly, so the browser only sees same-origin requests — **no CORS proxy is needed for local dev**.
-
-If your setup isn't standard, tune `.env`:
-
-- `VITE_PROXY_UPSTREAM` — the TEE proxy URL vite forwards to.
-  - Docker mode (default): `http://localhost:6674`
-  - Local Go process mode (`start-services.sh --local`): `http://localhost:6664`
-- `VITE_TEE_PROXY_URL` — leave **empty** for dev (frontend uses relative URLs → vite proxy). Only set this when serving a built bundle outside vite (see Production).
-
-If the banner "TEE proxy unreachable" appears at the top of the page, the dev server can't reach the upstream proxy. Check `VITE_PROXY_UPSTREAM` and that the TEE proxy is actually running (`docker compose ps` or `./scripts/start-services.sh`).
-
-## Dev against a remote TEE proxy
-
-If the proxy lives somewhere else (e.g. a GCP deployment) and you still want to use `npm run dev`, just point `VITE_PROXY_UPSTREAM` at it. Vite forwards server-side, so the browser stays same-origin and no CORS is involved.
-
-```
-VITE_PROXY_UPSTREAM=https://tee-proxy-coston2-orderbook.flare.rocks
-VITE_INSTRUCTION_SENDER=0x...   # if the live INSTRUCTION_SENDER differs from generated.ts
-VITE_TEE_PROXY_URL=             # leave empty
-```
-
-## Production / serving a built bundle
-
-Once the frontend is built (`npm run build`), there's no more vite dev server in the middle — the static bundle runs in the browser and makes cross-origin requests directly. The TEE proxy doesn't emit CORS headers. Two ways to handle that:
-
-### Option A — Vercel (recommended for remote proxy)
-
-`vercel.json` (included in this repo) rewrites `/direct`, `/state`, `/action` server-side to the remote TEE proxy, so the browser stays same-origin. **Update the destination URLs in `vercel.json` if your proxy moves.**
-
-On the Vercel project, set:
-
-| Variable | Value |
-|---|---|
-| `VITE_TEE_PROXY_URL` | *(empty)* — use the rewrites |
-| `VITE_INSTRUCTION_SENDER` | the live `0x...` address |
-| `VITE_DIRECT_API_KEY` | the key configured on the remote proxy |
-| `VITE_WALLETCONNECT_PROJECT_ID` | your project ID |
-| `VITE_SHOW_FAUCET` | `false` for a real deployment |
-
-Vercel caveat: the `prebuild` hook runs `sync-config`, which expects the parent `orderbook/` repo. If you deploy the `frontend/` directory alone, sync-config will silently overwrite `generated.ts` with empty values. Workarounds: (a) drop `src/config/generated.ts` from `.gitignore` and commit it before pushing, then remove the `sync-config &&` prefix from the `build` npm script; or (b) deploy from the monorepo root and set Vercel's root directory to `frontend/`.
-
-### Option B — cors-proxy sidecar (local / self-hosted)
+The desk needs the extension running. From the repo root:
 
 ```bash
-# From the orderbook root:
-go run ./cmd/cors-proxy --target http://localhost:6664 --listen :6670 --allow-origin http://your-frontend-origin
-VITE_TEE_PROXY_URL=http://localhost:6670 npm run build
-npx serve dist
+BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev      # simulated TEE, in-process key
+cd frontend && npm install && npm run dev         # http://localhost:5173
 ```
 
-> **Port note:** Chrome blocks ports 6665–6669 (IRC range) as "unsafe" — use 6670+ for the cors-proxy.
+Vite proxies `/direct`, `/state` and `/action` to the extension proxy, so the
+browser only makes same-origin requests and no CORS proxy is involved.
 
-## Environment Variables
+- `VITE_PROXY_UPSTREAM` — where vite forwards. `http://localhost:6674` for the
+  docker path, `http://localhost:6664` when the Go processes run directly.
+- `VITE_TEE_PROXY_URL` — leave empty in dev. It is only for serving a built
+  bundle outside vite.
 
-| Variable | Default (dev) | Description |
+"EXTENSION OFFLINE" at the top of the page means the desk could not reach the
+proxy and is showing demo data. That is the honest state, not a crash.
+
+## What the deployed desk does
+
+<https://buta-app.vercel.app> runs on demo data, and says so on the page.
+
+There is no public proxy to point it at: no TEE machine is registered for
+extension 65642, so nothing on-chain can be served yet. The live flow runs
+locally, which is what the banner tells you.
+
+Two things were deleted rather than left pointing somewhere plausible:
+
+- **`vercel.json`.** It rewrote `/direct`, `/state` and `/action` to
+  `tee-proxy-coston2-orderbook.flare.rocks` — Flare's own reference orderbook
+  proxy. Someone else's infrastructure, serving a different extension, so every
+  BUTA instruction would have come back "unsupported op type". The rewrites were
+  inert in production, which is exactly why they were worth removing instead of
+  leaving armed for the next redeploy. If Buta ever gets a proxy, add rewrites
+  pointing at **that**.
+- **WalletConnect.** With no real `VITE_WALLETCONNECT_PROJECT_ID`, RainbowKit
+  still offered it, so every page load fired a 403 at `api.web3modal.org` and a
+  400 at `pulse.walletconnect.org` carrying `placeholder-project-id`, and the
+  button behind them could never have worked. Injected wallets need no project
+  id, so they are the whole list until one is set — set the variable and
+  WalletConnect comes back on its own.
+
+## Environment
+
+| Variable | Default | What it is |
 |---|---|---|
-| `VITE_TEE_PROXY_URL` | *(empty)* | Leave empty in dev and on Vercel (uses vite proxy / rewrites). Set to cors-proxy URL for the sidecar flow. |
-| `VITE_PROXY_UPSTREAM` | `http://localhost:6674` | Where vite's dev proxy forwards TEE calls. Point at the remote proxy URL for remote dev. |
-| `VITE_DIRECT_API_KEY` | `test-api-key-change-me` | API key for `/direct` endpoint. |
-| `VITE_SHOW_FAUCET` | `true` | Show the test-token faucet button. |
-| `VITE_WALLETCONNECT_PROJECT_ID` | *(empty)* | WalletConnect project ID. |
-| `VITE_INSTRUCTION_SENDER` | *(empty)* | Override for the deployed `INSTRUCTION_SENDER` contract address. Falls back to `generated.ts`. |
+| `VITE_TEE_PROXY_URL` | *(empty)* | Full proxy URL when serving a built bundle. Empty in dev. |
+| `VITE_PROXY_UPSTREAM` | `http://localhost:6674` | Where vite's dev proxy forwards. |
+| `VITE_INSTRUCTION_SENDER` | *(from `generated.ts`)* | `ButaInstructionSender`. Coston2: `0x20d9CcAA7140bf38AD91D2F102bA996417798e8f` |
+| `VITE_DIRECT_API_KEY` | *(empty)* | Key the proxy expects, if it wants one. |
+| `VITE_WALLETCONNECT_PROJECT_ID` | *(empty)* | Optional. Unset means injected wallets only. |
+| `VITE_SHOW_FAUCET` | `true` | Testnet faucet link. |
 
-## Config Sync
+`npm run sync-config` writes `src/config/generated.ts` from the parent repo's
+deployed addresses and Foundry build output. It runs on `dev` and `build`.
+Deploying `frontend/` on its own leaves it with nothing to read, so commit
+`generated.ts` or deploy from the repo root with the root directory set here.
 
-`npm run sync-config` reads deployed addresses and pair config from the parent repo and writes `src/config/generated.ts`. This runs automatically on `dev` and `build`.
-
-The generated file includes:
-- `EXTENSION_ID` — from `config/extension.env`
-- `INSTRUCTION_SENDER` — the deployed contract address
-- `BASE_TOKEN` / `QUOTE_TOKEN` — from `config/test-tokens.env`
-- `PAIRS` — from `config/pairs.json`
-- `INSTRUCTION_SENDER_ABI` — from the Foundry build output
-
-## Extract as Standalone Repo
-
-This frontend is designed to be self-contained. To extract it:
+## Checks
 
 ```bash
-cp -r frontend ../my-orderbook-ui
-cd ../my-orderbook-ui
-rm -rf node_modules
-git init
+npx tsc --noEmit
+npm run build
+node ../../undelayed/qa/render.mjs https://buta-app.vercel.app
 ```
 
-Then hand-edit `src/config/generated.ts` with your deployed addresses:
-
-```ts
-export const EXTENSION_ID = "your-extension-id";
-export const INSTRUCTION_SENDER = "0xYourContractAddress";
-export const BASE_TOKEN = "0xBaseTokenAddress";
-export const QUOTE_TOKEN = "0xQuoteTokenAddress";
-export const PAIRS = [{ name: "FLR/USDT", baseToken: "0x...", quoteToken: "0x..." }];
-export const INSTRUCTION_SENDER_ABI = [ /* ... */ ];
-```
-
-Remove `scripts/sync-config.ts` and the `sync-config` npm script. The rest works standalone.
+The last one renders the deployed page in Chromium and WebKit and fails on
+console errors, horizontal overflow, text covered by something opaque, panels
+still showing their loading state, and numbers that came out `NaN`. Checking a
+built directory is not the same as checking the page people open — the deploy
+config and the environment are only real once it is live. Both deletions above
+were found that way.

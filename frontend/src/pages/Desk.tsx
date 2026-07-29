@@ -14,6 +14,7 @@ import type { Address } from "viem";
 import { Folio } from "./Folio";
 import { TOKENS } from "../config/tokens";
 import { DEMO_BOOK } from "../lib/demoData";
+import { env } from "../config/env";
 
 import {
   clearAuction,
@@ -93,7 +94,19 @@ export function Desk() {
   const [offline, setOffline] = useState(false);
   const [demo, setDemo] = useState(false);
 
+  // A production bundle with no VITE_TEE_PROXY_URL has nowhere to ask: relative
+  // URLs only resolve through vite's dev proxy. Polling anyway meant a 404
+  // every few seconds in the console of anyone who opened the deployed desk,
+  // for an answer we already knew. Go straight to the demo book instead.
+  const canReachExtension = import.meta.env.DEV || Boolean(env.teeProxyUrl);
+
   const refresh = useCallback(async () => {
+    if (!canReachExtension) {
+      setRfqs(DEMO_BOOK);
+      setOffline(true);
+      setDemo(true);
+      return;
+    }
     try {
       const list = await listRfqs();
       setRfqs(list);
@@ -105,13 +118,14 @@ export function Desk() {
       setOffline(true);
       setDemo(true);
     }
-  }, []);
+  }, [canReachExtension]);
 
   useEffect(() => {
     refresh();
+    if (!canReachExtension) return; // nothing to poll for
     const t = setInterval(refresh, POLL_MS);
     return () => clearInterval(t);
-  }, [refresh]);
+  }, [refresh, canReachExtension]);
 
   const sel = useMemo(() => rfqs.find((r) => r.rfqId === selected) ?? null, [rfqs, selected]);
 

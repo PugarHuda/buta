@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -66,6 +67,22 @@ type rfqStore struct {
 
 func newRfqStore() *rfqStore {
 	return &rfqStore{rfqs: make(map[uint64]*Rfq)}
+}
+
+// idsDescending lists the auctions actually held, newest first.
+//
+// The listers used to count down from s.next, which was fine while the enclave
+// numbered auctions itself and next was the auction count. Now that the id
+// comes from the contract, next is the chain's rfqCount — so one auction at id
+// 4211 meant 4211 map lookups per call, holding the read lock the whole way.
+// Callers hold the lock.
+func (s *rfqStore) idsDescending() []uint64 {
+	ids := make([]uint64, 0, len(s.rfqs))
+	for id := range s.rfqs {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] > ids[j] })
+	return ids
 }
 
 func (s *rfqStore) get(id uint64) (*Rfq, error) {
@@ -219,6 +236,11 @@ func (e *Extension) processCommitBid(action teetypes.Action, df *instruction.Dat
 	// opening fields from the plaintext. This is the only place the amount is
 	// ever in the clear, and it never leaves this process.
 	if req.Ciphertext != "" {
+		// Size first: it is the cheapest check and the only one that does not
+		// need anything to be wired up.
+		if len(req.Ciphertext) > 2*MaxCiphertextBytes+2 { // 0x + two chars a byte
+			return buildResult(action, df, nil, 0, errors.New("ciphertext is too large to be a bid"))
+		}
 		if e.decryptor == nil {
 			return buildResult(action, df, nil, 0, errors.New("no decryptor: cannot open a sealed bid"))
 		}
@@ -375,11 +397,8 @@ func (e *Extension) processGetRfqState(action teetypes.Action, df *instruction.D
 func (e *Extension) processListRfqs(action teetypes.Action, df *instruction.DataFixed, _ hexutil.Bytes) teetypes.ActionResult {
 	e.rfqs.mu.RLock()
 	out := make([]rfqStateResponse, 0, len(e.rfqs.rfqs))
-	for id := e.rfqs.next; id >= 1; id-- {
-		r, ok := e.rfqs.rfqs[id]
-		if !ok {
-			continue
-		}
+	for _, id := range e.rfqs.idsDescending() {
+		r := e.rfqs.rfqs[id]
 		item := rfqStateResponse{
 			RfqID: r.ID, Maker: r.Maker, Pair: r.Pair, Lot: r.Lot,
 			Deadline: r.Deadline, BidCount: len(r.Recorded), Cleared: r.Cleared,
@@ -451,11 +470,8 @@ func (e *Extension) processGetMyBids(action teetypes.Action, df *instruction.Dat
 
 	e.rfqs.mu.RLock()
 	out := make([]myBidEntry, 0)
-	for id := e.rfqs.next; id >= 1; id-- {
-		r, ok := e.rfqs.rfqs[id]
-		if !ok {
-			continue
-		}
+	for _, id := range e.rfqs.idsDescending() {
+		r := e.rfqs.rfqs[id]
 		for _, b := range r.Openings {
 			if b.Bidder != who {
 				continue
