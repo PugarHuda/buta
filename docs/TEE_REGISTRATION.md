@@ -71,11 +71,35 @@ node. Three more things had to be fixed to get that far:
   ever appeared to work when a node from an earlier run was still up.
   `depends_on` no longer waits on health.
 
-What stopped the run: the shared indexer began refusing connections
-(`dial tcp 34.38.42.208:3306: connect: connection refused`) after having
-accepted them minutes before — from the container and from a bare mysql client
-alike. It is a shared instance and we had been reconnecting hard while chasing
-the errors above. Nothing left to fix on this side; retry when it answers.
+What stops the run now is the indexer itself, and it is not a configuration
+problem:
+
+```
+WARN  Database out of sync. Delayed for 41h57m53s
+WARN  Sleeping for 10m0s
+DEBUG Checking database for 2/31 time
+WARN  Database out of sync. Delayed for 25h8m33s
+```
+
+The shared Coston2 indexer is **more than a day behind the chain**. The proxy
+will not serve while that is true — it starts, connects, and then sits in a
+retry loop, 31 attempts ten minutes apart, so `/info` and `/healthy` stay shut
+and `register-tee` has nothing to read.
+
+It is catching up on its own (nearly 17 hours of lag closed between those two
+checks), so the loop may well succeed unattended. Leave the stack up and watch:
+
+```bash
+docker compose logs -f ext-proxy | grep -E "out of sync|serving"
+```
+
+Once it stops saying "out of sync", run `./scripts/post-build.sh`.
+
+Worth telling the group: anyone whose proxy is silently doing nothing right now
+is probably sitting in this same loop rather than misconfigured. It also earlier
+refused connections outright for a few minutes
+(`dial tcp 34.38.42.208:3306: connect: connection refused`) before accepting
+them again — a shared instance under load.
 
 Two things from the pinned message that apply when it does:
 
