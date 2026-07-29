@@ -8,6 +8,10 @@ services:
   extension-tee:
     environment:
       - CHAIN_URL=${CHAIN_URL:-https://coston2-api.flare.network/ext/C/rpc}
+      # The node signs over a chain-ID-bound payload, so without this it fails
+      # every signature with "could not get chain id" and the proxy rejects the
+      # empty result as "signature must be 65 bytes, got 0".
+      - CHAIN_ID=${CHAIN_ID:-114}
 
 networks:
   default:

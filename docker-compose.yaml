@@ -58,9 +58,13 @@ services:
       - SIGN_PORT=7701
       - EXTENSION_PORT=7702
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    # Not `condition: service_healthy`. The proxy fetches TEE info from the node
+    # at startup and panics if it cannot, while the node waited for the proxy to
+    # report healthy — so a cold start deadlocked, and it only ever appeared to
+    # work when a node from a previous run happened to still be up. Start both
+    # and let them find each other.
     depends_on:
-      ext-proxy:
-        condition: service_healthy
+      - ext-proxy
 
 networks:
   default:

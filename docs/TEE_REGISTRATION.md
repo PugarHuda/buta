@@ -27,7 +27,7 @@ TEE registration, and is fixed:
   Both modules are published, so the replaces are gone; the build context is
   this repo. Verified by physically removing the sibling checkouts and building
   both modules from scratch.
-- **`local/tee-proxy` builds** from the tee-proxy repo at v0.0.19.
+- **`local/tee-proxy` builds** from the tee-proxy repo at v0.0.20. v0.0.19 builds too, but rejects the node with "invalid signature".
 - **`config/extension.env`** is written by hand and committed. Do **not** run
   `pre-build.sh`: it deploys a new contract and registers a new extension, and
   we already have both.
@@ -36,28 +36,59 @@ TEE registration, and is fixed:
   data, the domain-separated proxy recovery, the fresh-attestation-on-re-run
   fix and the FTDC policy pre-flight. See `TASKS.md` section 9.
 
-## What is missing: one hostname
+## Where it stands
 
-`ext-proxy` panics at startup without the Coston2 c-chain indexer database:
+The hostname arrived — Kristaps posted it in the group on 28 July:
 
 ```
-PANIC  connecting to database: opening mysql connection to
-       ${INDEXER_DB_HOST}:3306/flare_ftso_indexer as hackathon_user_57:
-       dial tcp: lookup ${INDEXER_DB_HOST}: no such host
+INDEXER_DB_HOST=34.38.42.208
 ```
 
-It is a hard dependency — the proxy exits rather than degrading — so without it
-there is no `/info`, and `register-tee` has nothing to read the machine's
-attestation from.
+The `35.241.249.150` in `docs/deployment-steps.md` is dead and VPN-only; he said
+he would clean that up. The database is called **`indexer`**, not
+`flare_ftso_indexer` — that was a guess and it earned an `Access denied`. Asking
+the server settled it in one command:
 
-The hackathon credentials are public (`hackathon_user_57` / the password shared
-in the Telegram group, already filled into
-`config/proxy/extension_proxy.coston2.docker.toml`, which is gitignored). **The
-host is not in any repository**; the reference deployment calls it "provided by
-the infra team" and leaves `INDEXER_DB_HOST` blank.
+```bash
+docker run --rm mysql:8 mysql -h 34.38.42.208 -u hackathon_user_57 -p'<pw>' \
+  -e 'SHOW DATABASES;'
+```
 
-So the remaining step is to ask for `INDEXER_DB_HOST` (and confirm the database
-name — `flare_ftso_indexer` is the assumption here) in the hackathon group.
+With those two the proxy connects, starts, and round-trips `TEE_INFO` with the
+node. Three more things had to be fixed to get that far:
+
+- **tee-proxy v0.0.19 rejected the node's response** as "invalid signature".
+  v0.0.20 does not. Quantic's pinned message says to run both on develop; this is
+  what that means in practice.
+- **The node could not sign at all.** Every result came back empty and the proxy
+  called it "signature must be 65 bytes, got 0". The node signs over a
+  chain-ID-bound payload, and the compose file never passed `CHAIN_ID` — so it
+  failed inside `signer.ChainID()` with "could not get chain id", a message that
+  never reaches the proxy. The proxy sees only the empty signature and blames
+  itself. Fixed in `docker-compose.coston2.yaml`.
+- **A cold start deadlocked.** The proxy fetches TEE info at boot and panics
+  without it, while the node waited for the proxy to report healthy. It only
+  ever appeared to work when a node from an earlier run was still up.
+  `depends_on` no longer waits on health.
+
+What stopped the run: the shared indexer began refusing connections
+(`dial tcp 34.38.42.208:3306: connect: connection refused`) after having
+accepted them minutes before — from the container and from a bare mysql client
+alike. It is a shared instance and we had been reconnecting hard while chasing
+the errors above. Nothing left to fix on this side; retry when it answers.
+
+Two things from the pinned message that apply when it does:
+
+- **Do not register a quick `trycloudflare` tunnel.** Data providers push to the
+  URL stored on-chain and quick-tunnel hostnames change on restart, which is why
+  machines are sitting at `INITIALIZED` with dead hostnames. Use a named
+  cloudflared tunnel or a reserved ngrok domain.
+- **Use `register-tee -command rRap`** — the capital `R` asks for a fresh
+  attestation challenge, which is what a re-run needs.
+
+The redeploy did not wipe us: `scripts/onchain-status.mjs` still shows the
+diamond recording our contract as the instruction sender for extension 65642, so
+there is no need to re-run `pre-build.sh` for a new id.
 
 ## Once the host is known
 
