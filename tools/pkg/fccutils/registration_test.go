@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -143,6 +144,12 @@ func TestSaveState_OverwritesExisting(t *testing.T) {
 }
 
 func TestSaveState_ReadOnlyDir(t *testing.T) {
+	// Windows has no POSIX directory permission bits: os.Chmod only toggles the
+	// read-only file attribute, and a "0555" directory still accepts new files.
+	// The test would fail there for the platform's reasons, not ours.
+	if runtime.GOOS == "windows" {
+		t.Skip("directory permissions are not enforced this way on Windows")
+	}
 	dir := t.TempDir()
 	readOnlyDir := filepath.Join(dir, "readonly")
 	if err := os.Mkdir(readOnlyDir, 0555); err != nil {

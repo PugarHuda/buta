@@ -323,7 +323,7 @@ func RegisterRegistrationChecks(
 	// R1: Check extensions counter.
 	var counter *big.Int
 	if registry != nil && client != nil {
-		counter, err = registry.ExtensionsCounter(callOpts)
+		counter, err = registry.NextPublicExtensionId(callOpts)
 		if err != nil {
 			r.Add(CheckResult{
 				Step:    "register",

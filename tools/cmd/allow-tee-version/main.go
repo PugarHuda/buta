@@ -6,7 +6,6 @@ import (
 	"buta/tools/pkg/support"
 	"crypto/ecdsa"
 	"flag"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"os"
@@ -79,7 +78,7 @@ func main() {
 		return
 	}
 
-	err = fccutils.AddTeeVersion(testSupport, privKey, teeInfo.MachineData.ExtensionID.Big(), teeInfo.MachineData.CodeHash, teeInfo.MachineData.Platform, common.Hash{}, *versionF)
+	err = fccutils.AddTeeVersion(testSupport, privKey, teeInfo.MachineData.ExtensionID.Big(), teeInfo.MachineData.CodeHash, teeInfo.MachineData.Platform, *versionF)
 	if err != nil {
 		if strings.Contains(err.Error(), "VersionAlreadyExists") {
 			logger.Infof("version already registered, skipping")

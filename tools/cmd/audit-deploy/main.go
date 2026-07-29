@@ -104,9 +104,9 @@ func main() {
 			fmt.Printf("    %s   %q\n", common.Hash(p).Hex(), bytes32ToString(p))
 		}
 	}
-	cnt, cerr := er.ExtensionsCounter(opts)
+	cnt, cerr := er.NextPublicExtensionId(opts)
 	if cerr == nil {
-		fmt.Printf("  extensionsCounter: %s\n", cnt.String())
+		fmt.Printf("  nextPublicExtensionId: %s\n", cnt.String())
 	}
 
 	if *extID >= 0 {

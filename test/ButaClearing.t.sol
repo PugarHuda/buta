@@ -16,13 +16,29 @@ import { ITeeMachineRegistry } from "../contracts/interfaces/ITeeMachineRegistry
 // Check 2 is the one that turns "the auctioneer could award a subset" into a
 // transaction that reverts.
 
+/// Enforces allowances, because the real FXRP does. An earlier version of this
+/// mock let `transferFrom` move anyone's balance without approval, which made
+/// every test pass while hiding the fact that a winner who has not approved the
+/// desk cannot be settled against at all.
 contract MockToken {
     mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
     function mint(address to, uint256 amt) external { balanceOf[to] += amt; }
+
+    function approve(address spender, uint256 amt) external returns (bool) {
+        allowance[msg.sender][spender] = amt;
+        return true;
+    }
+
     function transferFrom(address from, address to, uint256 amt) external returns (bool) {
         require(balanceOf[from] >= amt, "insufficient");
+        uint256 a = allowance[from][msg.sender];
+        require(a >= amt, "insufficient allowance");
+        if (a != type(uint256).max) allowance[from][msg.sender] = a - amt;
         balanceOf[from] -= amt; balanceOf[to] += amt; return true;
     }
+
     function transfer(address to, uint256 amt) external returns (bool) {
         require(balanceOf[msg.sender] >= amt, "insufficient");
         balanceOf[msg.sender] -= amt; balanceOf[to] += amt; return true;
@@ -83,6 +99,12 @@ contract ButaClearingTest is Test {
         lot.mint(maker, LOT + 1_000); // spare lots for the extra RFQs some tests open
         fxrp.mint(bob, 1_000_000e6);
 
+        // Both legs of the settlement are pulls, so both sides have to approve
+        // the desk first — the maker to escrow the lot, the winner to be
+        // charged the clearing price. Nothing about the desk can hide that.
+        vm.prank(maker); lot.approve(address(buta), type(uint256).max);
+        vm.prank(bob);   fxrp.approve(address(buta), type(uint256).max);
+
         deadline = uint64(block.number + 100);
 
         vm.prank(maker);
@@ -134,6 +156,38 @@ contract ButaClearingTest is Test {
 
         assertEq(lot.balanceOf(bob), LOT, "winner receives the lot");
         assertEq(fxrp.balanceOf(maker), clearing, "maker is paid the clearing price");
+    }
+
+    /// A winner who can pay but never approved the desk cannot be settled
+    /// against — and the whole clearing reverts rather than half-executing, so
+    /// the lot does not leave the escrow either. Delivery versus payment means
+    /// neither leg lands alone.
+    function test_SettlementRevertsWhenWinnerHasNotApproved() public {
+        fxrp.mint(alice, 1_000_000e6); // she has the money, just not the allowance
+        bytes32 digest = buta.commitmentDigest(rfqId);
+        uint256 clearing = 5218e4;
+
+        bytes memory sig = _sign(TEE_PK, rfqId, alice, clearing, digest, bytes32("a2"), "tag", 1);
+        vm.expectRevert(bytes("insufficient allowance"));
+        buta.relayClearing(rfqId, alice, clearing, digest, bytes32("a2"), "tag", 1, sig);
+
+        assertEq(lot.balanceOf(address(buta)), LOT, "lot stays escrowed");
+        assertEq(lot.balanceOf(alice), 0, "no delivery without payment");
+        assertEq(fxrp.balanceOf(maker), 0, "and no payment");
+    }
+
+    /// The allowance has to cover the clearing price, not the bid. A winner who
+    /// approved exactly what they bid is short whenever the second price is
+    /// higher than they expected — the desk cannot paper over that.
+    function test_SettlementRevertsOnPartialApproval() public {
+        uint256 clearing = 5218e4;
+        vm.prank(bob);
+        fxrp.approve(address(buta), clearing - 1);
+
+        bytes32 digest = buta.commitmentDigest(rfqId);
+        bytes memory sig = _sign(TEE_PK, rfqId, bob, clearing, digest, bytes32("a3"), "tag", 1);
+        vm.expectRevert(bytes("insufficient allowance"));
+        buta.relayClearing(rfqId, bob, clearing, digest, bytes32("a3"), "tag", 1, sig);
     }
 
     // ── the attack this contract exists to stop ─────────────────────────────

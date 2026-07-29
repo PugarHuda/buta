@@ -38,11 +38,15 @@ fi
 
 mkdir -p "$BINDINGS_DIR"
 
-# Extract ABI (JSON array)
-jq '.abi' "$FORGE_OUT" > "$BINDINGS_DIR/${CONTRACT_NAME}.abi"
-
-# Extract bytecode (hex string, strip 0x prefix)
-jq -r '.bytecode.object' "$FORGE_OUT" | sed 's/^0x//' > "$BINDINGS_DIR/${CONTRACT_NAME}.bin"
+# Extract the ABI and the bytecode. node rather than jq: node is already
+# required by the seed and status scripts, jq is one more thing to install and
+# is not on a default Windows box.
+node -e '
+  const fs = require("fs");
+  const a = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  fs.writeFileSync(process.argv[2], JSON.stringify(a.abi, null, 2));
+  fs.writeFileSync(process.argv[3], String(a.bytecode.object).replace(/^0x/, ""));
+' "$FORGE_OUT" "$BINDINGS_DIR/${CONTRACT_NAME}.abi" "$BINDINGS_DIR/${CONTRACT_NAME}.bin"
 
 echo "  ABI → $BINDINGS_DIR/${CONTRACT_NAME}.abi"
 echo "  BIN → $BINDINGS_DIR/${CONTRACT_NAME}.bin"

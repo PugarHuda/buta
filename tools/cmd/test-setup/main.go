@@ -21,7 +21,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -31,14 +30,11 @@ import (
 	"time"
 
 	"buta/tools/pkg/configs"
-	"buta/tools/pkg/contracts/buta"
 	"buta/tools/pkg/fccutils"
 	"buta/tools/pkg/support"
 	instrutils "buta/tools/pkg/utils"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
@@ -87,14 +83,9 @@ func main() {
 	logger.Infof("Deployer: %s", deployer.Hex())
 	logger.Infof("InstructionSender: %s", instructionSenderAddr.Hex())
 
-	// --- Step 1: Allow deployer to deposit (idempotent) ---
-	logger.Infof("Step 1: Allowing deployer to deposit...")
-	err = allowUser(s, instructionSenderAddr, deployer)
-	if err != nil {
-		logger.Infof("  allowUser: %s (may already be allowed)", err)
-	} else {
-		logger.Infof("  Deployer allowed")
-	}
+	// Buta has no allowlist: the desk is open, and who may bid is decided per
+	// RFQ by its invited address. The old orderbook contract had allowUser and a
+	// deposit rail; both went with the vault.
 
 	type tokenSpec struct {
 		name    string
@@ -248,45 +239,4 @@ func addressesFromExistingPairs(pairs []pairConfig, addrs map[string]common.Addr
 		}
 	}
 	return nil
-}
-
-func allowUser(s *support.Support, instructionSenderAddr, user common.Address) error {
-	sender, err := buta.NewButaInstructionSender(instructionSenderAddr, s.ChainClient)
-	if err != nil {
-		return fmt.Errorf("binding contract: %w", err)
-	}
-
-	var tx *types.Transaction
-	var sendErr error
-	for attempt := 0; attempt < 3; attempt++ {
-		opts, err := bind.NewKeyedTransactorWithChainID(s.Prv, s.ChainID)
-		if err != nil {
-			return fmt.Errorf("creating transactor: %w", err)
-		}
-		if attempt > 0 {
-			gp, gerr := s.ChainClient.SuggestGasPrice(context.Background())
-			if gerr != nil {
-				return fmt.Errorf("suggesting gas price: %w", gerr)
-			}
-			mul := new(big.Int).Mul(gp, big.NewInt(int64(100+20*attempt)))
-			opts.GasPrice = new(big.Int).Div(mul, big.NewInt(100))
-		}
-
-		tx, sendErr = sender.AllowUser(opts, user)
-		if sendErr == nil {
-			break
-		}
-		if !instrutils.IsRetryableTxError(sendErr) {
-			return fmt.Errorf("calling allowUser: %w", sendErr)
-		}
-		if attempt < 2 {
-			time.Sleep(2 * time.Second)
-		}
-	}
-	if sendErr != nil {
-		return fmt.Errorf("calling allowUser after retries: %w", sendErr)
-	}
-
-	_, err = support.CheckTx(tx, s.ChainClient)
-	return err
 }

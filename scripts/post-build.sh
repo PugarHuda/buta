@@ -143,6 +143,21 @@ else
         || die "Allow TEE version failed (set SKIP_ALLOW_VERSION=true to skip if already registered)"
 fi
 
+# --- Step 1b: Set the TEE governance signer set ---
+#
+# Added by the v0.0.22 scaffold sync. Governance moved out of the extension
+# registry into ExtensionGovernanceFacet, and register-tee now checks that the
+# on-chain governance hash matches the one the TEE node derived from its own
+# GOVERNANCE_SIGNERS / GOVERNANCE_THRESHOLD. Skip this and register-tee reverts
+# InvalidGovernanceHash. Both sides must see identical values — that is the
+# whole failure mode.
+step 1b "Set TEE governance"
+go run ./cmd/set-governance \
+    -a "$ADDRESSES_FILE" \
+    -c "$CHAIN_URL" \
+    -p "$EXT_PROXY_URL" \
+    || die "Set TEE governance failed (GOVERNANCE_SIGNERS/GOVERNANCE_THRESHOLD must match the tee-node env)"
+
 # Export SIMULATED_TEE for register-tee (controls attestation mode)
 export SIMULATED_TEE="${SIMULATED_TEE:-true}"
 log "Simulated TEE: $SIMULATED_TEE"

@@ -47,6 +47,12 @@ services:
     environment:
       - MODE=${MODE:-1}
       - INITIAL_OWNER=${INITIAL_OWNER:-0xF4E021377420Afe90c1A7D2b8968904946633a64}
+      # The node derives its governanceHash from these two. set-governance writes
+      # the same pair on-chain, and register-tee compares them — if the defaults
+      # here and there ever diverge, registration fails with InvalidGovernanceHash
+      # and the message says nothing about why. Same defaults on both sides.
+      - GOVERNANCE_SIGNERS=${GOVERNANCE_SIGNERS:-${INITIAL_OWNER:-0xF4E021377420Afe90c1A7D2b8968904946633a64}}
+      - GOVERNANCE_THRESHOLD=${GOVERNANCE_THRESHOLD:-1}
       - PROXY_URL=http://ext-proxy:6663
       - CONFIG_PORT=5501
       - SIGN_PORT=7701
