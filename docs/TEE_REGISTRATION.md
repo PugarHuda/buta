@@ -206,6 +206,21 @@ registered again — which it does anyway, because the host URL is changing too.
 
 ### The tunnel itself
 
+Two scripts, same job — pick by what you have.
+
+**No domain: ngrok.** The free tier includes one static domain that survives
+restarts, which is the only property that matters here.
+
+
+
+**Domain on Cloudflare:** `cloudflared tunnel login`, then
+`./scripts/tunnel-register.sh buta-tee.yourdomain.com`.
+
+Both refuse to publish anything until the proxy answers, wait for the public URL
+to actually respond rather than sleeping, and register with the public hostname
+as EXT_PROXY_HOST_URL.
+
+
 **Not a quick tunnel.** `cloudflared tunnel --url …` hands out a hostname that
 changes on every restart, and the one the data providers push to is the one
 written on-chain. Quantic's pinned message says the machines sitting at
