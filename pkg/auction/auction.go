@@ -11,11 +11,11 @@
 // shade — which is the whole point of running a sealed auction, and the reason
 // the auctioneer must not be able to read the book.
 //
-// Solvency screening (ClearScreened) is implemented and tested here but is NOT
-// wired into the extension: the enclave has no chain client today, so there is
-// nothing to read a bidder's FXRP balance with. Clear() is what the handler
-// calls, and it screens nobody. Said plainly so the tests below are not mistaken
-// for a live defence.
+// Solvency screening (ClearScreened) is wired: internal/extension/solvency.go
+// builds a CanPay that reads the bidder's balance and allowance, and the
+// clearing handler passes it in. With no chain reader it is nil, and clearing
+// falls back to the plain Vickrey rule — an enclave that cannot see balances
+// must not decide that nobody can pay.
 package auction
 
 import (

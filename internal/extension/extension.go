@@ -34,6 +34,19 @@ type Extension struct {
 	admins    map[string]bool                     // admin addresses
 	signPort  int                                 // TEE sign server port
 	decryptor Decryptor                           // ECIES decrypt; nil = plaintext-only (sim/tests)
+
+	// Solvency screening. Both nil means clearing runs the plain Vickrey rule,
+	// which is what an enclave with no chain access has to do — see solvency.go.
+	funds             Funds
+	instructionSender common.Address // the spender relayClearing pulls through
+}
+
+// SetFunds turns on solvency screening: the clearing engine will pass over a
+// bidder who cannot settle the price they would owe, instead of awarding to them
+// and having relayClearing revert the whole auction.
+func (e *Extension) SetFunds(f Funds, instructionSender common.Address) {
+	e.funds = f
+	e.instructionSender = instructionSender
 }
 
 func New(extensionPort, signPort int) *Extension {

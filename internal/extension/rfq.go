@@ -341,12 +341,10 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 		return buildResult(action, df, nil, 0, auction.ErrAlreadyClosed)
 	}
 
-	// Unscreened on purpose. auction.ClearScreened would pass over a winner who
-	// cannot settle — without it, an unfunded top bid reverts relayClearing and
-	// kills the auction outright, taking the runner-up's willing bid with it.
-	// Wiring it needs a chain client inside the enclave to read FXRP balances,
-	// which this extension does not have yet.
-	out, err := auction.Clear(r.Recorded, r.Openings, r.Reserve)
+	// Screened when a chain reader is wired, plain Vickrey when it is not — an
+	// enclave with no way to check balances must not silently decide nobody can
+	// pay. See solvency.go for why this belongs here and nowhere else.
+	out, err := auction.ClearScreened(r.Recorded, r.Openings, r.Reserve, e.solvencyScreen(r.ID))
 	if err != nil {
 		return buildResult(action, df, nil, 0, err)
 	}
