@@ -47,3 +47,40 @@ short and human.
   think?"
 - Avoids the words "dark pool" and "order matching" — those are Dusk/DarkStop's
   lane; Buta is sealed-bid Vickrey.
+
+---
+
+## Second post — the register-tee finding (worth its own message)
+
+This one is not about us, and it is the more useful of the two. Post it
+separately, plainly, without the project pitch attached.
+
+> If your TEE machine is stuck at INITIALIZED and the availability check keeps
+> coming back 404, check what URL is actually on-chain:
+>
+> `cast call 0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE "getTeeMachine(address)((address,address,string))" <teeId>`
+>
+> Re-running post-build with a new EXT_PROXY_HOST_URL does **not** change it.
+> RegisterNode sees the machine already exists, skips PreRegistration — which is
+> the only thing that writes the URL — and goes straight to a fresh attestation.
+> So the check keeps being pushed to the old hostname no matter what your env
+> says.
+>
+> What worked for me: `MachineManagerFacet.updateTeeMachineSettings(teeId,
+> proxyId, url)`. Owner-only. It rewrites the proxy id too, which matters if you
+> changed PROXY_PRIVATE_KEY away from the scaffold default — the check is
+> verified against that identity. After that, `-command Rap` and it went to
+> PRODUCTION.
+>
+> Two smaller ones from the same afternoon: the node needs `CHAIN_ID` in its env
+> or it fails every signature with "could not get chain id", which reaches the
+> proxy as "signature must be 65 bytes, got 0" and looks like a proxy bug. And
+> tee-proxy v0.0.19 rejects a v0.0.22 node as "invalid signature"; v0.0.20 does
+> not.
+
+Why post it: it costs nothing, it is checkable, and Quantic's pinned message
+says machines are sitting at INITIALIZED with dead hostnames — which is exactly
+this. Mentors notice people who make the room work better.
+
+Do not attach the pitch. A useful message that is also an advert reads as an
+advert.

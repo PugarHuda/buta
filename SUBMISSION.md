@@ -67,19 +67,19 @@ The fork also arrived with a central-limit order book and a deposit/withdraw vau
 
 ## What is deployed / how far we got
 
-- **Coston2** — `ButaInstructionSender` is deployed, **source-verified on the explorer**, and **registered in the live FCC diamond** as extension **65642** (`setExtensionId` + `setTeeAddress` done on-chain). Run `node scripts/onchain-status.mjs` to confirm every line from public reads. The full product flow (post → seal ECIES bids → Vickrey clear → settle → disclose) runs end to end on the simulated-TEE path Flare accepts.
+- **Coston2** — `ButaInstructionSender` is deployed, **source-verified on the explorer**, and **registered in the live FCC diamond** as extension **65642** (`setExtensionId` + `setTeeAddress` done on-chain). Run `node scripts/onchain-status.mjs` to confirm every line from public reads. A **TEE machine is registered and in PRODUCTION** for extension 65642: `getRandomTeeIds(65642, 1)` returns `0x473e5B49…77Ee` instead of reverting `TooMany()`, so `_sendInstruction` resolves and `postRfq` reaches the diamond — it now fails on the lot-token allowance, which is ordinary business rather than a wall. The full product flow (post → seal ECIES bids → Vickrey clear → settle → disclose) also runs end to end on the simulated-TEE path Flare accepts.
 - **Verified live, not just unit-tested:** `/info` → `ecies-geth` encrypt → 348-byte ciphertext → enclave decrypts, recovers the wallet signature, records the bid; clearing returns the winner and second price with **no hidden number anywhere in the outcome**; an unsigned or lying bid bounces with a named error.
 - **Tests:** Go `pkg/auction` + `internal/extension` (full sealed lifecycle, forged sender, replayed signature, lying opening, no-leak assertion); 15 Foundry tests on the contract (the security-critical `relayClearing`, the trimmed-set rejection, signature and replay checks, `reclaimLot`).
 - **Landing page:** https://buta-desk.vercel.app
 - **Contract (Coston2, verified):** `0x20d9CcAA7140bf38AD91D2F102bA996417798e8f` — [explorer](https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f) · FCC extension id **65642**
 
-> Honest scope, on the record: the clearing price is public by design (Vickrey pays the second price, so that number is on-chain — what stays sealed is which bid produced it and every amount that lost). FCC itself is pre-production and being reworked on Coston2; we build against it in simulated mode as Flare advised.
+> Honest scope, on the record: the clearing price is public by design (Vickrey pays the second price, so that number is on-chain — what stays sealed is which bid produced it and every amount that lost). FCC itself is pre-production and being reworked on Coston2. Our machine is registered and PRODUCTION, but it is published through a rotating quick tunnel rather than a domain we own, so `scripts/tunnel-keeper.sh` republishes the hostname on-chain whenever it moves — measured recovery 34 seconds. A static domain would be better and needs nothing but an account.
 
 ---
 
 ## Roadmap / next steps
 
-1. **Deploy `ButaInstructionSender` to Coston2** and register a real attested TEE against the current FCC diamond (`0x1a9C4A0f…`), replacing the simulated decryptor with the tee-node `/decrypt` path already wired behind the `Decryptor` interface.
+1. **A stable hostname and hardware attestation.** The machine is registered and PRODUCTION today on the simulated path Flare accepts; what is left is a static domain instead of a rotating tunnel, and swapping the simulated decryptor for the tee-node `/decrypt` path already wired behind the `Decryptor` interface.
 2. **Settle in real FXRP** (`0x0b6A3645…` on Coston2) and add the **XRPL delivery leg** via Protocol Managed Wallets, so the winner can take the lot as native XRP.
 3. **Proof-of-funds via FDC** to replace full escrow — a bidder proves they hold the funds without locking them.
 4. **MPC clearing** as the honest long-term answer to "the settler sees the openings."

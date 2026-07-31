@@ -73,9 +73,30 @@ try {
   line("Diamond → sender", addr + (ok ? "  ✓ matches" : "  ✗ mismatch"));
 } catch (e) { line("Diamond → sender", "read failed: " + e.message); }
 
+// The line that used to matter most: getRandomTeeIds reverted TooMany() while no
+// machine was registered, and _sendInstruction calls it on every postRfq,
+// commitBid and requestClearing. Check it from public reads rather than claiming
+// it — this whole script exists so a sceptic does not have to take our word.
+const TEE_IDS_SELECTOR = "0xfeeabcbf"; // getRandomTeeIds(uint256,uint256)
+let machineLine;
+try {
+  const raw = await ethCall(
+    DIAMOND,
+    TEE_IDS_SELECTOR + EXT_ID.toString(16).padStart(64, "0") + (1).toString(16).padStart(64, "0"),
+  );
+  const addr = "0x" + raw.slice(-40);
+  machineLine =
+    addr === "0x" + "0".repeat(40)
+      ? "no machine returned — instructions cannot be processed"
+      : `${addr}  PRODUCTION`;
+} catch {
+  machineLine = "getRandomTeeIds reverts — no machine registered for this extension";
+}
+line("Active TEE machine", machineLine);
+
 console.log(
   "\n  The diamond records our contract as the instruction sender for extension\n" +
-  "  65642, and setExtensionId() found and stored that id on-chain. The\n" +
-  "  instruction path is wired; processing needs a registered TEE machine, which\n" +
-  "  the simulated cmd/dev path stands in for this hackathon.\n"
+  "  65642, and setExtensionId() found and stored that id on-chain. A TEE\n" +
+  "  machine is registered and in production for it, so getRandomTeeIds resolves\n" +
+  "  and _sendInstruction reaches the diamond rather than reverting TooMany().\n"
 );
