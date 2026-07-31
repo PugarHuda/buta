@@ -1,5 +1,14 @@
 # Registering the TEE machine
 
+> **Done, 31 July.** The machine is PRODUCTION and `getRandomTeeIds(65642, 1)`
+> returns `0x473e5B49Aa088Da394c8f873550180047C3377Ee` instead of reverting
+> `TooMany()`. `postRfq` now reverts `ERC20: insufficient allowance` — the lot
+> token approval, i.e. past `_sendInstruction` and into ordinary business.
+>
+> It is registered against a **quick tunnel**, which will die. Re-point it with
+> `node scripts/update-machine-url.mjs https://<stable-host>` and re-run
+> `REGISTER_COMMAND=Rap ./scripts/post-build.sh`.
+
 Buta's contract is live on Coston2 and the extension is registered in the
 diamond, but **no TEE machine is registered for extension 65642**. That is the
 one thing standing between the desk and the on-chain path:
