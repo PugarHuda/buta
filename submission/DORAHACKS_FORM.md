@@ -30,7 +30,7 @@ unacceptable.
 - Landing: https://buta-desk.vercel.app
 - Demo video: _[paste your recorded link — script in DEMO_SCRIPT.md]_
 - Run locally: `BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev` then `npm run dev`
-  in `frontend/` (the simulated-TEE path Flare accepts for this hackathon).
+  in `frontend/`. A TEE machine is registered and PRODUCTION for extension 65642, so instructions reach the diamond; the enclave itself runs the simulated-TEE path Flare accepts for this hackathon.
 
 **GitHub / technical materials**
 https://github.com/PugarHuda/buta
@@ -66,13 +66,13 @@ Bisik/Canton). Each left the same open problem — the settler still sees the bi
 Buta is the build where an attested enclave finally removes that reader.
 
 **Smart contract addresses / deployment details**
-- Network: Coston2 (chain 114), simulated-TEE path.
+- Network: Coston2 (chain 114). TEE machine `0x473e5B49…77Ee` is registered and PRODUCTION for extension 65642 — `getRandomTeeIds` resolves instead of reverting `TooMany()`. Enclave on the simulated-TEE path.
 - `ButaInstructionSender`: `0x20d9CcAA7140bf38AD91D2F102bA996417798e8f` — https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f
 - Deploy runbook: `docs/DEPLOY.md`.
 
 **Short roadmap / next steps**
 1. Deploy to Coston2 and register a real attested TEE against the current FCC
-   diamond, swapping the simulated decryptor for the tee-node `/decrypt` path
+   stable hostname instead of a rotating tunnel, swapping the simulated decryptor for the tee-node `/decrypt` path
    already wired behind the `Decryptor` interface.
 2. Settle in real FXRP and add the XRPL delivery leg via Protocol Managed
    Wallets, so the winner takes the lot as native XRP.
@@ -83,6 +83,6 @@ Buta is the build where an attested enclave finally removes that reader.
 
 ## Encouraged extras (fill if true at submit time)
 
-**Deployed on** Coston2 (simulated TEE).
+**Deployed on** Coston2. Machine registered and PRODUCTION; enclave simulated.
 **Traction / testing** _[e.g. posted in the Flare hackathon Telegram, feedback
 from …]_ — see the mentor-engagement pattern; do this before submitting.
