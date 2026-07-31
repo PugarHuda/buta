@@ -9,6 +9,11 @@
 > `node scripts/update-machine-url.mjs https://<stable-host>` and re-run
 > `REGISTER_COMMAND=Rap ./scripts/post-build.sh`.
 >
+> **31 July, proven end to end.** `postRfq` succeeded on-chain (tx
+> `0x6d205171…5369`, rfqCount 0 → 1) and the enclave logged
+> `BUTA, POST_RFQ … status 1`. The abi-encoded instruction and the JSON handler
+> met for the first time.
+>
 > Or run `./scripts/tunnel-keeper.sh` and forget about it: it restarts the
 > tunnel, notices the hostname moved, republishes it and re-runs the check.
 > Measured recovery, unattended: 34 seconds.
