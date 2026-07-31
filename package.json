@@ -1,0 +1,13 @@
+{
+  "name": "buta-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Node helpers for the Buta desk: on-chain status, and pointing the registered TEE machine at a new host URL.",
+  "scripts": {
+    "status": "node scripts/onchain-status.mjs",
+    "machine-url": "node scripts/update-machine-url.mjs"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  }
+}

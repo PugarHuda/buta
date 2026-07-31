@@ -91,6 +91,9 @@ console.log(`  proxy id  ${before[1]}  ->  ${proxyId}`);
 console.log(`  host url  ${before[2]}  ->  ${url}`);
 
 if (before[2] === url && before[1].toLowerCase() === proxyId.toLowerCase()) {
+  // Machine-readable, for tunnel-keeper.sh: it only re-runs the availability
+  // check when something actually moved.
+  console.log("UNCHANGED");
   console.log("\n  already set, nothing to do\n");
   process.exit(0);
 }
@@ -106,6 +109,7 @@ await pc.waitForTransactionReceipt({ hash });
 
 const after = await pc.readContract({ address: DIAMOND, abi: ABI, functionName: "getTeeMachine", args: [teeId] });
 const status = await pc.readContract({ address: DIAMOND, abi: ABI, functionName: "getTeeMachineStatus", args: [teeId] });
+console.log("CHANGED");
 console.log(`  host url now ${after[2]}`);
 console.log(`  status ${status} (1 = INITIALIZED, 2 = PRODUCTION)\n`);
 console.log("  now re-run the availability check:");

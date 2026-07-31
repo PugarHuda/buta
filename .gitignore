@@ -20,3 +20,8 @@ tools/pkg/contracts/*/*.bin
 # register-tee resume state: machine-local, and committing it makes a fresh
 # clone skip steps for a machine that does not exist there.
 config/register-tee.state
+
+# node deps for the two helper scripts
+node_modules/
+package-lock.json
+tunnel.log

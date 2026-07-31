@@ -8,6 +8,10 @@
 > It is registered against a **quick tunnel**, which will die. Re-point it with
 > `node scripts/update-machine-url.mjs https://<stable-host>` and re-run
 > `REGISTER_COMMAND=Rap ./scripts/post-build.sh`.
+>
+> Or run `./scripts/tunnel-keeper.sh` and forget about it: it restarts the
+> tunnel, notices the hostname moved, republishes it and re-runs the check.
+> Measured recovery, unattended: 34 seconds.
 
 Buta's contract is live on Coston2 and the extension is registered in the
 diamond, but **no TEE machine is registered for extension 65642**. That is the
