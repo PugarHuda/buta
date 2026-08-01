@@ -33,6 +33,20 @@ every `postRfq`, `commitBid` and `requestClearing`, so all three revert before
 they reach the diamond. Nothing on-chain can be exercised until a machine is
 registered and in production.
 
+## Watching it stay up
+
+The keeper republishes the hostname when it moves. Nothing watches the keeper —
+and when it dies, nothing moves and nothing complains, so the machine goes
+quietly unreachable while the last line anyone saw said "reachable again".
+
+    npm run health          once, exit 0 or 1
+    npm run health:watch    every 60s, and it says when the answer CHANGES
+
+Four checks in the order a failure propagates: the proxy is serving, the chain
+has a record, the url on-chain actually answers, and the machine is PRODUCTION
+with getRandomTeeIds returning it. Each names the component, so the output is
+not "something is wrong".
+
 ## What now works
 
 Everything up to the point below was broken in ways that had nothing to do with
