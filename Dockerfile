@@ -82,7 +82,14 @@ USER 0:0
 
 # confidential space launch policy label: allow the operator to override these env vars at workload launch
 # without this, the confidential space VM rejects overrides at attestation time and the values baked here are final
-LABEL "tee.launch_policy.allow_env_override"="LOG_LEVEL,PROXY_URL,INITIAL_OWNER,EXTENSION_ID,CHAIN_URL,MODE,CONFIG_PORT,SIGN_PORT,EXTENSION_PORT"
+# CHAIN_ID and SIMULATED_TEE were missing, and their absence is invisible: the
+# Confidential Space launcher drops a tee-env- variable that is not on this list
+# without saying so, which looks exactly like passing the wrong value. Without
+# CHAIN_ID the node fails every signature inside signer.ChainID(), and the proxy
+# reports that as "signature must be 65 bytes, got 0" — a message about the
+# proxy, for a fault in the node. It cost an afternoon locally; on a VM you
+# cannot attach to it would cost more.
+LABEL "tee.launch_policy.allow_env_override"="LOG_LEVEL,PROXY_URL,INITIAL_OWNER,EXTENSION_ID,CHAIN_URL,CHAIN_ID,MODE,SIMULATED_TEE,GOVERNANCE_SIGNERS,GOVERNANCE_THRESHOLD,CONFIG_PORT,SIGN_PORT,EXTENSION_PORT"
 
 EXPOSE 5501 7701 7702
 
