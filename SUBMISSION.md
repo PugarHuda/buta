@@ -77,6 +77,27 @@ The fork also arrived with a central-limit order book and a deposit/withdraw vau
 
 ---
 
+## Proven on Coston2, not described
+
+Every row is checkable without asking us. `node scripts/onchain-status.mjs` reads
+the first four from public state and needs no key.
+
+| Step | Evidence |
+|---|---|
+| Contract deployed and source-verified | `ButaInstructionSender` at [`0x20d9CcAA7140bf38AD91D2F102bA996417798e8f`](https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f) |
+| Registered in the live FCC diamond | extension **65642** — the diamond returns our contract for `getTeeExtensionInstructionsSender(65642)` |
+| TEE address bound on-chain | `setExtensionId()` + `setTeeAddress()`, both done; `teeAddressSet` reads true |
+| **TEE machine in PRODUCTION** | `0x473e5B49Aa088Da394c8f873550180047C3377Ee`, `getTeeMachineStatus` = 2. `getRandomTeeIds(65642, 1)` returns it instead of reverting `TooMany()` |
+| **`postRfq` executed on-chain** | tx [`0x6d205171d791b72546e589bc9622ec1d3f3720a3b9e799e0833b355085409369`](https://coston2-explorer.flare.network/tx/0x6d205171d791b72546e589bc9622ec1d3f3720a3b9e799e0833b355085409369), `rfqCount` 0 → 1 |
+| **The enclave received and processed it** | `routing action with OPType, OPCommand: BUTA, POST_RFQ` → `result of action 0x085ff708… obtained, status 1`, empty log |
+| Machine host published and re-published | `updateTeeMachineSettings` tx `0xb1b4c08cedeab3d70f4a730ea306ef43114e637a71f84de4d329ff6910988693` |
+| Settlement against real FXRP | `FORK=1 forge test --match-path test/ButaSettleFork.t.sol` — the clearing moves genuine FTestXRP (`0x0b6A3645…73dc7`) on a Coston2 fork, balances taken from a real holder rather than dealt |
+
+The two bold rows are the ones that took the longest and matter most. Until 31
+July the contract and the enclave had never spoken: the contract encoded ABI, the
+handler parsed JSON, and nothing converted between them — invisible, because no
+machine was registered to deliver an instruction and prove it.
+
 ## Roadmap / next steps
 
 1. **A stable hostname and hardware attestation.** The machine is registered and PRODUCTION today on the simulated path Flare accepts; what is left is a static domain instead of a rotating tunnel, and swapping the simulated decryptor for the tee-node `/decrypt` path already wired behind the `Decryptor` interface.
