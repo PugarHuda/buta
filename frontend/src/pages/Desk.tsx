@@ -366,7 +366,14 @@ function BidForm(props: {
         <Btn
           busy={busy}
           onClick={async () => {
-            const amt = BigInt(amount || "0");
+            // BigInt throws on anything that is not a whole number — "1.5",
+            // "1e9", "abc" — and this ran outside the try, so a typo killed the
+            // click with an uncaught error and no message. One test in
+            // qa/flows-desk.mjs types each of them.
+            if (!/^\d+$/.test(amount.trim())) {
+              return props.onDone("Bid must be a positive whole number.");
+            }
+            const amt = BigInt(amount.trim());
             if (amt <= 0n) return props.onDone("Bid must be a positive whole number.");
             setBusy(true);
             try {
