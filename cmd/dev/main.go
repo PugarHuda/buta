@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,7 +37,14 @@ import (
 	extension "buta/internal/extension"
 )
 
-const facadePort = 6674
+// Overridable because the docker stack owns 6674 when it is up, and stopping
+// that stack takes the registered TEE machine offline with it.
+var facadePort = func() int {
+	if v, err := strconv.Atoi(os.Getenv("BUTA_DEV_PORT")); err == nil && v > 0 {
+		return v
+	}
+	return 6674
+}()
 
 type resultStore struct {
 	mu sync.RWMutex
@@ -59,6 +68,26 @@ func main() {
 	}
 	ext.SetDecryptor(extension.NewLocalDecryptor(teeKey))
 	pub := teeKey.PublicKey
+
+	// Solvency screening. Off unless a chain is given, because an enclave that
+	// cannot read balances must not conclude that nobody can pay — and because a
+	// dev run with no network should still clear auctions.
+	//
+	//   BUTA_FUNDS_RPC=https://coston2-api.flare.network/ext/C/rpc \n	//   BUTA_INSTRUCTION_SENDER=0x20d9CcAA7140bf38AD91D2F102bA996417798e8f
+	if rpc := os.Getenv("BUTA_FUNDS_RPC"); rpc != "" {
+		sender := common.HexToAddress(os.Getenv("BUTA_INSTRUCTION_SENDER"))
+		if sender == (common.Address{}) {
+			logger.Fatalf("BUTA_FUNDS_RPC is set but BUTA_INSTRUCTION_SENDER is not — the screen needs the spender relayClearing pulls through")
+		}
+		funds, ferr := extension.NewChainFunds(rpc, sender)
+		if ferr != nil {
+			logger.Fatalf("solvency screen: %v", ferr)
+		}
+		ext.SetFunds(funds, sender)
+		logger.Infof("solvency screening ON: a bidder who cannot settle is passed over (spender %s)", sender.Hex())
+	} else {
+		logger.Infof("solvency screening off — set BUTA_FUNDS_RPC to enable it")
+	}
 
 	store := &resultStore{m: make(map[common.Hash]json.RawMessage)}
 

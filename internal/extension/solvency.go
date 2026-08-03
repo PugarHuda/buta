@@ -161,14 +161,24 @@ func ethereumCall(to common.Address, data []byte) ethereum.CallMsg {
 // silently disqualify the top bid would hand anyone who can degrade our RPC the
 // power to pick the winner.
 func (e *Extension) solvencyScreen(rfqID uint64) auction.CanPay {
+	return e.solvencyScreenFor(rfqID, "")
+}
+
+// solvencyScreenFor takes a fallback token for auctions that exist only in this
+// process. The chain is preferred and always wins when it answers.
+func (e *Extension) solvencyScreenFor(rfqID uint64, fallback string) auction.CanPay {
 	if e.funds == nil {
 		return nil
 	}
 	ctx := context.Background()
 	token, err := e.funds.SettleToken(ctx, rfqID)
 	if err != nil || token == (common.Address{}) {
-		logger.Warnf("solvency screen off for rfq %d: %v", rfqID, err)
-		return nil
+		if fallback == "" {
+			logger.Warnf("solvency screen off for rfq %d: %v", rfqID, err)
+			return nil
+		}
+		token = common.HexToAddress(fallback)
+		logger.Infof("solvency screen for rfq %d using the declared settle token %s", rfqID, token.Hex())
 	}
 	return func(bidder string, price uint64) bool {
 		ok, err := e.funds.CanSettle(

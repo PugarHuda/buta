@@ -58,6 +58,9 @@ type Rfq struct {
 
 	Cleared bool
 	Outcome auction.Outcome
+
+	// Simulated-path fallback for the solvency screen. Empty on-chain.
+	SettleToken string
 }
 
 // rfqStore is the in-memory book of open auctions.
@@ -113,6 +116,11 @@ type postRfqRequest struct {
 	Reserve  uint64 `json:"reserve"` // decrypted before it reaches here
 	Deadline uint64 `json:"deadline"`
 	Invited  string `json:"invited"`
+	// SettleToken is only read on the simulated path. On-chain the token is read
+	// back from the contract, which is authoritative; a simulated auction has no
+	// contract row to read, so without this the solvency screen silently turns
+	// itself off for every auction the desk creates.
+	SettleToken string `json:"settleToken"`
 }
 
 type postRfqResponse struct {
@@ -213,13 +221,14 @@ func (e *Extension) processPostRfq(action teetypes.Action, df *instruction.DataF
 		}
 	}
 	e.rfqs.rfqs[id] = &Rfq{
-		ID:       id,
-		Maker:    strings.ToLower(req.Maker),
-		Pair:     req.Pair,
-		Lot:      req.Lot,
-		Reserve:  req.Reserve,
-		Deadline: req.Deadline,
-		Invited:  strings.ToLower(req.Invited),
+		ID:          id,
+		Maker:       strings.ToLower(req.Maker),
+		Pair:        req.Pair,
+		Lot:         req.Lot,
+		Reserve:     req.Reserve,
+		Deadline:    req.Deadline,
+		Invited:     strings.ToLower(req.Invited),
+		SettleToken: strings.ToLower(req.SettleToken),
 	}
 	e.rfqs.mu.Unlock()
 
@@ -346,7 +355,7 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 	// Screened when a chain reader is wired, plain Vickrey when it is not — an
 	// enclave with no way to check balances must not silently decide nobody can
 	// pay. See solvency.go for why this belongs here and nowhere else.
-	out, err := auction.ClearScreened(r.Recorded, r.Openings, r.Reserve, e.solvencyScreen(r.ID))
+	out, err := auction.ClearScreened(r.Recorded, r.Openings, r.Reserve, e.solvencyScreenFor(r.ID, r.SettleToken))
 	if err != nil {
 		return buildResult(action, df, nil, 0, err)
 	}
