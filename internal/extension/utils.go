@@ -11,18 +11,6 @@ import (
 	teetypes "github.com/flare-foundation/tee-node/pkg/types"
 )
 
-// appendBounded appends v and drops the oldest entries once the slice would
-// exceed maxLen, so a user's history cannot grow without limit inside an
-// enclave that never restarts. Lived in the CLOB handlers; the deposit and
-// withdrawal paths still need it.
-func appendBounded[T any](s []T, v T, maxLen int) []T {
-	s = append(s, v)
-	if maxLen > 0 && len(s) > maxLen {
-		s = s[len(s)-maxLen:]
-	}
-	return s
-}
-
 // --- In most cases, you will not need to modify this file. ---
 
 func (e *Extension) actionHandler(w http.ResponseWriter, r *http.Request) {

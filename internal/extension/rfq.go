@@ -362,6 +362,21 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 	r.Cleared = true
 	r.Outcome = out
 
+	// Forget the amounts. Clearing is the last thing that needs them: the
+	// outcome is the second price and the winner's address, and GET_MY_BIDS
+	// only ever reads Bidder and Commitment — both of which are already public,
+	// the commitment because the contract recorded it.
+	//
+	// The winner's own bid is the sharpest case. Vickrey means it is never
+	// revealed, so an enclave that keeps it holds a secret it can never use and
+	// can only leak. This is not tidiness: a TEE's threat model includes its
+	// memory being read, and an auction that cleared last week should not still
+	// have every losing price sitting in it.
+	for i := range r.Openings {
+		r.Openings[i].Amount = 0
+		r.Openings[i].Nonce = [32]byte{}
+	}
+
 	b, _ := json.Marshal(clearAuctionResponse{
 		RfqID:         r.ID,
 		Winner:        out.Winner,

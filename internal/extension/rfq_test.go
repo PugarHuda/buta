@@ -393,3 +393,67 @@ func padU64(v uint64) []byte {
 	binary.BigEndian.PutUint64(b[24:], v)
 	return b[:]
 }
+
+// After clearing, the enclave keeps no bid amount and no nonce. The auction is
+// decided, the second price is public, and everything else is a secret it can
+// only leak — including the winner's own bid, which Vickrey never reveals.
+func TestClearingWipesTheAmounts(t *testing.T) {
+	e := newAuctionExtension()
+	alice, bob, carol := newBidder(t, 1), newBidder(t, 2), newBidder(t, 3)
+
+	id := post(t, e, postRfqRequest{
+		Maker: "0xMAKER", Pair: "FXRP/USDT0", Lot: 480_000, Reserve: 4000, Deadline: 24_109_880,
+	})
+	commit(t, e, id, alice, 11, 5194)
+	commit(t, e, id, bob, 12, 5107)
+	commit(t, e, id, carol, 13, 4880)
+
+	r, err := e.rfqs.get(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The premise: before clearing they really are in there. Without this the
+	// test below would pass against a build that never stored them.
+	held := 0
+	for _, b := range r.Openings {
+		if b.Amount != 0 {
+			held++
+		}
+	}
+	if held != 3 {
+		t.Fatalf("only %d of 3 amounts were held before clearing — the wipe check would prove nothing", held)
+	}
+
+	body, _ := json.Marshal(clearAuctionRequest{RfqID: id})
+	if ar := e.processClearAuction(teetypes.Action{}, &instruction.DataFixed{}, body); ar.Status != 1 {
+		t.Fatalf("clear failed: %s", ar.Log)
+	}
+
+	for _, b := range r.Openings {
+		if b.Amount != 0 {
+			t.Errorf("%s's bid of %d survived clearing", b.Bidder, b.Amount)
+		}
+		if b.Nonce != ([32]byte{}) {
+			t.Errorf("%s's nonce survived clearing", b.Bidder)
+		}
+		// What must survive: the bidder and the commitment, which GET_MY_BIDS
+		// reads and which the contract already made public.
+		if b.Bidder == "" || b.Commitment == (auction.Commitment{}) {
+			t.Errorf("the wipe took the public part too: %+v", b)
+		}
+	}
+
+	// And the receipt still works, because it is built from those two fields.
+	mine, _ := json.Marshal(myBidsRequest{Bidder: alice.hex()})
+	ar := e.processGetMyBids(teetypes.Action{}, &instruction.DataFixed{}, mine)
+	var mineOut []myBidEntry
+	if err := json.Unmarshal(ar.Data, &mineOut); err != nil {
+		t.Fatal(err)
+	}
+	if len(mineOut) != 1 || !mineOut[0].Cleared || !mineOut[0].Won {
+		t.Fatalf("alice can no longer see the bid she won after the wipe: %+v", mineOut)
+	}
+	if bytes.Contains(ar.Data, []byte("5194")) {
+		t.Fatal("GET_MY_BIDS leaked an amount")
+	}
+}
