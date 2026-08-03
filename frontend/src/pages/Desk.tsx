@@ -15,6 +15,7 @@ import { Folio } from "./Folio";
 import { TOKENS } from "../config/tokens";
 import { DEMO_BOOK } from "../lib/demoData";
 import { env } from "../config/env";
+import { readTeeStatus, type TeeStatus } from "../lib/teeStatus";
 
 import {
   clearAuction,
@@ -93,6 +94,10 @@ export function Desk() {
   const [log, setLog] = useState<string>("");
   const [offline, setOffline] = useState(false);
   const [demo, setDemo] = useState(false);
+  // Read from the diamond, not from whether we can reach a proxy: those are two
+  // different facts and the masthead used to conflate them.
+  const [tee, setTee] = useState<TeeStatus>({ state: "unknown" });
+  useEffect(() => { readTeeStatus().then(setTee); }, []);
 
   // A production bundle with no VITE_TEE_PROXY_URL has nowhere to ask: relative
   // URLs only resolve through vite's dev proxy. Polling anyway meant a 404
@@ -150,7 +155,13 @@ export function Desk() {
             SETTLES IN FXRP <Red>///</Red> {TOKENS.FXRP.address.slice(0, 6)}…
           </a>
           <span className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">
-            {offline ? <Red>EXTENSION OFFLINE</Red> : <>COSTON2 <Red>///</Red> SIMULATED TEE</>}
+            {tee.state === "production" ? (
+              <>COSTON2 <Red>///</Red> TEE <Red>PRODUCTION</Red></>
+            ) : offline ? (
+              <Red>EXTENSION OFFLINE</Red>
+            ) : (
+              <>COSTON2 <Red>///</Red> SIMULATED TEE</>
+            )}
           </span>
           <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
         </div>
@@ -160,6 +171,9 @@ export function Desk() {
       {demo && (
         <div className="px-4 py-1.5 bg-accent text-bg text-[10px] tracking-[0.12em] uppercase">
           Demo data — no extension reachable from here. Run <span className="opacity-80">BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev</span> locally for the live flow.
+          {tee.state === "production" && (
+            <> The TEE machine <span className="opacity-80">{tee.machine.slice(0, 10)}…</span> is registered and in production on Coston2 — this browser simply has no proxy to reach it through.</>
+          )}
         </div>
       )}
       {/* who this is for — the first thing a judge reads */}
