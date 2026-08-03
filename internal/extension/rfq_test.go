@@ -3,6 +3,8 @@ package extension
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -352,4 +354,42 @@ func TestOversizedCiphertextIsRefused(t *testing.T) {
 	if !strings.Contains(ar.Log, "too large") {
 		t.Errorf("log = %q, want it to say the ciphertext is too large", ar.Log)
 	}
+}
+
+// Pins the exact bytes a wallet signs. Go and the frontend build this payload
+// independently, so nothing else stops them drifting — and a drift does not
+// throw, it silently rejects every bid as a forged sender.
+func TestBidSigPayloadIsPinned(t *testing.T) {
+	var c auction.Commitment
+	c[0], c[31] = 0xAB, 0xCD
+
+	got := bidSigPayload(7, c)
+	// keccak256("BUTA_BID" || uint256(114) || uint256(7) || commitment),
+	// computed independently with viem:
+	//   keccak256(encodePacked(
+	//     ["string","uint256","uint256","bytes32"],
+	//     ["BUTA_BID", 114n, 7n, "0xab00…00cd"]))
+	want := "0x" + hex.EncodeToString(crypto.Keccak256(
+		[]byte("BUTA_BID"),
+		padU64(114),
+		padU64(7),
+		c[:],
+	))
+	if got.Hex() != want {
+		t.Fatalf("payload = %s, want %s", got.Hex(), want)
+	}
+
+	// And the chain id is genuinely in it: the same bid on another chain must
+	// not produce the same signable payload.
+	bidChainID = 19 // Songbird
+	defer func() { bidChainID = 114 }()
+	if bidSigPayload(7, c) == got {
+		t.Fatal("changing the chain id did not change the payload — it is not bound")
+	}
+}
+
+func padU64(v uint64) []byte {
+	var b [32]byte
+	binary.BigEndian.PutUint64(b[24:], v)
+	return b[:]
 }

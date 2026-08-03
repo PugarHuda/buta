@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -413,14 +415,35 @@ func (e *Extension) processListRfqs(action teetypes.Action, df *instruction.Data
 	return buildResult(action, df, b, 1, nil)
 }
 
+// The chain this desk settles on. Coston2 unless told otherwise — and it is in
+// the signed payload, not merely checked, so a signature cannot be moved between
+// deployments even by someone who has both.
+var bidChainID = func() uint64 {
+	if v, err := strconv.ParseUint(os.Getenv("CHAIN_ID"), 10, 64); err == nil && v > 0 {
+		return v
+	}
+	return 114
+}()
+
 // bidSigPayload is what the bidder's wallet signs (as a personal_sign over the
-// raw 32 bytes): keccak256("BUTA_BID" || uint256(rfqId) || commitment).
+// raw 32 bytes):
+//
+//	keccak256("BUTA_BID" || uint256(chainId) || uint256(rfqId) || commitment)
+//
 // Binding the rfqId means a signature for one auction cannot be replayed into
 // another; binding the commitment means it authorises exactly one sealed bid.
+//
+// The chain id was missing, and its absence was an asymmetry rather than a hole:
+// the enclave's OUTBOUND signature is domain-separated by block.chainid in the
+// contract, while the bidder's INBOUND one was not. Not exploitable — replaying
+// it elsewhere needs the opening, which is sealed — but "not exploitable today"
+// is a weaker property than "cannot be moved", and the second one costs 32 bytes.
 func bidSigPayload(rfqID uint64, c auction.Commitment) common.Hash {
 	var id [32]byte
 	binary.BigEndian.PutUint64(id[24:], rfqID)
-	return crypto.Keccak256Hash([]byte("BUTA_BID"), id[:], c[:])
+	var chain [32]byte
+	binary.BigEndian.PutUint64(chain[24:], bidChainID)
+	return crypto.Keccak256Hash([]byte("BUTA_BID"), chain[:], id[:], c[:])
 }
 
 var errBadBidSig = errors.New("bid signature does not recover to the bidder")
