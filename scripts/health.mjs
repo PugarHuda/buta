@@ -30,6 +30,9 @@ const ABI = parseAbi([
 
 const hex = (v) => BigInt(v).toString(16).padStart(64, "0");
 
+/** viem's revert messages are twenty lines of ABI detail. Keep the first. */
+const first = (e) => String(e.shortMessage ?? e.message ?? e).split("\n")[0].slice(0, 120);
+
 async function check() {
   const problems = [];
   const notes = [];
@@ -45,7 +48,7 @@ async function check() {
     teeId = `0x${keccak256(`0x${hex(pk.x)}${hex(pk.y)}`).slice(-40)}`;
     notes.push(`proxy ok, machine ${teeId}`);
   } catch (e) {
-    problems.push(`ext-proxy is not serving ${LOCAL}/info — ${e.message}. The stack is down, or the indexer is lagging again (docker compose logs ext-proxy | grep "out of sync").`);
+    problems.push(`ext-proxy is not serving ${LOCAL}/info — ${first(e)}. The stack is down, or the indexer is lagging again (docker compose logs ext-proxy | grep "out of sync").`);
     return { problems, notes };
   }
 
@@ -56,7 +59,16 @@ async function check() {
     onChainUrl = m[2];
     notes.push(`on-chain url ${onChainUrl}`);
   } catch (e) {
-    problems.push(`the diamond has no record of ${teeId} — ${e.message}`);
+    // There is one way this happens in practice, and it is worth naming rather
+    // than making the reader deduce it from a revert. tee-node generates its
+    // key at startup and never persists it, so a restarted extension-tee comes
+    // back as a machine the chain has never seen — while the machine it DID
+    // register stays PRODUCTION and keeps being handed out by getRandomTeeIds.
+    problems.push(
+      `the diamond has no record of ${teeId}. The container was almost certainly restarted: ` +
+        `tee-node mints a new key every start. Re-register with ` +
+        `EXT_PROXY_HOST_URL=https://<tunnel-host> ./scripts/post-build.sh  (${first(e)})`,
+    );
     return { problems, notes };
   }
 
@@ -70,7 +82,7 @@ async function check() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       notes.push("the published url answers");
     } catch (e) {
-      problems.push(`${onChainUrl} does not answer — ${e.message}. The tunnel moved or died; the keeper should have republished. Is it still running?`);
+      problems.push(`${onChainUrl} does not answer — ${first(e)}. The tunnel moved or died; the keeper should have republished. Is it still running?`);
     }
   }
 
@@ -81,13 +93,39 @@ async function check() {
     if (status !== 2) problems.push(`machine status is ${status} (${names[status] ?? "?"}), not PRODUCTION`);
     else notes.push("status PRODUCTION");
   } catch (e) {
-    problems.push(`could not read machine status — ${e.message}`);
+    problems.push(`could not read machine status — ${first(e)}`);
   }
 
+  // The whole active set, not one draw. A restarted container leaves its old
+  // machine PRODUCTION forever, so the set grows and getRandomTeeIds hands out
+  // either — half the instructions go to an address nobody is listening on.
+  // Nothing reverts, so a single draw can look perfect while half the traffic
+  // vanishes. This missed it once: it drew the live machine and said healthy
+  // while the dead one was still in the set.
   try {
-    const ids = await pc.readContract({ address: DIAMOND, abi: ABI, functionName: "getRandomTeeIds", args: [EXT_ID, 1n] });
-    if (!ids.length) problems.push("getRandomTeeIds returned nothing — instructions cannot be processed");
-    else notes.push(`getRandomTeeIds -> ${ids[0]}`);
+    let active = [];
+    for (let n = 1n; n <= 8n; n++) {
+      try {
+        active = await pc.readContract({ address: DIAMOND, abi: ABI, functionName: "getRandomTeeIds", args: [EXT_ID, n] });
+      } catch {
+        break; // asked for more than the set holds
+      }
+    }
+    if (!active.length) {
+      problems.push("getRandomTeeIds returned nothing — instructions cannot be processed");
+    } else {
+      const strays = active.filter((a) => a.toLowerCase() !== teeId.toLowerCase());
+      if (strays.length) {
+        problems.push(
+          `${active.length} machine(s) active for extension ${EXT_ID}; ${strays.length} of them ` +
+            `is not the one we are serving (${strays.join(", ")}). getRandomTeeIds hands out either, so ` +
+            `roughly ${Math.round((strays.length / active.length) * 100)}% of instructions go nowhere. ` +
+            `Retire it: node scripts/retire-machine.mjs ${strays[0]}`,
+        );
+      } else {
+        notes.push(`getRandomTeeIds -> ${active.join(", ")} (only ours)`);
+      }
+    }
   } catch {
     problems.push("getRandomTeeIds reverts — no active machine for extension 65642, so postRfq, commitBid and requestClearing all revert before reaching the diamond");
   }

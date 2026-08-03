@@ -1,5 +1,32 @@
 # Registering the TEE machine
 
+> **Restarting the container mints a NEW machine.** `tee-node` calls
+> `crypto.GenerateKey()` at startup (`internal/node/node.go`) — there is no
+> volume, no seed, no env override. `docker compose up -d extension-tee` after a
+> code change is enough: the container comes back with a different teeId, the
+> registration you did is now for a machine that no longer exists, and the old
+> one stays PRODUCTION on-chain forever. `getRandomTeeIds` keeps returning it,
+> so `_sendInstruction` routes to an address nobody is listening on.
+>
+> It is ephemeral **by design** — a TEE identity is supposed to be re-attested,
+> not persisted. So the rule is not "avoid restarting", it is: after any restart
+> of `extension-tee`, re-register.
+>
+> ```bash
+> EXT_PROXY_HOST_URL=https://<current-tunnel-host> ./scripts/post-build.sh
+> node scripts/health.mjs      # must name the machine the proxy is serving
+> ```
+>
+> `post-build.sh` defaults the host to `EXT_PROXY_URL` (localhost), and the
+> availability check then 404s because the data providers cannot reach it —
+> pass the public host explicitly. `ToProduction` reverting `execution reverted`
+> on a second run means it already succeeded; check `onchain-status.mjs` before
+> assuming it failed.
+>
+> **Verified 3 August, machine `0x175fb864555D7a63CE50eCB2997B86677BEaA9A7`:**
+> re-registered after a rebuild, PRODUCTION, and a signed `LIST_RFQS` came back
+> through the public tunnel with status 1.
+
 > **Done, 31 July.** The machine is PRODUCTION and `getRandomTeeIds(65642, 1)`
 > returns `0x473e5B49Aa088Da394c8f873550180047C3377Ee` instead of reverting
 > `TooMany()`. `postRfq` now reverts `ERC20: insufficient allowance` — the lot
