@@ -52,17 +52,23 @@ a policy promise and becomes a transaction that reverts.
 Simulated-TEE path (accepted by Flare for the hackathon):
 
 ```bash
-# 1. the extension + a dev facade (real extension code, simplified transport)
-BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev
+# 1. the extension + a dev facade (real extension code, simplified transport).
+#    6674 is the docker proxy's port, so use another one if that stack is up.
+BUTA_ALLOW_DIRECT_AUCTION=1 BUTA_DEV_PORT=6675 go run ./cmd/dev
 
-# 2. seed a book that looks alive, then start the desk
-cd frontend
+# 2. a book with auctions on both sides of their deadline — without one that
+#    has passed there is nothing to press Clear on, and clearing is a third of
+#    the product. Deadlines are placed around the chain's head, not hardcoded.
 node scripts/seed.mjs
-npm run dev            # desk on http://localhost:5173
+
+# 3. the desk
+cd frontend
+VITE_TEE_PROXY_URL=http://127.0.0.1:6675 npm run dev   # /dashboard/ on :5173
 ```
 
 Post a block, seal a bid (real wallet signature + ECIES), clear at the second
-price, and disclose your bid to an auditor from the Portfolio tab.
+price, and disclose your bid to an auditor from Portfolio — the seal receipt is
+kept in the browser, so the disclosure form fills itself from it.
 
 ## Tests
 

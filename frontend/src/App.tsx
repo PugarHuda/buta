@@ -6,7 +6,6 @@ import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { coston2 } from "./config/chain";
 import { env } from "./config/env";
-import { ToastProvider } from "./components/ui/Toast";
 import { Desk } from "./pages/Desk";
 
 // WalletConnect needs a real project id. Without one, RainbowKit still offered
@@ -32,9 +31,7 @@ export default function App() {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider theme={lightTheme({ accentColor: '#CE1414', accentColorForeground: '#F4F4F0', borderRadius: 'none', fontStack: 'system' })}>
-          <ToastProvider>
-            <Desk />
-          </ToastProvider>
+          <Desk />
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
