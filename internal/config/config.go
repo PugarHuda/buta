@@ -26,13 +26,16 @@ const (
 	OPCommandPostRfq      = "POST_RFQ"
 	OPCommandCommitBid    = "COMMIT_BID"
 	OPCommandClearAuction = "CLEAR_AUCTION"
-	OPCommandDirectSettle = "DIRECT_SETTLE"
 	OPCommandGetRfqState  = "GET_RFQ_STATE"
 	OPCommandGetMyBids    = "GET_MY_BIDS"
 	OPCommandListRfqs     = "LIST_RFQS"
 
-	OPCommandDeposit  = "DEPOSIT"
-	OPCommandWithdraw = "WITHDRAW"
+	// DEPOSIT, WITHDRAW and DIRECT_SETTLE used to live here. The first two are
+	// the fork's vault, which is deleted — the submission says custody you
+	// cannot enter is not a feature, and leaving the opcodes behind made that
+	// read like a temporary removal. DIRECT_SETTLE was never needed: an invited
+	// auction with one sealed bid IS a bilateral settle, with the same
+	// commitment and digest guarantees. See rfq.go.
 
 	TimeoutShutdown = 5 * time.Second
 )
