@@ -672,6 +672,16 @@ export function Desk() {
                         </div>
                         <div className="bg-bg px-3 py-2.5">
                           <Lbl>Clearing price</Lbl>
+                          {/* Who says so. The contract checks the enclave's
+                              signature before it settles; the direct rail's
+                              facade signs nothing at all, so a receipt from it
+                              is the operator's word and should read that way
+                              rather than looking identical to a proven one. */}
+                          <div className="mt-1 text-[10px] text-fg-mute leading-relaxed">
+                            {demo || offline
+                              ? "Demo book — nothing here was signed."
+                              : "Relayed without a signature on this rail: the enclave's signature is checked on-chain by relayClearing, not here."}
+                          </div>
                           <div className="mt-1 text-[15px]" style={{ fontFamily: "var(--f-macro)" }}>
                             {r.clearingPrice?.toLocaleString()}
                           </div>
@@ -932,6 +942,13 @@ function BidForm(props: {
             chainId === coston2.id
               ? "Your wallet is on Coston2, which the signature is bound to"
               : `Your wallet is on chain ${chainId}, not Coston2 (${coston2.id}) — the enclave would reject this bid`],
+          // The one line that must never be quietly true. Encrypting to a key
+          // the relay handed over means the relay can read the bid, and that is
+          // the whole thing this desk claims not to do.
+          [!env.allowUnverifiedTeeKey,
+            env.allowUnverifiedTeeKey
+              ? "UNVERIFIED KEY: this build encrypts to whatever the relay serves, so the relay can read your bid"
+              : "Encrypted to the enclave key registered on-chain, which the relay cannot substitute"],
           [true, "keccak256(amount ‖ nonce ‖ your address) computed here, not sent"],
           [true, "The amount is ECIES-encrypted to the enclave key; the operator relays ciphertext"],
         ].map(([ok, text]) => (
@@ -1135,6 +1152,16 @@ function PostForm(props: {
           }
           if (bilateral && !/^0x[0-9a-fA-F]{40}$/.test(invited.trim())) {
             return props.onDone("A bilateral block needs the counterparty's address.", 0);
+          }
+          // An empty reserve is a floor of zero, and clearing floors AT the
+          // reserve — so a lone bid takes the lot for nothing. The field was
+          // optional and said nothing about that.
+          if (!/^\d+$/.test(reserve.trim()) || BigInt(reserve.trim()) === 0n) {
+            return props.onDone(
+              "Set a reserve above zero. It is your floor, and a single bid clears at exactly it — " +
+                "a zero reserve gives the lot away.",
+              0,
+            );
           }
           if (rail === "chain") return props.onChain(Number(lot), deadlineBlock, bilateral ? invited.trim() : "");
           setBusy(true);

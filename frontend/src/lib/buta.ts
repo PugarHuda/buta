@@ -13,6 +13,7 @@ import { encrypt as eciesEncrypt } from "ecies-geth";
 import { postDirect, pollResult, decodeResultData } from "./teeClient";
 import { readBook, readMyBids } from "./book";
 import { teeKeyFromChain } from "./teeStatus";
+import { env } from "../config/env";
 
 const OP_TYPE = "BUTA";
 
@@ -119,14 +120,31 @@ export function bidSigPayload(rfqId: number, commitment: Hex, chainId = 114): He
  * form, which is what this returns.
  */
 async function teePublicKey(): Promise<Buffer> {
-  const key = await teeKeyFromChain();
-  if (!key) {
+  // The escape hatch first, and only when it is deliberately switched on.
+  //
+  // cmd/dev generates its own key and registers nothing, so it is NOT the
+  // machine the chain knows about — encrypting to the registered key against a
+  // local enclave produces "ecies: invalid message" and nothing else. That is a
+  // real local-development need, and it is also exactly the state an operator
+  // would like you to be in, which is why it is off by default and why the desk
+  // says out loud when it is on.
+  if (env.allowUnverifiedTeeKey) {
+    const info = await (await fetch(`${env.teeProxyUrl}/info`)).json();
+    const pk = info?.machineData?.publicKey ?? info?.teeInfo?.publicKey;
+    if (!pk?.x || !pk?.y) throw new Error("the relay returned no public key");
+    const b = (h: string) => Buffer.from(h.slice(2).padStart(64, "0"), "hex");
+    return Buffer.concat([Buffer.from([0x04]), b(pk.x), b(pk.y)]);
+  }
+
+  const onChain = await teeKeyFromChain();
+  if (!onChain) {
     throw new Error(
-      "Cannot read the enclave's public key from the chain, so there is nothing safe to encrypt this bid to. " +
-        "Refusing rather than trusting a key the operator supplied.",
+      "No enclave key on-chain to encrypt this bid to, and an unverified one is the whole attack: " +
+        "an operator serving its own key reads every bid and every reserve. " +
+        "Set VITE_ALLOW_UNVERIFIED_TEE_KEY=1 only when you are running the enclave yourself.",
     );
   }
-  return Buffer.from(key);
+  return Buffer.from(onChain);
 }
 
 export async function sealBid(p: {

@@ -14,4 +14,10 @@ export const env = {
   /** Settlement/delivery token overrides (Coston2 FXRP / USDT0). */
   fxrp: import.meta.env.VITE_FXRP as string || "",
   usdt0: import.meta.env.VITE_USDT0 as string || "",
+  /** Encrypt bids to the key the RELAY serves instead of the one the chain
+   *  holds. Only for running your own enclave: cmd/dev registers nothing, so
+   *  the registered key is a different enclave's and nothing it seals can be
+   *  opened. Off by default because an operator serving its own key is the
+   *  attack this exists to prevent. */
+  allowUnverifiedTeeKey: import.meta.env.VITE_ALLOW_UNVERIFIED_TEE_KEY === "1",
 } as const;
