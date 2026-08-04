@@ -1,6 +1,8 @@
 package extension
 
 import (
+	"time"
+
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -69,7 +71,20 @@ func New(extensionPort, signPort int) *Extension {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /action", e.actionHandler)
 
-	e.Server = &http.Server{Addr: fmt.Sprintf(":%d", extensionPort), Handler: mux}
+	// Timeouts, because a server without them leaks a goroutine per stalled
+	// connection and never gets it back. A client that opens a socket and sends
+	// one byte a minute holds a slot forever; enough of them and the enclave
+	// stops answering without anything having crashed. Go's defaults are all
+	// zero, which means "wait indefinitely".
+	e.Server = &http.Server{
+		Addr:              fmt.Sprintf(":%d", extensionPort),
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second, // clearing does chain reads
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 16,
+	}
 
 	e.decryptor = newTeeNodeDecryptor(signPort)
 
