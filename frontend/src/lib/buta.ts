@@ -8,11 +8,11 @@
  * bid bounce, loudly.
  */
 
-import { encodePacked, hexToBytes, keccak256, type Address, type Hex } from "viem";
+import { encodePacked, keccak256, type Address, type Hex } from "viem";
 import { encrypt as eciesEncrypt } from "ecies-geth";
 import { postDirect, pollResult, decodeResultData } from "./teeClient";
 import { readBook, readMyBids } from "./book";
-import { env } from "../config/env";
+import { teeKeyFromChain } from "./teeStatus";
 
 const OP_TYPE = "BUTA";
 
@@ -112,17 +112,21 @@ export function bidSigPayload(rfqId: number, commitment: Hex, chainId = 114): He
   );
 }
 
-interface TeeInfo {
-  machineData: { publicKey: { x: Hex; y: Hex } };
-}
-
-/** 65-byte uncompressed secp256k1 key (0x04 ‖ x ‖ y) — ecies-geth wants this. */
+/**
+ * The key a bid is encrypted to, read from the diamond rather than asked of the
+ * operator — see teeStatus.ts. Asking the operator for the key that hides bids
+ * FROM the operator was the hole; ecies-geth wants the 65-byte uncompressed
+ * form, which is what this returns.
+ */
 async function teePublicKey(): Promise<Buffer> {
-  const info: TeeInfo = await (await fetch(`${env.teeProxyUrl}/info`)).json();
-  const x = hexToBytes(info.machineData.publicKey.x);
-  const y = hexToBytes(info.machineData.publicKey.y);
-  if (x.length !== 32 || y.length !== 32) throw new Error("bad TEE key length");
-  return Buffer.concat([Buffer.from([0x04]), Buffer.from(x), Buffer.from(y)]);
+  const key = await teeKeyFromChain();
+  if (!key) {
+    throw new Error(
+      "Cannot read the enclave's public key from the chain, so there is nothing safe to encrypt this bid to. " +
+        "Refusing rather than trusting a key the operator supplied.",
+    );
+  }
+  return Buffer.from(key);
 }
 
 export async function sealBid(p: {

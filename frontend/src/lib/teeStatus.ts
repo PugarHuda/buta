@@ -10,7 +10,7 @@
  * Reading it here costs one eth_call against a public RPC, needs no wallet, and
  * separates "I cannot reach the backend" from "there is no backend".
  */
-import { createPublicClient, http, parseAbi } from "viem";
+import { createPublicClient, hexToBytes, http, parseAbi } from "viem";
 import { coston2 } from "../config/chain";
 
 const DIAMOND = "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE";
@@ -18,7 +18,48 @@ const EXTENSION_ID = 65642n;
 
 const ABI = parseAbi([
   "function getRandomTeeIds(uint256,uint256) view returns (address[])",
+  "function getPublicKey(address) view returns ((bytes32 x, bytes32 y))",
 ]);
+
+/**
+ * The enclave's public key, read from the diamond.
+ *
+ * This used to come from the operator's own `GET /info`, which is the one place
+ * it must not come from. A bid opening is ECIES-encrypted to that key; an
+ * operator who answers with a key of their own reads every bid amount and every
+ * reserve, and the whole confidentiality claim is gone. Nothing about the
+ * ciphertext would look wrong, and the commitment still binds — so the desk
+ * would keep working perfectly while the operator read the book.
+ *
+ * The diamond has the key the machine registered with, and the operator cannot
+ * edit it. That is where it comes from now.
+ *
+ * If the chain cannot be read, this returns null and the caller refuses to
+ * seal: a bid encrypted to a key nobody could verify is worse than no bid.
+ */
+export async function teeKeyFromChain(): Promise<Uint8Array | null> {
+  try {
+    const pc = createPublicClient({ chain: coston2, transport: http() });
+    const ids = await pc.readContract({
+      address: DIAMOND, abi: ABI, functionName: "getRandomTeeIds", args: [EXTENSION_ID, 1n],
+    });
+    if (!ids.length) return null;
+    const { x, y } = await pc.readContract({
+      address: DIAMOND, abi: ABI, functionName: "getPublicKey", args: [ids[0]],
+    });
+    const bx = hexToBytes(x);
+    const by = hexToBytes(y);
+    if (bx.length !== 32 || by.length !== 32) return null;
+    // 65-byte uncompressed secp256k1 point: 0x04 ‖ x ‖ y.
+    const out = new Uint8Array(65);
+    out[0] = 0x04;
+    out.set(bx, 1);
+    out.set(by, 33);
+    return out;
+  } catch {
+    return null;
+  }
+}
 
 export type TeeStatus =
   | { state: "production"; machine: `0x${string}` }
