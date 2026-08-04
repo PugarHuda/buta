@@ -90,7 +90,11 @@ export function Desk() {
   const { address } = useAccount();
   const [rfqs, setRfqs] = useState<RfqState[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
-  const [tab, setTab] = useState<"bid" | "post" | "folio">("bid");
+  // "auto" means the panel follows the book: whatever the selected auction can
+  // have done to it is what is on screen. The other two are the moves that are
+  // not about one auction. This was a three-tab strip, which asked the reader to
+  // pick a tab before the desk would tell them anything.
+  const [panel, setPanel] = useState<"auto" | "post" | "folio">("auto");
   const [log, setLog] = useState<string>("");
   const [offline, setOffline] = useState(false);
   const [demo, setDemo] = useState(false);
@@ -133,6 +137,18 @@ export function Desk() {
   }, [refresh, canReachExtension]);
 
   const sel = useMemo(() => rfqs.find((r) => r.rfqId === selected) ?? null, [rfqs, selected]);
+
+  // Only a SEALED auction can be bid on. The book is newest-first and the newest
+  // is usually already cleared, so landing on nothing selected — or worse, on a
+  // closed auction — was the first thing anyone saw. Open on the first one that
+  // can actually be acted on.
+  const firstOpen = useMemo(() => rfqs.find((r) => !r.cleared) ?? null, [rfqs]);
+  useEffect(() => {
+    if (selected === null && firstOpen) setSelected(firstOpen.rfqId);
+  }, [selected, firstOpen]);
+
+  const openCount = rfqs.filter((r) => !r.cleared).length;
+  const sealedBids = rfqs.reduce((n, r) => n + (r.cleared ? 0 : r.bidCount), 0);
 
   return (
     <div className="min-h-screen bg-bg text-fg font-mono text-[12px]">
@@ -182,6 +198,34 @@ export function Desk() {
         price. <b className="text-fg">Nobody can read a bid before it clears — not the maker,
         not the operator, not us.</b> Losing amounts are never revealed at all.
       </p>
+
+      {/* The state of the desk in one line, and the one action that needs no
+          selection. Both used to be buried: the counts existed only as a row in
+          the book header, and Post a block sat in a tab strip next to two things
+          that do need a selection, which is what made the strip confusing. */}
+      <div className="flex flex-wrap items-stretch border-t border-line">
+        {[
+          ["Open", openCount, "auctions still taking bids"],
+          ["Sealed bids", sealedBids, "committed on-chain, unreadable"],
+          ["Cleared", rfqs.length - openCount, "settled at the second price"],
+        ].map(([label, value, hint]) => (
+          <div key={String(label)} className="px-4 py-2.5 border-r border-line min-w-[9rem]">
+            <Lbl>{label}</Lbl>
+            <div className="text-[17px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
+              {String(value)}
+            </div>
+            <div className="text-[10px] text-fg-mute">{hint}</div>
+          </div>
+        ))}
+        <div className="flex-1 min-w-[12rem] flex items-center justify-end gap-2 px-4 py-2.5">
+          <Btn quiet onClick={() => setPanel(panel === "folio" ? "auto" : "folio")}>
+            {panel === "folio" ? "Back to the book" : "Portfolio"}
+          </Btn>
+          <Btn onClick={() => setPanel(panel === "post" ? "auto" : "post")}>
+            {panel === "post" ? "Cancel" : "Post a block"}
+          </Btn>
+        </div>
+      </div>
       <div className="h-px bg-line" />
 
       <main className="grid md:grid-cols-[1.5fr_1fr] gap-px bg-line">
@@ -204,7 +248,9 @@ export function Desk() {
           {rfqs.map((r) => (
             <button
               key={r.rfqId}
-              onClick={() => setSelected(r.rfqId)}
+              // Back to the book too: picking a row while the Portfolio or the
+              // post form is open otherwise looks like the click did nothing.
+              onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
               className={
                 "w-full text-left grid grid-cols-[3rem_1fr_6rem_4rem_7rem_6rem] gap-2 px-4 py-2 border-b border-line-2/40 hover:bg-bg-1 " +
                 (selected === r.rfqId ? "bg-bg-2" : "")
@@ -252,35 +298,78 @@ export function Desk() {
           )}
         </section>
 
-        {/* ── actions ── */}
+        {/* ── the panel: whatever the selected auction can have done to it ── */}
         <section className="bg-bg">
-          <div className="flex border-b border-line">
-            {(["bid", "post", "folio"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={
-                  "px-4 py-2.5 text-[10px] tracking-[0.12em] uppercase border-r border-line " +
-                  (tab === t ? "bg-fg text-bg" : "text-fg-mute hover:text-fg")
-                }
-              >
-                {t === "bid" ? "Seal a bid" : t === "post" ? "Post a block" : "Portfolio"}
-              </button>
-            ))}
+          <div className="px-4 py-2.5 border-b border-line flex items-baseline gap-3">
+            <Lbl>
+              {panel === "post" ? "Post a block" : panel === "folio" ? "Portfolio" : "Seal a bid"}
+            </Lbl>
+            {panel === "auto" && sel && (
+              <span className="text-[10px] text-fg-mute">
+                RFQ {String(sel.rfqId).padStart(3, "0")} <Red>///</Red>{" "}
+                {sel.cleared ? "cleared" : `${sel.bidCount} sealed so far`}
+              </span>
+            )}
           </div>
 
           <div className="p-4">
-            {tab === "bid" ? (
-              <BidForm sel={sel} address={address} onDone={(m) => { setLog(m); refresh(); }} />
-            ) : tab === "post" ? (
-              <PostForm address={address} onDone={(m, id) => { setLog(m); setSelected(id); refresh(); }} />
-            ) : (
+            {panel === "post" ? (
+              <PostForm
+                address={address}
+                // Only leave the form when the block was actually posted. It
+                // reports failures through the same callback with id 0, and
+                // closing the form on those threw away what was typed along
+                // with the message explaining why it did not go through.
+                onDone={(m, id) => {
+                  setLog(m);
+                  if (id) {
+                    setSelected(id);
+                    setPanel("auto");
+                  }
+                  refresh();
+                }}
+              />
+            ) : panel === "folio" ? (
               <Folio address={address} onLog={setLog} />
+            ) : !sel ? (
+              // The empty state says what to do rather than what is missing. It
+              // is only reachable when nothing on the desk is open, because the
+              // desk selects the first open auction by itself.
+              <div className="flex flex-col gap-3">
+                <p className="text-fg-mute max-w-[38ch] leading-relaxed">
+                  Every auction on the desk has cleared. Post a block to start one — you set the
+                  lot and a reserve nobody but the enclave can read.
+                </p>
+                <div><Btn onClick={() => setPanel("post")}>Post a block</Btn></div>
+              </div>
+            ) : sel.cleared ? (
+              // A closed auction used to give "This auction has cleared" and
+              // nothing else — a dead end reached by clicking the top row.
+              <div className="flex flex-col gap-3">
+                <p className="text-fg-mute max-w-[38ch] leading-relaxed">
+                  RFQ {String(sel.rfqId).padStart(3, "0")} has cleared, so its book is closed. The
+                  receipt is on the left; the losing amounts were never revealed to anyone.
+                </p>
+                {firstOpen ? (
+                  <div>
+                    <Btn onClick={() => setSelected(firstOpen.rfqId)}>
+                      Bid on RFQ {String(firstOpen.rfqId).padStart(3, "0")} instead
+                    </Btn>
+                  </div>
+                ) : (
+                  <div><Btn onClick={() => setPanel("post")}>Post a block</Btn></div>
+                )}
+              </div>
+            ) : (
+              <BidForm sel={sel} address={address} onDone={(m) => { setLog(m); refresh(); }} />
             )}
 
-            {sel && !sel.cleared && (
+            {/* Clearing is the third move and it was buried under the bid form,
+                below the fold, on every auction whether or not it was near its
+                deadline. It belongs with the auction it acts on. */}
+            {panel === "auto" && sel && !sel.cleared && (
               <div className="mt-6 pt-4 border-t border-line">
-                <Lbl>Deadline reached?</Lbl>
+                <Lbl>Past the deadline?</Lbl>
                 <div className="mt-2 flex items-center gap-3">
                   <Btn
                     quiet
@@ -324,8 +413,10 @@ export function Desk() {
 
 // ── forms ────────────────────────────────────────────────────────────────────
 
+/** Only ever rendered for an auction that is open — the desk decides that, and
+ *  shows something useful for the other two cases instead of a dead end here. */
 function BidForm(props: {
-  sel: RfqState | null;
+  sel: RfqState;
   address?: Address;
   onDone: (msg: string) => void;
 }) {
@@ -333,13 +424,6 @@ function BidForm(props: {
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<{ commitment: string; nonce: string; amount: string } | null>(null);
   const { signMessageAsync } = useSignMessage();
-
-  if (!props.sel) {
-    return <p className="text-fg-mute">Select an auction on the left to bid on it.</p>;
-  }
-  if (props.sel.cleared) {
-    return <p className="text-fg-mute">This auction has cleared. The book is closed.</p>;
-  }
 
   const bidder = props.address;
 
