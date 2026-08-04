@@ -101,25 +101,21 @@ REGISTER_COMMAND="${REGISTER_COMMAND:-rRap}" \
         exit 1
     }
 
-TEE_ID="0x473e5B49Aa088Da394c8f873550180047C3377Ee"
-DIAMOND="0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE"
-RPC="https://coston2-api.flare.network/ext/C/rpc"
-
 echo
-log "registered. The three reads that say whether it took:"
-cat <<EOF
+log "registered. Checking it took:"
 
-  # is the URL on-chain the one you are actually serving?
-  cast call ${DIAMOND} \\
-    "getTeeMachine(address)((address,address,string))" ${TEE_ID} --rpc-url ${RPC}
+# This used to print three cast commands against a hardcoded teeId, which was
+# wrong the moment the container restarted — tee-node mints a new key at every
+# start, so the id in a script is an id for a machine that may not exist. Run
+# the check instead of printing it, and let it derive the id from the key the
+# proxy is actually serving.
+node "$SCRIPT_DIR/health.mjs" || {
+    echo
+    echo "Registration went through but the machine is not healthy — read the lines above."
+    exit 1
+}
 
-  # 1 = INITIALIZED, 2 = PRODUCTION
-  cast call ${DIAMOND} \\
-    "getTeeMachineStatus(address)(uint8)" ${TEE_ID} --rpc-url ${RPC}
-
-  # the one that matters — an address instead of a TooMany() revert
-  cast call ${DIAMOND} \\
-    "getRandomTeeIds(uint256,uint256)(address[])" 65642 1 --rpc-url ${RPC}
+cat <<'EOF'
 
 Leave ngrok running. If it stops, the hostname on-chain stops answering and the
 machine goes unreachable again — which is why this is a static domain and not a

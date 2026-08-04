@@ -7,7 +7,8 @@
     "status": "node scripts/onchain-status.mjs",
     "machine-url": "node scripts/update-machine-url.mjs",
     "health": "node scripts/health.mjs",
-    "health:watch": "node scripts/health.mjs --watch"
+    "health:watch": "node scripts/health.mjs --watch",
+    "verify:submission": "node scripts/verify-submission.mjs"
   },
   "dependencies": {
     "viem": "^2.21.0"
