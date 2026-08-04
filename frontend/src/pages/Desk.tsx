@@ -23,6 +23,7 @@ import {
   listRfqs,
   postRfq,
   sealBid,
+  getMyBids,
   type ClearingOutcome,
   type RfqState,
 } from "../lib/buta";
@@ -109,9 +110,21 @@ export function Desk() {
   // have done to it is what is on screen. The other two are the moves that are
   // not about one auction. This was a three-tab strip, which asked the reader to
   // pick a tab before the desk would tell them anything.
-  const [panel, setPanel] = useState<"auto" | "post" | "folio" | "audit">("auto");
+  const [panel, setPanel] = useState<"auto" | "post" | "folio" | "activity" | "audit">("auto");
   const [filter, setFilter] = useState<"all" | "open" | "mine">("all");
-  const [log, setLog] = useState<string>("");
+  // Everything the desk has told you this session, newest first.
+  //
+  // This was one line at the foot of the page that each action overwrote. Post
+  // a block, seal a bid, clear an auction and the only evidence any of it
+  // happened was whatever the last one said — including the receipts, which are
+  // the part worth keeping.
+  const [activity, setActivity] = useState<{ at: string; text: string }[]>([]);
+  const say = useCallback((text: string) => {
+    if (!text) return;
+    const at = new Date().toTimeString().slice(0, 8);
+    setActivity((a) => [{ at, text }, ...a].slice(0, 50));
+  }, []);
+  const latest = activity[0]?.text ?? "";
   const [offline, setOffline] = useState(false);
   const [demo, setDemo] = useState(false);
   // Read from the diamond, not from whether we can reach a proxy: those are two
@@ -181,12 +194,26 @@ export function Desk() {
     if (selected === null && firstOpen) setSelected(firstOpen.rfqId);
   }, [selected, firstOpen]);
 
+  // Which auctions you already have a sealed bid on. The enclave refuses a
+  // second bid from the same address, so without this the only way to find out
+  // was to type an amount, press Seal, and be told no.
+  const [myRfqs, setMyRfqs] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (!address || !canReachExtension) return setMyRfqs(new Set());
+    let live = true;
+    getMyBids(address)
+      .then((bids) => { if (live) setMyRfqs(new Set(bids.map((b) => b.rfqId))); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [address, canReachExtension, rfqs.length]);
+
   const openCount = rfqs.filter((r) => !r.cleared).length;
   const sealedBids = rfqs.reduce((n, r) => n + (r.cleared ? 0 : r.bidCount), 0);
 
   const NAV = [
     ["auto", "Book"],
     ["folio", "Portfolio"],
+    ["activity", "Activity"],
     ["audit", "Audit"],
   ] as const;
 
@@ -360,7 +387,7 @@ export function Desk() {
               // closing the form on those threw away what was typed along with
               // the message explaining why it did not go through.
               onDone={(m, id) => {
-                setLog(m);
+                say(m);
                 if (id) {
                   setSelected(id);
                   setPanel("auto");
@@ -372,7 +399,29 @@ export function Desk() {
         ) : panel === "folio" ? (
           <div>
             <Head eyebrow={<>Buta <Red>·</Red> your positions</>}>Portfolio</Head>
-            <div className="px-4 pb-4"><Folio address={address} onLog={setLog} /></div>
+            <div className="px-4 pb-4"><Folio address={address} onLog={say} /></div>
+          </div>
+        ) : panel === "activity" ? (
+          <div>
+            <Head eyebrow={<>Buta <Red>·</Red> this session</>}>Activity</Head>
+            <div className="px-4 pb-4">
+              {activity.length === 0 ? (
+                <p className="text-fg-mute max-w-[46ch] leading-relaxed">
+                  Nothing yet. Post a block or seal a bid, and every receipt the desk hands back
+                  is kept here — including the clearing outcomes, which used to be overwritten by
+                  whatever happened next.
+                </p>
+              ) : (
+                <div className="border border-line divide-y divide-line max-w-[64rem]">
+                  {activity.map((a, i) => (
+                    <div key={`${a.at}-${i}`} className="flex gap-3 px-3 py-2">
+                      <span className="text-fg-mute shrink-0">{a.at}</span>
+                      <span className="text-fg-dim break-all leading-relaxed">{a.text}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         ) : panel === "audit" ? (
           <Audit tee={tee} />
@@ -441,6 +490,14 @@ export function Desk() {
                       {!!address && r.maker.toLowerCase() === address.toLowerCase() && (
                         <span className="ml-2 px-1 border border-accent text-accent text-[9px] tracking-[0.1em] align-middle">
                           YOURS
+                        </span>
+                      )}
+                      {myRfqs.has(r.rfqId) && (
+                        <span
+                          className="ml-2 px-1 border border-line text-fg-dim text-[9px] tracking-[0.1em] align-middle"
+                          title="You have a sealed bid on this auction. The enclave accepts one per address."
+                        >
+                          BID SEALED
                         </span>
                       )}
                     </span>
@@ -536,7 +593,7 @@ export function Desk() {
                       </div>
                     ) : (
                       <div className="grid lg:grid-cols-[1fr_20rem] gap-6">
-                        <BidForm sel={r} address={address} onDone={(m) => { setLog(m); refresh(); }} />
+                        <BidForm sel={r} address={address} onDone={(m) => { say(m); refresh(); }} />
                         <div className="lg:border-l lg:border-line lg:pl-6">
                           {/* This used to ask "Past the deadline?" — a question
                               the desk can answer from one eth_blockNumber, and
@@ -556,12 +613,12 @@ export function Desk() {
                               onClick={async () => {
                                 try {
                                   const out: ClearingOutcome = await clearAuction(r.rfqId);
-                                  setLog(
+                                  say(
                                     `Cleared RFQ ${out.rfqId}: winner ${out.winner} at ${out.clearingPrice.toLocaleString()} (second price, ${out.bidCount} bids). Set digest ${out.setDigest.slice(0, 10)}…`
                                   );
                                   refresh();
                                 } catch (e) {
-                                  setLog(String((e as Error).message));
+                                  say(String((e as Error).message));
                                 }
                               }}
                             >
@@ -581,9 +638,19 @@ export function Desk() {
           </>
         )}
 
-        {log && (
+        {/* The most recent line stays in view wherever you are — feedback has to
+            be where the action was. The rest is kept under Activity. */}
+        {latest && panel !== "activity" && (
           <p className="mx-4 mt-6 pt-4 border-t border-line text-[11px] leading-relaxed text-fg-dim break-all">
-            <Red>&gt;&gt;&gt;</Red> {log}
+            <Red>&gt;&gt;&gt;</Red> {latest}
+            {activity.length > 1 && (
+              <button
+                onClick={() => setPanel("activity")}
+                className="ml-3 text-[10px] tracking-[0.1em] uppercase text-fg-mute hover:text-accent"
+              >
+                {activity.length - 1} more <Red>▸</Red>
+              </button>
+            )}
           </p>
         )}
       </main>
