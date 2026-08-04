@@ -24,7 +24,7 @@ short and human.
 > revert, not a promise.
 >
 > Live on Coston2 (simulated-TEE path), contract verified on the explorer:
-> — desk: https://buta-desk.vercel.app
+> — desk: https://buta-desk.vercel.app/dashboard
 > — code: https://github.com/PugarHuda/buta
 > — contract: 0x20d9CcAA7140bf38AD91D2F102bA996417798e8f
 >

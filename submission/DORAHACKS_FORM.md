@@ -27,7 +27,7 @@ Flare assets — anyone for whom leaking order size before settlement is
 unacceptable.
 
 **Demo link / video / working app**
-- Landing: https://buta-desk.vercel.app
+- Live: https://buta-desk.vercel.app — landing at /, working desk at /dashboard
 - Demo video: _[paste your recorded link — script in DEMO_SCRIPT.md]_
 - Run locally: `BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev` then `npm run dev`
   in `frontend/`. A TEE machine is registered and PRODUCTION for extension 65642, so instructions reach the diamond; the enclave itself runs the simulated-TEE path Flare accepts for this hackathon.

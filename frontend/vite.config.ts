@@ -5,6 +5,11 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   const upstream = env.VITE_PROXY_UPSTREAM || "http://localhost:6674";
   return {
+    // The desk lives at /dashboard and the landing page at /, in ONE
+    // deployment. They were two Vercel projects on two domains, which meant the
+    // landing had to send people off-site to reach the product and neither page
+    // could link to the other with a relative href.
+    base: "/dashboard/",
     plugins: [react()],
     define: { global: "globalThis" },
     resolve: { alias: { buffer: "buffer/" } },

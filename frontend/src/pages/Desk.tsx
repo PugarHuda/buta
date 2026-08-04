@@ -150,33 +150,99 @@ export function Desk() {
   const openCount = rfqs.filter((r) => !r.cleared).length;
   const sealedBids = rfqs.reduce((n, r) => n + (r.cleared ? 0 : r.bidCount), 0);
 
+  const NAV = [
+    ["auto", "Book"],
+    ["post", "Post a block"],
+    ["folio", "Portfolio"],
+  ] as const;
+
   return (
-    <div className="min-h-screen bg-bg text-fg font-mono text-[12px]">
-      {/* masthead */}
-      <header className="sticky top-0 z-40 bg-bg">
-        <div className="flex items-center gap-4 px-4 py-2">
-          <span className="font-macro text-[15px] tracking-tight uppercase" style={{ fontFamily: "var(--f-macro)" }}>
+    <div className="min-h-screen bg-bg text-fg font-mono text-[12px] md:flex">
+      {/* ── sidebar ──
+          Identity, the three places you can be, and the state of the desk —
+          all of it permanent, so the reader is never asked to remember which
+          tab they were on or click something to find out where they are. On a
+          phone it lays out along the top instead. */}
+      <aside className="md:w-[13.5rem] md:shrink-0 md:sticky md:top-0 md:h-screen md:border-r-2 md:border-fg bg-bg flex flex-col">
+        <div className="px-4 py-3 border-b border-line">
+          <div className="font-macro text-[17px] tracking-tight uppercase leading-none" style={{ fontFamily: "var(--f-macro)" }}>
             BUTA<Red>®</Red>
-          </span>
-          <span className="hidden md:block text-[10px] tracking-[0.12em] uppercase text-fg-mute">
+          </div>
+          <div className="mt-1 text-[10px] tracking-[0.12em] uppercase text-fg-mute">
             [ SEALED-BID OTC DESK ]
-          </span>
-          <span className="flex-1" />
-          <a
-            href={`https://coston2-explorer.flare.network/address/${TOKENS.FXRP.address}`}
-            target="_blank" rel="noopener"
-            className="hidden lg:block text-[10px] tracking-[0.1em] uppercase text-fg-mute hover:text-accent"
-            title="FXRP on Coston2"
-          >
-            SETTLES IN FXRP <Red>///</Red> {TOKENS.FXRP.address.slice(0, 6)}…
-          </a>
-          <span className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">
+          </div>
+        </div>
+
+        <nav className="flex md:flex-col border-b border-line">
+          {NAV.map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setPanel(id)}
+              className={
+                "flex-1 md:flex-none text-left px-4 py-2.5 text-[10px] tracking-[0.12em] uppercase border-r md:border-r-0 md:border-b border-line " +
+                (panel === id ? "bg-fg text-bg" : "text-fg-mute hover:text-fg hover:bg-bg-1")
+              }
+            >
+              {panel === id ? <>{label} <Red>◂</Red></> : label}
+            </button>
+          ))}
+        </nav>
+
+        {/* The state of the desk. It used to exist only as "6 on the desk" in
+            the book header, which said nothing about how many could be bid on. */}
+        <div className="hidden md:block px-4 py-3 border-b border-line">
+          <Lbl>On the desk</Lbl>
+          <dl className="mt-2 flex flex-col gap-2">
+            {[
+              ["Open", openCount, "still taking bids"],
+              ["Sealed bids", sealedBids, "committed, unreadable"],
+              ["Cleared", rfqs.length - openCount, "settled, second price"],
+            ].map(([label, value, hint]) => (
+              <div key={String(label)}>
+                <dt className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">{label}</dt>
+                <dd className="text-[17px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
+                  {String(value)}
+                  <span className="ml-2 text-[10px] font-mono text-fg-mute">{hint}</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <div className="hidden md:block flex-1" />
+
+        <div className="hidden md:flex flex-col gap-1 px-4 py-3 border-t border-line text-[10px] tracking-[0.1em] uppercase text-fg-mute">
+          <span>
             {tee.state === "production" ? (
               <>COSTON2 <Red>///</Red> TEE <Red>PRODUCTION</Red></>
             ) : offline ? (
               <Red>EXTENSION OFFLINE</Red>
             ) : (
               <>COSTON2 <Red>///</Red> SIMULATED TEE</>
+            )}
+          </span>
+          <a
+            href={`https://coston2-explorer.flare.network/address/${TOKENS.FXRP.address}`}
+            target="_blank" rel="noopener"
+            className="hover:text-accent"
+            title="FXRP on Coston2"
+          >
+            SETTLES IN FXRP <Red>///</Red> {TOKENS.FXRP.address.slice(0, 6)}…
+          </a>
+        </div>
+      </aside>
+
+      {/* ── everything else ── */}
+      <div className="flex-1 min-w-0">
+      <header className="sticky top-0 z-40 bg-bg">
+        <div className="flex items-center gap-4 px-4 py-2 justify-end">
+          <span className="md:hidden text-[10px] tracking-[0.1em] uppercase text-fg-mute">
+            {tee.state === "production" ? (
+              <>TEE <Red>PRODUCTION</Red></>
+            ) : offline ? (
+              <Red>EXTENSION OFFLINE</Red>
+            ) : (
+              <>SIMULATED TEE</>
             )}
           </span>
           <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
@@ -199,32 +265,20 @@ export function Desk() {
         not the operator, not us.</b> Losing amounts are never revealed at all.
       </p>
 
-      {/* The state of the desk in one line, and the one action that needs no
-          selection. Both used to be buried: the counts existed only as a row in
-          the book header, and Post a block sat in a tab strip next to two things
-          that do need a selection, which is what made the strip confusing. */}
-      <div className="flex flex-wrap items-stretch border-t border-line">
+      {/* On a phone the sidebar's counts are hidden, so they belong here. */}
+      <div className="md:hidden flex flex-wrap items-stretch border-t border-line">
         {[
-          ["Open", openCount, "auctions still taking bids"],
-          ["Sealed bids", sealedBids, "committed on-chain, unreadable"],
-          ["Cleared", rfqs.length - openCount, "settled at the second price"],
-        ].map(([label, value, hint]) => (
-          <div key={String(label)} className="px-4 py-2.5 border-r border-line min-w-[9rem]">
+          ["Open", openCount],
+          ["Sealed bids", sealedBids],
+          ["Cleared", rfqs.length - openCount],
+        ].map(([label, value]) => (
+          <div key={String(label)} className="px-4 py-2 border-r border-line min-w-[7rem]">
             <Lbl>{label}</Lbl>
-            <div className="text-[17px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
+            <div className="text-[15px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
               {String(value)}
             </div>
-            <div className="text-[10px] text-fg-mute">{hint}</div>
           </div>
         ))}
-        <div className="flex-1 min-w-[12rem] flex items-center justify-end gap-2 px-4 py-2.5">
-          <Btn quiet onClick={() => setPanel(panel === "folio" ? "auto" : "folio")}>
-            {panel === "folio" ? "Back to the book" : "Portfolio"}
-          </Btn>
-          <Btn onClick={() => setPanel(panel === "post" ? "auto" : "post")}>
-            {panel === "post" ? "Cancel" : "Post a block"}
-          </Btn>
-        </div>
       </div>
       <div className="h-px bg-line" />
 
@@ -407,6 +461,7 @@ export function Desk() {
         <span>BUTA<Red>®</Red> — sealed-bid OTC on Flare Confidential Compute</span>
         <span>Demo runs the simulated-TEE path <Red>///</Red> not audited <Red>///</Red> not deployed</span>
       </footer>
+      </div>
     </div>
   );
 }

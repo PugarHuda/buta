@@ -10,7 +10,7 @@ public.
 
 Built for **Flare Summer Signal 2026**, Bounty 2 (Confidential Compute).
 
-- **Landing:** https://buta-desk.vercel.app
+- **Live:** https://buta-desk.vercel.app — the landing page, and the desk itself at [/dashboard](https://buta-desk.vercel.app/dashboard)
 - **Contract (Coston2, verified):** [`0x20d9CcAA7140bf38AD91D2F102bA996417798e8f`](https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f) — registered in the FCC diamond as extension `65642`. Verify with `node scripts/onchain-status.mjs`.
 - **Full write-up:** [`SUBMISSION.md`](SUBMISSION.md) · **Demo script:** [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) · **Deploy:** [`docs/DEPLOY.md`](docs/DEPLOY.md)
 
@@ -81,7 +81,7 @@ contracts/              ButaInstructionSender.sol — commitment set, set-digest
 script/Deploy.s.sol     one-command Coston2 deploy
 cmd/dev/                one-process dev facade (extension + the two proxy routes the desk uses)
 frontend/               the desk — post / seal / clear / disclose, Swiss-industrial print
-landing/                the landing page (buta-desk.vercel.app)
+frontend/landing/       the landing page, served at / (the desk is at /dashboard)
 ```
 
 ## Prior work — declared
