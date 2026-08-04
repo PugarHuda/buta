@@ -383,6 +383,7 @@ export function Desk() {
             <Head eyebrow={<>Buta <Red>·</Red> open a block</>}>Post a block</Head>
             <div className="px-4 pb-4"><PostForm
               address={address}
+              block={block}
               // Only leave the form when the block was actually posted. It
               // reports failures through the same callback with id 0, and
               // closing the form on those threw away what was typed along with
@@ -855,17 +856,62 @@ function BidForm(props: {
 
 function PostForm(props: {
   address?: Address;
+  block: bigint | null;
   onDone: (msg: string, rfqId: number) => void;
 }) {
   const [pair, setPair] = useState("FXRP/USDT0");
   const [lot, setLot] = useState("250000");
   const [reserve, setReserve] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [minutes, setMinutes] = useState("60");
   const [invited, setInvited] = useState("");
+  const [bilateral, setBilateral] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Minutes in, block out. The field used to ask for a block number, with a
+  // placeholder of 24109880 — a real block, nine million behind the chain by
+  // now, so anyone who followed the example posted an auction whose deadline
+  // had already passed. Nobody knows what block it will be in an hour; the
+  // desk does.
+  const SECONDS_PER_BLOCK = 1.8;
+  const mins = Number(minutes);
+  const deadlineBlock =
+    props.block !== null && Number.isFinite(mins) && mins > 0
+      ? Number(props.block) + Math.round((mins * 60) / SECONDS_PER_BLOCK)
+      : 0;
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Two shapes, one mechanism. An invited auction with a single sealed bid
+          IS a bilateral OTC settle — same commitment, same signature, same set
+          digest — which is why there is no separate opcode for it. The UI never
+          said so: the second product was an optional field at the bottom of the
+          form, below the deadline. */}
+      <div>
+        <Lbl>How it clears</Lbl>
+        <div className="mt-2 grid sm:grid-cols-2 gap-px bg-line border border-line">
+          {[
+            [false, "Open auction", "Anyone may seal a bid. Highest wins and pays the runner-up's price."],
+            [true, "One counterparty", "Only the address you name may bid. A lone sealed bid clears at your reserve — a bilateral settle with the same guarantees."],
+          ].map(([mode, title, why]) => (
+            <button
+              key={String(title)}
+              onClick={() => setBilateral(mode as boolean)}
+              className={
+                "text-left px-3 py-2.5 " +
+                (bilateral === mode ? "bg-fg text-bg" : "bg-bg hover:bg-bg-1")
+              }
+            >
+              <div className="text-[11px] tracking-[0.1em] uppercase">
+                {bilateral === mode ? <>▸ {title}</> : <span className="text-fg-dim">{title}</span>}
+              </div>
+              <div className={"mt-1 text-[10px] leading-relaxed " + (bilateral === mode ? "opacity-80" : "text-fg-mute")}>
+                {why}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <Field label="Pair" value={pair} onChange={setPair} />
       <Field label="Lot (base units)" value={lot} onChange={setLot} />
       <Field
@@ -873,25 +919,37 @@ function PostForm(props: {
         value={reserve}
         onChange={setReserve}
         placeholder="120000"
-        hint="Your floor. Bidders never see it; a lone bidder pays exactly this."
+        hint="Your floor, ECIES-encrypted to the enclave key. Bidders never see it; a lone bidder pays exactly this."
       />
       <Field
-        label="Deadline block"
-        value={deadline}
-        onChange={setDeadline}
-        placeholder="24109880"
-        hint="A block number, not a clock. The enclave's clock is not a trust anchor."
+        label="Open for (minutes)"
+        value={minutes}
+        onChange={setMinutes}
+        placeholder="60"
+        hint={
+          props.block === null
+            ? "Cannot read the chain's head, so this cannot be turned into a deadline block yet."
+            : `Deadline is block ${deadlineBlock.toLocaleString()} — a block number, not a clock, because the enclave's clock is not a trust anchor.`
+        }
       />
-      <Field
-        label="Invite one counterparty (optional)"
-        value={invited}
-        onChange={setInvited}
-        placeholder="0x… — leave empty for an open auction"
-        hint="Direct rail: only this address may bid. Your reserve still stays hidden."
-      />
+      {bilateral && (
+        <Field
+          label="The counterparty"
+          value={invited}
+          onChange={setInvited}
+          placeholder="0x…"
+          hint="Only this address may bid. Your reserve still stays hidden from them."
+        />
+      )}
       <Btn
         busy={busy}
         onClick={async () => {
+          if (!deadlineBlock) {
+            return props.onDone("Set how long the block stays open, in minutes.", 0);
+          }
+          if (bilateral && !/^0x[0-9a-fA-F]{40}$/.test(invited.trim())) {
+            return props.onDone("A bilateral block needs the counterparty's address.", 0);
+          }
           setBusy(true);
           try {
             const r = await postRfq({
@@ -899,8 +957,8 @@ function PostForm(props: {
               pair,
               lot: Number(lot),
               reserve: Number(reserve || "0"),
-              deadline: Number(deadline || "0"),
-              invited: invited.trim(),
+              deadline: deadlineBlock,
+              invited: bilateral ? invited.trim() : "",
             });
             props.onDone(`Posted RFQ ${r.rfqId}. Bids are sealed from this moment.`, r.rfqId);
           } catch (e) {
