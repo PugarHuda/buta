@@ -1,6 +1,12 @@
 out/
 cache/
-lib/
+# /lib/, not lib/. A bare pattern matches a directory named lib at ANY depth,
+# and it was silently swallowing frontend/src/lib/ — seven source files
+# including the ECIES client, the commitment scheme and the disclosure logic.
+# A fresh clone of this repository did not contain the desk's core and could
+# not build. Foundry's dependency directory is the one that belongs here, and
+# it lives at the root.
+/lib/
 node_modules/
 .env
 config/proxy/*.toml
