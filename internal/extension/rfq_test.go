@@ -501,3 +501,49 @@ func TestRfqStateReturnsTheRecordedCommitments(t *testing.T) {
 		t.Fatalf("an amount came back with the commitments: %s", ar.Data)
 	}
 }
+
+// One bid per address, because that is what the contract enforces. Only the
+// commitment was checked, and the nonce is random — so the same bidder could
+// seal any number of bids on the direct rail, and the enclave would build a set
+// the contract will not accept. The digest then never matches and the clearing
+// reverts permanently.
+func TestOneBidPerAddress(t *testing.T) {
+	e := newAuctionExtension()
+	alice, bob := newBidder(t, 1), newBidder(t, 2)
+
+	id := post(t, e, postRfqRequest{
+		Maker: "0xMAKER", Pair: "FXRP/USDT0", Lot: 480_000, Reserve: 4000, Deadline: 24_109_880,
+	})
+	commit(t, e, id, alice, 31, 5194)
+
+	// A different amount and a different nonce, so the commitment differs and
+	// the duplicate-commitment check cannot catch it. This is exactly the shape
+	// that got through.
+	msg := sealedBid(t, id, alice, 32, 6000)
+	body, _ := json.Marshal(msg)
+	ar := e.processCommitBid(teetypes.Action{}, &instruction.DataFixed{}, body)
+	if ar.Status == 1 {
+		t.Fatal("alice sealed a second bid on the same auction")
+	}
+	if !strings.Contains(ar.Log, "already sealed") {
+		t.Errorf("refused for the wrong reason: %s", ar.Log)
+	}
+
+	// Someone else is still welcome, and the first bid is untouched.
+	commit(t, e, id, bob, 33, 5107)
+	r, _ := e.rfqs.get(id)
+	if len(r.Recorded) != 2 {
+		t.Fatalf("%d bids recorded, want 2", len(r.Recorded))
+	}
+
+	// And the receipt is unambiguous, which is what disclosure depends on.
+	mine, _ := json.Marshal(myBidsRequest{Bidder: alice.hex()})
+	out := e.processGetMyBids(teetypes.Action{}, &instruction.DataFixed{}, mine)
+	var bids []myBidEntry
+	if err := json.Unmarshal(out.Data, &bids); err != nil {
+		t.Fatal(err)
+	}
+	if len(bids) != 1 {
+		t.Fatalf("alice has %d bids on record for one auction — a disclosure cannot say which is hers", len(bids))
+	}
+}

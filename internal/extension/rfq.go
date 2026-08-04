@@ -333,6 +333,21 @@ func (e *Extension) processCommitBid(action teetypes.Action, df *instruction.Dat
 			return buildResult(action, df, nil, 0, auction.ErrDuplicateBid)
 		}
 	}
+	// One bid per address, which is what the CONTRACT enforces
+	// (test_CommitBidRejectsSecondBidFromSameAddress). Only the commitment was
+	// checked here, and the nonce is random — so the same bidder could seal any
+	// number of bids on the direct rail, each with a different commitment.
+	//
+	// That is not a tidiness problem. The enclave would build a set the contract
+	// will not accept, so its digest can never match and the clearing reverts
+	// for good: one duplicate bid poisons the auction on the on-chain path. It
+	// also silently broke GET_MY_BIDS and every disclosure built from it, since
+	// a bidder then has several bids on one auction and nothing says which.
+	for _, o := range r.Openings {
+		if o.Bidder == bidder {
+			return buildResult(action, df, nil, 0, errors.New("this address already sealed a bid on this auction"))
+		}
+	}
 
 	r.Recorded = append(r.Recorded, c)
 	r.Openings = append(r.Openings, auction.Bid{
