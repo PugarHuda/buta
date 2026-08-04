@@ -94,7 +94,8 @@ export function Desk() {
   // have done to it is what is on screen. The other two are the moves that are
   // not about one auction. This was a three-tab strip, which asked the reader to
   // pick a tab before the desk would tell them anything.
-  const [panel, setPanel] = useState<"auto" | "post" | "folio">("auto");
+  const [panel, setPanel] = useState<"auto" | "post" | "folio" | "audit">("auto");
+  const [filter, setFilter] = useState<"all" | "open" | "mine">("all");
   const [log, setLog] = useState<string>("");
   const [offline, setOffline] = useState(false);
   const [demo, setDemo] = useState(false);
@@ -136,8 +137,6 @@ export function Desk() {
     return () => clearInterval(t);
   }, [refresh, canReachExtension]);
 
-  const sel = useMemo(() => rfqs.find((r) => r.rfqId === selected) ?? null, [rfqs, selected]);
-
   // Only a SEALED auction can be bid on. The book is newest-first and the newest
   // is usually already cleared, so landing on nothing selected — or worse, on a
   // closed auction — was the first thing anyone saw. Open on the first one that
@@ -152,9 +151,17 @@ export function Desk() {
 
   const NAV = [
     ["auto", "Book"],
-    ["post", "Post a block"],
     ["folio", "Portfolio"],
+    ["audit", "Audit"],
   ] as const;
+
+  // All / Open / Mine. "Mine" is the maker's own blocks — the one cut a desk
+  // actually wants, and it needs no extra read because the maker is public.
+  const shown = rfqs.filter((r) =>
+    filter === "open" ? !r.cleared
+    : filter === "mine" ? !!address && r.maker.toLowerCase() === address.toLowerCase()
+    : true,
+  );
 
   return (
     <div className="min-h-screen bg-bg text-fg font-mono text-[12px] md:flex">
@@ -173,7 +180,32 @@ export function Desk() {
           </div>
         </div>
 
-        <nav className="flex md:flex-col border-b border-line">
+        {/* The chain this desk is on, stated once and permanently. */}
+        <div className="hidden md:flex items-center gap-2 mx-4 my-3 px-2.5 py-1.5 border border-line bg-bg-1 text-[10px] tracking-[0.1em] uppercase text-fg-mute">
+          <span className={"w-1.5 h-1.5 " + (tee.state === "production" ? "bg-accent" : "bg-fg-mute")} />
+          {tee.state === "production" ? <>Coston2 <Red>///</Red> TEE production</>
+            : offline ? <Red>Extension offline</Red>
+            : <>Coston2 <Red>///</Red> simulated TEE</>}
+        </div>
+
+        {/* The one move that starts everything, and the only one that needs no
+            auction selected. It was a tab, then a button in a strip; it belongs
+            at the top of the sidebar where a primary action is looked for. */}
+        <div className="px-4 pb-3">
+          <button
+            onClick={() => setPanel("post")}
+            className={
+              "w-full px-3 py-2.5 text-[11px] tracking-[0.12em] uppercase border transition-colors " +
+              (panel === "post"
+                ? "bg-fg text-bg border-fg"
+                : "bg-accent text-bg border-accent hover:bg-fg hover:border-fg")
+            }
+          >
+            + Post a block
+          </button>
+        </div>
+
+        <nav className="flex md:flex-col border-y border-line">
           {NAV.map(([id, label]) => (
             <button
               key={id}
@@ -183,7 +215,7 @@ export function Desk() {
                 (panel === id ? "bg-fg text-bg" : "text-fg-mute hover:text-fg hover:bg-bg-1")
               }
             >
-              {panel === id ? <>{label} <Red>◂</Red></> : label}
+              {panel === id ? <><Red>▸</Red> {label}</> : <span className="pl-3">{label}</span>}
             </button>
           ))}
         </nav>
@@ -211,32 +243,27 @@ export function Desk() {
 
         <div className="hidden md:block flex-1" />
 
-        <div className="hidden md:flex flex-col gap-1 px-4 py-3 border-t border-line text-[10px] tracking-[0.1em] uppercase text-fg-mute">
-          <span>
-            {tee.state === "production" ? (
-              <>COSTON2 <Red>///</Red> TEE <Red>PRODUCTION</Red></>
-            ) : offline ? (
-              <Red>EXTENSION OFFLINE</Red>
-            ) : (
-              <>COSTON2 <Red>///</Red> SIMULATED TEE</>
-            )}
-          </span>
+        {/* Connecting is the last thing a first-time reader needs and the first
+            thing a returning one does, so it sits at the foot of the sidebar
+            rather than competing with the masthead. */}
+        <div className="hidden md:block px-4 py-3 border-t border-line">
           <a
             href={`https://coston2-explorer.flare.network/address/${TOKENS.FXRP.address}`}
             target="_blank" rel="noopener"
-            className="hover:text-accent"
+            className="block mb-3 text-[10px] tracking-[0.1em] uppercase text-fg-mute hover:text-accent"
             title="FXRP on Coston2"
           >
             SETTLES IN FXRP <Red>///</Red> {TOKENS.FXRP.address.slice(0, 6)}…
           </a>
+          <ConnectButton showBalance={false} accountStatus="address" chainStatus="none" />
         </div>
       </aside>
 
       {/* ── everything else ── */}
       <div className="flex-1 min-w-0">
-      <header className="sticky top-0 z-40 bg-bg">
+      <header className="md:hidden sticky top-0 z-40 bg-bg">
         <div className="flex items-center gap-4 px-4 py-2 justify-end">
-          <span className="md:hidden text-[10px] tracking-[0.1em] uppercase text-fg-mute">
+          <span className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">
             {tee.state === "production" ? (
               <>TEE <Red>PRODUCTION</Red></>
             ) : offline ? (
@@ -282,179 +309,195 @@ export function Desk() {
       </div>
       <div className="h-px bg-line" />
 
-      <main className="grid md:grid-cols-[1.5fr_1fr] gap-px bg-line">
-        {/* ── the book ── */}
-        <section className="bg-bg min-h-[70vh]">
-          <div className="flex items-baseline gap-4 px-4 py-2.5">
-            <Lbl>Open auctions</Lbl>
-            <span className="text-[10px] text-fg-mute">{rfqs.length} on the desk</span>
+      <main className="bg-bg min-h-[70vh]">
+        {panel === "post" ? (
+          <div className="p-4 max-w-[40rem]">
+            <div className="mb-4"><Lbl>Post a block</Lbl></div>
+            <PostForm
+              address={address}
+              // Only leave the form when the block was actually posted. It
+              // reports failures through the same callback with id 0, and
+              // closing the form on those threw away what was typed along with
+              // the message explaining why it did not go through.
+              onDone={(m, id) => {
+                setLog(m);
+                if (id) {
+                  setSelected(id);
+                  setPanel("auto");
+                }
+                refresh();
+              }}
+            />
           </div>
-          <div className="grid grid-cols-[3rem_1fr_6rem_4rem_7rem_6rem] gap-2 px-4 py-1.5 border-y border-line text-[10px] tracking-[0.12em] uppercase text-fg-mute">
-            <span>No</span><span>Pair</span><span>Lot</span><span>Bids</span><span>Deadline</span><span className="text-right">State</span>
-          </div>
-          {rfqs.length === 0 && (
-            <p className="px-4 py-6 text-fg-mute">
-              {offline
-                ? "The extension is not reachable. Start it with BUTA_ALLOW_DIRECT_AUCTION=1 and refresh."
-                : "No auctions yet. Post the first block on the right."}
-            </p>
-          )}
-          {rfqs.map((r) => (
-            <button
-              key={r.rfqId}
-              // Back to the book too: picking a row while the Portfolio or the
-              // post form is open otherwise looks like the click did nothing.
-              onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
-              className={
-                "w-full text-left grid grid-cols-[3rem_1fr_6rem_4rem_7rem_6rem] gap-2 px-4 py-2 border-b border-line-2/40 hover:bg-bg-1 " +
-                (selected === r.rfqId ? "bg-bg-2" : "")
-              }
-            >
-              <span className="text-fg-mute">{String(r.rfqId).padStart(3, "0")}</span>
-              <span>{r.pair}</span>
-              <span>{r.lot.toLocaleString()}</span>
-              <span>{r.bidCount}</span>
-              <span className="text-fg-mute">blk {r.deadline.toLocaleString()}</span>
-              <span className="text-right">
-                {r.cleared ? <Red>CLEARED</Red> : <span className="text-fg-mute">SEALED</span>}
-              </span>
-            </button>
-          ))}
-
-          {/* clearing receipt for the selected auction */}
-          {sel?.cleared && (
-            <div className="m-4 border border-fg">
-              <div className="px-3 py-2 border-b border-line bg-bg-2 flex items-baseline gap-3">
-                <Lbl>Clearing receipt</Lbl>
-                <span className="text-fg-mute text-[10px]">RFQ {String(sel.rfqId).padStart(3, "0")}</span>
-              </div>
-              <div className="grid sm:grid-cols-3 gap-px bg-line">
-                <div className="bg-bg px-3 py-2.5">
-                  <Lbl>Winner</Lbl>
-                  <div className="mt-1 break-all">{sel.winner}</div>
-                </div>
-                <div className="bg-bg px-3 py-2.5">
-                  <Lbl>Clearing price</Lbl>
-                  <div className="mt-1 text-[15px]" style={{ fontFamily: "var(--f-macro)" }}>
-                    {sel.clearingPrice?.toLocaleString()}
-                  </div>
-                  <div className="text-[10px] text-fg-mute">Vickrey second price</div>
-                </div>
-                <div className="bg-bg px-3 py-2.5">
-                  <Lbl>Sealed forever</Lbl>
-                  <div className="mt-1">
-                    {sel.bidCount - 1} losing {sel.bidCount - 1 === 1 ? "amount" : "amounts"},
-                    the winner's own bid, and the reserve.
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* ── the panel: whatever the selected auction can have done to it ── */}
-        <section className="bg-bg">
-          <div className="px-4 py-2.5 border-b border-line flex items-baseline gap-3">
-            <Lbl>
-              {panel === "post" ? "Post a block" : panel === "folio" ? "Portfolio" : "Seal a bid"}
-            </Lbl>
-            {panel === "auto" && sel && (
-              <span className="text-[10px] text-fg-mute">
-                RFQ {String(sel.rfqId).padStart(3, "0")} <Red>///</Red>{" "}
-                {sel.cleared ? "cleared" : `${sel.bidCount} sealed so far`}
-              </span>
-            )}
-          </div>
-
+        ) : panel === "folio" ? (
           <div className="p-4">
-            {panel === "post" ? (
-              <PostForm
-                address={address}
-                // Only leave the form when the block was actually posted. It
-                // reports failures through the same callback with id 0, and
-                // closing the form on those threw away what was typed along
-                // with the message explaining why it did not go through.
-                onDone={(m, id) => {
-                  setLog(m);
-                  if (id) {
-                    setSelected(id);
-                    setPanel("auto");
-                  }
-                  refresh();
-                }}
-              />
-            ) : panel === "folio" ? (
-              <Folio address={address} onLog={setLog} />
-            ) : !sel ? (
-              // The empty state says what to do rather than what is missing. It
-              // is only reachable when nothing on the desk is open, because the
-              // desk selects the first open auction by itself.
-              <div className="flex flex-col gap-3">
-                <p className="text-fg-mute max-w-[38ch] leading-relaxed">
-                  Every auction on the desk has cleared. Post a block to start one — you set the
-                  lot and a reserve nobody but the enclave can read.
-                </p>
-                <div><Btn onClick={() => setPanel("post")}>Post a block</Btn></div>
-              </div>
-            ) : sel.cleared ? (
-              // A closed auction used to give "This auction has cleared" and
-              // nothing else — a dead end reached by clicking the top row.
-              <div className="flex flex-col gap-3">
-                <p className="text-fg-mute max-w-[38ch] leading-relaxed">
-                  RFQ {String(sel.rfqId).padStart(3, "0")} has cleared, so its book is closed. The
-                  receipt is on the left; the losing amounts were never revealed to anyone.
-                </p>
-                {firstOpen ? (
-                  <div>
-                    <Btn onClick={() => setSelected(firstOpen.rfqId)}>
-                      Bid on RFQ {String(firstOpen.rfqId).padStart(3, "0")} instead
-                    </Btn>
-                  </div>
-                ) : (
-                  <div><Btn onClick={() => setPanel("post")}>Post a block</Btn></div>
-                )}
-              </div>
-            ) : (
-              <BidForm sel={sel} address={address} onDone={(m) => { setLog(m); refresh(); }} />
-            )}
-
-            {/* Clearing is the third move and it was buried under the bid form,
-                below the fold, on every auction whether or not it was near its
-                deadline. It belongs with the auction it acts on. */}
-            {panel === "auto" && sel && !sel.cleared && (
-              <div className="mt-6 pt-4 border-t border-line">
-                <Lbl>Past the deadline?</Lbl>
-                <div className="mt-2 flex items-center gap-3">
-                  <Btn
-                    quiet
-                    onClick={async () => {
-                      try {
-                        const out: ClearingOutcome = await clearAuction(sel.rfqId);
-                        setLog(
-                          `Cleared RFQ ${out.rfqId}: winner ${out.winner} at ${out.clearingPrice.toLocaleString()} (second price, ${out.bidCount} bids). Set digest ${out.setDigest.slice(0, 10)}…`
-                        );
-                        refresh();
-                      } catch (e) {
-                        setLog(String((e as Error).message));
-                      }
-                    }}
+            <div className="mb-4"><Lbl>Portfolio</Lbl></div>
+            <Folio address={address} onLog={setLog} />
+          </div>
+        ) : panel === "audit" ? (
+          <Audit tee={tee} />
+        ) : (
+          <>
+            {/* The privacy property, stated above the book rather than left for
+                the reader to infer from a table full of numbers. */}
+            <div className="px-4 pt-4 text-[10px] tracking-[0.14em] uppercase text-fg-mute">
+              Lot and deadline public <Red>·</Red> bid amounts and reserve sealed
+            </div>
+            <div className="px-4 pb-3 flex flex-wrap items-baseline gap-4">
+              <h1 className="text-[22px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
+                Open blocks
+              </h1>
+              <span className="flex-1" />
+              <div className="flex">
+                {(["all", "open", "mine"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={
+                      "px-3 py-1 text-[10px] tracking-[0.12em] uppercase border border-line -ml-px first:ml-0 " +
+                      (filter === f ? "bg-fg text-bg border-fg" : "text-fg-mute hover:text-fg")
+                    }
                   >
-                    Clear RFQ {String(sel.rfqId).padStart(3, "0")}
-                  </Btn>
-                  <span className="text-[10px] text-fg-mute max-w-[24ch]">
-                    Anyone may clear after the deadline. Liveness never depends on the maker.
-                  </span>
-                </div>
+                    {f}
+                  </button>
+                ))}
               </div>
-            )}
+              <span className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">
+                {shown.length} shown
+              </span>
+            </div>
 
-            {log && (
-              <p className="mt-6 pt-4 border-t border-line text-[11px] leading-relaxed text-fg-dim break-all">
-                <Red>&gt;&gt;&gt;</Red> {log}
+            <div className="grid grid-cols-[4rem_1fr_7rem_6rem_4rem_8rem_6rem_5rem] gap-3 px-4 py-1.5 border-y border-line text-[10px] tracking-[0.12em] uppercase text-fg-mute">
+              <span>RFQ</span><span>Pair</span><span>Lot</span><span>Reserve</span>
+              <span>Bids</span><span>Deadline</span><span>Status</span><span />
+            </div>
+
+            {shown.length === 0 && (
+              <p className="px-4 py-6 text-fg-mute">
+                {rfqs.length === 0
+                  ? offline
+                    ? "The extension is not reachable. Start it with BUTA_ALLOW_DIRECT_AUCTION=1 and refresh."
+                    : "No blocks yet. Post the first one."
+                  : filter === "mine"
+                    ? "None of these are yours. Post a block, or switch the filter back to All."
+                    : "Nothing open right now. Switch the filter back to All to see what has cleared."}
               </p>
             )}
-          </div>
-        </section>
+
+            {shown.map((r) => (
+              <div key={r.rfqId} className="border-b border-line-2/40">
+                <div className={"flex items-stretch " + (selected === r.rfqId ? "bg-bg-2" : "hover:bg-bg-1")}>
+                  {/* The row and its action are siblings, not nested — a button
+                      inside a button is invalid and the inner one stops working. */}
+                  <button
+                    onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
+                    className="flex-1 min-w-0 text-left grid grid-cols-[4rem_1fr_7rem_6rem_4rem_8rem_6rem] gap-3 px-4 py-2.5 items-center"
+                  >
+                    <span className="text-fg-mute">RFQ-{String(r.rfqId).padStart(3, "0")}</span>
+                    <span>{r.pair}</span>
+                    <span>{r.lot.toLocaleString()}</span>
+                    {/* A redaction bar, not the word "hidden". The reserve is a
+                        number that exists and cannot be read, and the desk should
+                        look like that on every row. */}
+                    <span
+                      className="inline-block w-14 h-[11px] bg-fg align-middle"
+                      title="The maker's floor is ECIES-encrypted to the enclave key. Nobody else can read it — not the operator, not us."
+                    />
+                    <span>{r.bidCount}</span>
+                    <span className="text-fg-mute">blk {r.deadline.toLocaleString()}</span>
+                    <span>
+                      <span
+                        className={
+                          "px-1.5 py-0.5 border text-[10px] tracking-[0.1em] uppercase " +
+                          (r.cleared ? "border-accent text-accent" : "border-line text-fg-mute")
+                        }
+                      >
+                        {r.cleared ? "CLEARED" : "SEALED"}
+                      </span>
+                    </span>
+                  </button>
+                  {/* The action is on the row it acts on. It used to be a panel
+                      on the other side of the screen that you had to look at
+                      after clicking, which is why the desk read as two things. */}
+                  <button
+                    onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
+                    className={
+                      "w-[5rem] shrink-0 my-2 mr-4 text-[10px] tracking-[0.12em] uppercase border " +
+                      (r.cleared
+                        ? "border-line text-fg-dim hover:border-fg hover:text-fg"
+                        : "border-accent text-accent hover:bg-accent hover:text-bg")
+                    }
+                  >
+                    {r.cleared ? "View" : "Bid"}
+                  </button>
+                </div>
+
+                {/* The selected row opens under itself. One column, one place to
+                    look, and the auction it belongs to is directly above it. */}
+                {selected === r.rfqId && (
+                  <div className="px-4 py-4 bg-bg-1 border-t border-line">
+                    {r.cleared ? (
+                      <div className="grid sm:grid-cols-3 gap-px bg-line border border-line">
+                        <div className="bg-bg px-3 py-2.5">
+                          <Lbl>Winner</Lbl>
+                          <div className="mt-1 break-all">{r.winner}</div>
+                        </div>
+                        <div className="bg-bg px-3 py-2.5">
+                          <Lbl>Clearing price</Lbl>
+                          <div className="mt-1 text-[15px]" style={{ fontFamily: "var(--f-macro)" }}>
+                            {r.clearingPrice?.toLocaleString()}
+                          </div>
+                          <div className="text-[10px] text-fg-mute">Vickrey second price</div>
+                        </div>
+                        <div className="bg-bg px-3 py-2.5">
+                          <Lbl>Sealed forever</Lbl>
+                          <div className="mt-1">
+                            {r.bidCount - 1} losing {r.bidCount - 1 === 1 ? "amount" : "amounts"},
+                            the winner's own bid, and the reserve.
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid lg:grid-cols-[1fr_20rem] gap-6">
+                        <BidForm sel={r} address={address} onDone={(m) => { setLog(m); refresh(); }} />
+                        <div className="lg:border-l lg:border-line lg:pl-6">
+                          <Lbl>Past the deadline?</Lbl>
+                          <div className="mt-2 flex flex-col items-start gap-2">
+                            <Btn
+                              quiet
+                              onClick={async () => {
+                                try {
+                                  const out: ClearingOutcome = await clearAuction(r.rfqId);
+                                  setLog(
+                                    `Cleared RFQ ${out.rfqId}: winner ${out.winner} at ${out.clearingPrice.toLocaleString()} (second price, ${out.bidCount} bids). Set digest ${out.setDigest.slice(0, 10)}…`
+                                  );
+                                  refresh();
+                                } catch (e) {
+                                  setLog(String((e as Error).message));
+                                }
+                              }}
+                            >
+                              Clear RFQ {String(r.rfqId).padStart(3, "0")}
+                            </Btn>
+                            <span className="text-[10px] text-fg-mute max-w-[26ch] leading-relaxed">
+                              Anyone may clear after the deadline. Liveness never depends on the maker.
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
+        )}
+
+        {log && (
+          <p className="mx-4 mt-6 pt-4 border-t border-line text-[11px] leading-relaxed text-fg-dim break-all">
+            <Red>&gt;&gt;&gt;</Red> {log}
+          </p>
+        )}
       </main>
 
       <footer className="border-t-2 border-fg px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-[10px] tracking-[0.08em] uppercase text-fg-mute">
@@ -462,6 +505,73 @@ export function Desk() {
         <span>Demo runs the simulated-TEE path <Red>///</Red> not audited <Red>///</Red> not deployed</span>
       </footer>
       </div>
+    </div>
+  );
+}
+
+// ── audit ────────────────────────────────────────────────────────────────────
+
+/**
+ * What a reader can check without trusting the page.
+ *
+ * Every claim the desk makes about itself is a public read, and they were only
+ * written down in SUBMISSION.md — which meant anyone looking at the product had
+ * to leave it to find out whether any of this was true. The machine is read from
+ * the diamond on load, so this panel cannot claim a machine that is not there.
+ */
+const EXPLORER = "https://coston2-explorer.flare.network/address/";
+const SENDER = env.instructionSender || "0x20d9CcAA7140bf38AD91D2F102bA996417798e8f";
+
+function Audit({ tee }: { tee: TeeStatus }) {
+  const rows: [string, React.ReactNode, string][] = [
+    [
+      "Instruction sender",
+      <a className="hover:text-accent break-all" href={`${EXPLORER}${SENDER}`} target="_blank" rel="noopener">{SENDER}</a>,
+      "Source-verified on the explorer. Records every commitment, checks the enclave's signature, and rejects a clearing whose set digest is not the set it recorded.",
+    ],
+    [
+      "FCC extension",
+      <span>65642</span>,
+      "The diamond returns this contract for getTeeExtensionInstructionsSender(65642).",
+    ],
+    [
+      "TEE machine",
+      tee.state === "production"
+        ? <a className="hover:text-accent break-all" href={`${EXPLORER}${tee.machine}`} target="_blank" rel="noopener">{tee.machine}</a>
+        : <span className="text-fg-mute">{tee.state === "none" ? "none active" : "could not read"}</span>,
+      "Read from the diamond by this browser on load, not written down here. getRandomTeeIds(65642, 1) returns it instead of reverting TooMany().",
+    ],
+    [
+      "Settles in",
+      <a className="hover:text-accent break-all" href={`${EXPLORER}${TOKENS.FXRP.address}`} target="_blank" rel="noopener">{TOKENS.FXRP.address}</a>,
+      "FXRP on Coston2. The winner pays the second price and receives the lot in the same transaction.",
+    ],
+  ];
+
+  return (
+    <div className="p-4">
+      <div className="text-[10px] tracking-[0.14em] uppercase text-fg-mute">
+        Nothing here is a claim <Red>·</Red> every line is a public read
+      </div>
+      <h1 className="mt-1 mb-4 text-[22px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
+        Audit
+      </h1>
+      <div className="border border-line divide-y divide-line max-w-[64rem]">
+        {rows.map(([label, value, note]) => (
+          <div key={label} className="grid sm:grid-cols-[10rem_1fr] gap-1 sm:gap-4 px-3 py-2.5">
+            <Lbl>{label}</Lbl>
+            <div>
+              <div>{value}</div>
+              <div className="mt-1 text-[10px] text-fg-mute leading-relaxed max-w-[70ch]">{note}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-[11px] text-fg-dim leading-relaxed max-w-[70ch]">
+        The clearing price is public by design — Vickrey pays the second price, so that number is
+        on-chain. What stays sealed is which bid produced it, every amount that lost, and the
+        maker's reserve.
+      </p>
     </div>
   );
 }
