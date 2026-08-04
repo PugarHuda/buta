@@ -17,6 +17,7 @@ import { demoBook } from "../lib/demoData";
 import { env } from "../config/env";
 import { readTeeStatus, type TeeStatus } from "../lib/teeStatus";
 import { readBlockNumber, countdown } from "../lib/blockClock";
+import { remember } from "../lib/seals";
 
 import {
   clearAuction,
@@ -812,6 +813,14 @@ function BidForm(props: {
                 sign: (raw) => signMessageAsync({ message: { raw } }),
               });
               setReceipt({ commitment: r.commitment, nonce: r.nonce, amount: amt.toString() });
+              // Kept in this browser so the disclosure can be built later. The
+              // panel below shows the nonce once; without this the only way to
+              // ever prove this bid was to copy 32 bytes by hand before the
+              // next render took them away.
+              remember({
+                rfqId: props.sel.rfqId, bidder,
+                amount: amt.toString(), nonce: r.nonce, commitment: r.commitment,
+              });
               props.onDone(`Sealed. You are bid #${r.bidCount} on RFQ ${r.rfqId}.`);
               setAmount("");
             } catch (e) {

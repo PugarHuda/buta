@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import type { Address } from "viem";
 
 import { getMyBids, makeDisclosure, verifyDisclosure, type MyBid } from "../lib/buta";
+import { seals, forget, type Seal } from "../lib/seals";
 
 function Lbl({ children }: { children: React.ReactNode }) {
   return <span className="text-[10px] tracking-[0.12em] uppercase text-fg-mute">{children}</span>;
@@ -58,18 +59,42 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
   const [rfqId, setRfqId] = useState("");
   const [proof, setProof] = useState("");
   const [verdict, setVerdict] = useState("");
+  const [mine, setMine] = useState<Seal[]>([]);
 
   useEffect(() => {
     if (!props.address) return;
     getMyBids(props.address).then(setBids).catch(() => setBids([]));
+    setMine(seals(props.address));
   }, [props.address]);
 
   if (!props.address) {
     return <p className="text-fg-mute">Connect a wallet to see the bids you sealed.</p>;
   }
 
+  const won = bids.filter((b) => b.cleared && b.won).length;
+  const open = bids.filter((b) => !b.cleared).length;
+
   return (
     <div className="flex flex-col gap-6">
+      {/* What you hold, before the lists. Counting rows in a table is work the
+          page can do. */}
+      <div className="flex flex-wrap border border-line">
+        {[
+          ["Sealed bids", bids.length, "amounts known only to you and the enclave"],
+          ["Still open", open, "awaiting a deadline"],
+          ["Won", won, "you pay the runner-up's price"],
+          ["Seals kept here", mine.length, "in this browser, nowhere else"],
+        ].map(([label, value, hint]) => (
+          <div key={String(label)} className="px-3 py-2.5 border-r border-line min-w-[10rem] grow">
+            <Lbl>{label}</Lbl>
+            <div className="text-[19px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
+              {String(value)}
+            </div>
+            <div className="text-[10px] text-fg-mute leading-tight">{hint}</div>
+          </div>
+        ))}
+      </div>
+
       <div>
         <Lbl>Your sealed bids</Lbl>
         {bids.length === 0 ? (
@@ -98,9 +123,48 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
       <div className="pt-4 border-t border-line">
         <Lbl>Disclose a bid to an auditor</Lbl>
         <p className="mt-1 text-[10px] text-fg-mute leading-relaxed max-w-[46ch]">
-          Reveal exactly what you bid to one party, provably, without it becoming public. Paste the
-          amount and the nonce from your seal receipt.
+          Reveal exactly what you bid to one party, provably, without it becoming public. Pick one
+          of your seals below, or paste the amount and nonce from a receipt yourself.
         </p>
+        {/* Your own seals, one click each.
+            This form used to ask you to type back a 32-byte nonce the desk had
+            shown you once, in a panel that vanished on the next render — so the
+            sharpest thing the product does was, in practice, unusable. The
+            seals are kept in this browser because that is the only place they
+            CAN be: nobody else can reconstruct them, by design. */}
+        {mine.length > 0 && (
+          <div className="mt-3">
+            <Lbl>Your seals, kept in this browser</Lbl>
+            <div className="mt-2 flex flex-col gap-px bg-line border border-line">
+              {mine.map((s) => (
+                <button
+                  key={`${s.rfqId}-${s.commitment}`}
+                  onClick={() => {
+                    setRfqId(String(s.rfqId));
+                    setAmount(s.amount);
+                    setNonce(s.nonce);
+                    props.onLog(`Loaded your seal for RFQ ${s.rfqId}. Build the disclosure to hand over.`);
+                  }}
+                  className="bg-bg px-3 py-2 grid grid-cols-[4rem_1fr_6rem] gap-2 items-center text-left hover:bg-bg-1"
+                >
+                  <span className="text-fg-mute">RFQ-{String(s.rfqId).padStart(3, "0")}</span>
+                  <span className="text-[10px] text-fg-dim break-all">{s.commitment.slice(0, 22)}…</span>
+                  <span className="text-right text-[10px] tracking-[0.1em] uppercase text-accent">Use this</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-fg-mute leading-relaxed max-w-[52ch]">
+              Anyone with this browser can read these, so they are yours to remove.{" "}
+              <button
+                onClick={() => { forget(); setMine([]); props.onLog("Seals forgotten. You can no longer prove those bids from this browser."); }}
+                className="underline hover:text-accent"
+              >
+                Forget them
+              </button>
+            </p>
+          </div>
+        )}
+
         <div className="mt-3 flex flex-col gap-3">
           <Field label="RFQ" value={rfqId} onChange={setRfqId} placeholder="2" />
           <Field label="Amount you bid" value={amount} onChange={setAmount} placeholder="130450" />
