@@ -457,3 +457,47 @@ func TestClearingWipesTheAmounts(t *testing.T) {
 		t.Fatal("GET_MY_BIDS leaked an amount")
 	}
 }
+
+// The commitments are public — the contract records every one of them on-chain
+// before anyone knows what is in it — so the desk may as well show them. "3
+// bids" is a number you take on trust; three commitment hashes, each marked as
+// an amount nobody can read, is the thing itself.
+func TestRfqStateReturnsTheRecordedCommitments(t *testing.T) {
+	e := newAuctionExtension()
+	alice, bob := newBidder(t, 1), newBidder(t, 2)
+
+	id := post(t, e, postRfqRequest{
+		Maker: "0xMAKER", Pair: "FXRP/USDT0", Lot: 480_000, Reserve: 4000, Deadline: 24_109_880,
+	})
+	commit(t, e, id, alice, 21, 5194)
+	commit(t, e, id, bob, 22, 5107)
+
+	body, _ := json.Marshal(clearAuctionRequest{RfqID: id})
+	ar := e.processGetRfqState(teetypes.Action{}, &instruction.DataFixed{}, body)
+	var st rfqStateResponse
+	if err := json.Unmarshal(ar.Data, &st); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(st.Commitments) != 2 {
+		t.Fatalf("got %d commitments, want 2", len(st.Commitments))
+	}
+	if st.BidCount != len(st.Commitments) {
+		t.Errorf("bidCount %d disagrees with %d commitments — the desk would show a count it cannot back", st.BidCount, len(st.Commitments))
+	}
+
+	// They must be the set the contract recorded, in that order, not a
+	// re-derivation: the whole point is that this is what is on-chain.
+	r, _ := e.rfqs.get(id)
+	for i, c := range r.Recorded {
+		if want := hexutil.Encode(c[:]); st.Commitments[i] != want {
+			t.Errorf("commitment %d is %s, recorded set has %s", i, st.Commitments[i], want)
+		}
+	}
+
+	// And they are hashes, not openings. A commitment that revealed its amount
+	// would make every other precaution pointless.
+	if bytes.Contains(ar.Data, []byte("5194")) || bytes.Contains(ar.Data, []byte("5107")) {
+		t.Fatalf("an amount came back with the commitments: %s", ar.Data)
+	}
+}

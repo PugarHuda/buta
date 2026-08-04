@@ -174,6 +174,16 @@ type rfqStateResponse struct {
 	// deadline, and nothing else.
 	Winner        string `json:"winner,omitempty"`
 	ClearingPrice uint64 `json:"clearingPrice,omitempty"`
+
+	// The commitments, in the order the contract accepted them.
+	//
+	// These are already public — the contract records every one of them
+	// on-chain before anyone knows what is in it, which is the load-bearing
+	// idea of the whole design. Withholding them here gained nothing and cost
+	// the desk its best evidence: "3 bids" is a number you take on trust,
+	// three commitment hashes each marked as an amount nobody can read is the
+	// thing itself.
+	Commitments []string `json:"commitments"`
 }
 
 type myBidsRequest struct {
@@ -401,9 +411,14 @@ func (e *Extension) processGetRfqState(action teetypes.Action, df *instruction.D
 	}
 
 	e.rfqs.mu.RLock()
+	commitments := make([]string, 0, len(r.Recorded))
+	for _, c := range r.Recorded {
+		commitments = append(commitments, hexutil.Encode(c[:]))
+	}
 	resp := rfqStateResponse{
 		RfqID: r.ID, Maker: r.Maker, Pair: r.Pair, Lot: r.Lot,
 		Deadline: r.Deadline, BidCount: len(r.Recorded), Cleared: r.Cleared,
+		Commitments: commitments,
 	}
 	if r.Cleared {
 		resp.Winner = r.Outcome.Winner
@@ -423,9 +438,14 @@ func (e *Extension) processListRfqs(action teetypes.Action, df *instruction.Data
 	out := make([]rfqStateResponse, 0, len(e.rfqs.rfqs))
 	for _, id := range e.rfqs.idsDescending() {
 		r := e.rfqs.rfqs[id]
+		commitments := make([]string, 0, len(r.Recorded))
+		for _, c := range r.Recorded {
+			commitments = append(commitments, hexutil.Encode(c[:]))
+		}
 		item := rfqStateResponse{
 			RfqID: r.ID, Maker: r.Maker, Pair: r.Pair, Lot: r.Lot,
 			Deadline: r.Deadline, BidCount: len(r.Recorded), Cleared: r.Cleared,
+			Commitments: commitments,
 		}
 		if r.Cleared {
 			item.Winner = r.Outcome.Winner

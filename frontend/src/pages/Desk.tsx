@@ -7,15 +7,16 @@
  * radii, uppercase reserved for labels and unit ids.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useSignMessage } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Address } from "viem";
 import { Folio } from "./Folio";
 import { TOKENS } from "../config/tokens";
-import { DEMO_BOOK } from "../lib/demoData";
+import { demoBook } from "../lib/demoData";
 import { env } from "../config/env";
 import { readTeeStatus, type TeeStatus } from "../lib/teeStatus";
+import { readBlockNumber, countdown } from "../lib/blockClock";
 
 import {
   clearAuction,
@@ -29,6 +30,20 @@ import {
 const POLL_MS = 3000;
 
 // ── shared atoms ─────────────────────────────────────────────────────────────
+
+/** Every panel says what it is, twice: a small line naming the surface, then
+ *  the heading. A screen that opens with a table and no title makes the reader
+ *  work out where they are from the contents. */
+function Head({ eyebrow, children }: { eyebrow: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="px-4 pt-4 pb-3">
+      <div className="text-[10px] tracking-[0.14em] uppercase text-fg-mute">{eyebrow}</div>
+      <h1 className="mt-1 text-[22px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
+        {children}
+      </h1>
+    </div>
+  );
+}
 
 function Lbl({ children }: { children: React.ReactNode }) {
   return (
@@ -104,6 +119,26 @@ export function Desk() {
   const [tee, setTee] = useState<TeeStatus>({ state: "unknown" });
   useEffect(() => { readTeeStatus().then(setTee); }, []);
 
+  // The chain's own clock. Deadlines are block numbers, which mean nothing to a
+  // reader, and "Past the deadline?" was a question the desk could answer.
+  const [block, setBlock] = useState<bigint | null>(null);
+  // A ref as well as state: the demo book is placed around the head, and reading
+  // it through the ref keeps `refresh` out of the block's dependency list — as a
+  // dependency it would tear down and restart the poll every fifteen seconds.
+  const headRef = useRef<bigint | null>(null);
+  useEffect(() => {
+    let live = true;
+    const tick = () =>
+      readBlockNumber().then((n) => {
+        if (!live) return;
+        headRef.current = n;
+        setBlock(n);
+      });
+    tick();
+    const t = setInterval(tick, 15_000);
+    return () => { live = false; clearInterval(t); };
+  }, []);
+
   // A production bundle with no VITE_TEE_PROXY_URL has nowhere to ask: relative
   // URLs only resolve through vite's dev proxy. Polling anyway meant a 404
   // every few seconds in the console of anyone who opened the deployed desk,
@@ -112,7 +147,7 @@ export function Desk() {
 
   const refresh = useCallback(async () => {
     if (!canReachExtension) {
-      setRfqs(DEMO_BOOK);
+      setRfqs(demoBook(headRef.current));
       setOffline(true);
       setDemo(true);
       return;
@@ -124,7 +159,7 @@ export function Desk() {
       setDemo(false);
     } catch {
       // No extension reachable — show the demo book so the desk is never empty.
-      setRfqs(DEMO_BOOK);
+      setRfqs(demoBook(headRef.current));
       setOffline(true);
       setDemo(true);
     }
@@ -234,8 +269,8 @@ export function Desk() {
                 <dt className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">{label}</dt>
                 <dd className="text-[17px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
                   {String(value)}
-                  <span className="ml-2 text-[10px] font-mono text-fg-mute">{hint}</span>
                 </dd>
+                <div className="text-[10px] text-fg-mute leading-tight">{hint}</div>
               </div>
             ))}
           </dl>
@@ -278,10 +313,15 @@ export function Desk() {
       </header>
 
       {demo && (
+        // Two facts, and the banner used to run them together in one uppercase
+        // paragraph that was the longest thing on the page. The book below is
+        // demo data; the machine is real. Say the first here and leave the
+        // second to the Audit panel, which links it to the explorer.
         <div className="px-4 py-1.5 bg-accent text-bg text-[10px] tracking-[0.12em] uppercase">
-          Demo data — no extension reachable from here. Run <span className="opacity-80">BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev</span> locally for the live flow.
+          Demo book — this browser has no proxy to reach the enclave through.
+          Run <span className="opacity-80">BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev</span> for the live flow.
           {tee.state === "production" && (
-            <> The TEE machine <span className="opacity-80">{tee.machine.slice(0, 10)}…</span> is registered and in production on Coston2 — this browser simply has no proxy to reach it through.</>
+            <> The machine itself is registered and in production — see Audit.</>
           )}
         </div>
       )}
@@ -311,9 +351,9 @@ export function Desk() {
 
       <main className="bg-bg min-h-[70vh]">
         {panel === "post" ? (
-          <div className="p-4 max-w-[40rem]">
-            <div className="mb-4"><Lbl>Post a block</Lbl></div>
-            <PostForm
+          <div className="max-w-[44rem]">
+            <Head eyebrow={<>Buta <Red>·</Red> open a block</>}>Post a block</Head>
+            <div className="px-4 pb-4"><PostForm
               address={address}
               // Only leave the form when the block was actually posted. It
               // reports failures through the same callback with id 0, and
@@ -327,12 +367,12 @@ export function Desk() {
                 }
                 refresh();
               }}
-            />
+            /></div>
           </div>
         ) : panel === "folio" ? (
-          <div className="p-4">
-            <div className="mb-4"><Lbl>Portfolio</Lbl></div>
-            <Folio address={address} onLog={setLog} />
+          <div>
+            <Head eyebrow={<>Buta <Red>·</Red> your positions</>}>Portfolio</Head>
+            <div className="px-4 pb-4"><Folio address={address} onLog={setLog} /></div>
           </div>
         ) : panel === "audit" ? (
           <Audit tee={tee} />
@@ -340,14 +380,12 @@ export function Desk() {
           <>
             {/* The privacy property, stated above the book rather than left for
                 the reader to infer from a table full of numbers. */}
-            <div className="px-4 pt-4 text-[10px] tracking-[0.14em] uppercase text-fg-mute">
-              Lot and deadline public <Red>·</Red> bid amounts and reserve sealed
-            </div>
-            <div className="px-4 pb-3 flex flex-wrap items-baseline gap-4">
-              <h1 className="text-[22px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
+            <div className="flex flex-wrap items-end">
+              <Head eyebrow={<>Lot and deadline public <Red>·</Red> bid amounts and reserve sealed</>}>
                 Open blocks
-              </h1>
+              </Head>
               <span className="flex-1" />
+              <div className="px-4 pb-3 flex flex-wrap items-baseline gap-4">
               <div className="flex">
                 {(["all", "open", "mine"] as const).map((f) => (
                   <button
@@ -365,6 +403,7 @@ export function Desk() {
               <span className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">
                 {shown.length} shown
               </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-[4rem_1fr_7rem_6rem_4rem_8rem_6rem_5rem] gap-3 px-4 py-1.5 border-y border-line text-[10px] tracking-[0.12em] uppercase text-fg-mute">
@@ -394,7 +433,17 @@ export function Desk() {
                     className="flex-1 min-w-0 text-left grid grid-cols-[4rem_1fr_7rem_6rem_4rem_8rem_6rem] gap-3 px-4 py-2.5 items-center"
                   >
                     <span className="text-fg-mute">RFQ-{String(r.rfqId).padStart(3, "0")}</span>
-                    <span>{r.pair}</span>
+                    <span>
+                      {r.pair}
+                      {/* Whose block this is, on the row rather than only in a
+                          filter. A maker scanning the book should not have to
+                          switch views to see which ones are theirs. */}
+                      {!!address && r.maker.toLowerCase() === address.toLowerCase() && (
+                        <span className="ml-2 px-1 border border-accent text-accent text-[9px] tracking-[0.1em] align-middle">
+                          YOURS
+                        </span>
+                      )}
+                    </span>
                     <span>{r.lot.toLocaleString()}</span>
                     {/* A redaction bar, not the word "hidden". The reserve is a
                         number that exists and cannot be read, and the desk should
@@ -404,7 +453,14 @@ export function Desk() {
                       title="The maker's floor is ECIES-encrypted to the enclave key. Nobody else can read it — not the operator, not us."
                     />
                     <span>{r.bidCount}</span>
-                    <span className="text-fg-mute">blk {r.deadline.toLocaleString()}</span>
+                    <span className="text-fg-mute leading-tight">
+                      blk {r.deadline.toLocaleString()}
+                      {!r.cleared && countdown(r.deadline, block).text && (
+                        <span className={"block text-[10px] " + (countdown(r.deadline, block).passed ? "text-accent" : "")}>
+                          {countdown(r.deadline, block).text}
+                        </span>
+                      )}
+                    </span>
                     <span>
                       <span
                         className={
@@ -451,9 +507,30 @@ export function Desk() {
                         </div>
                         <div className="bg-bg px-3 py-2.5">
                           <Lbl>Sealed forever</Lbl>
+                          {/* The commitments, listed. "N losing amounts" is a
+                              number you take on trust; the hashes are the thing
+                              itself — each one was recorded on-chain before
+                              anyone knew what was in it, and none of them can be
+                              opened by anyone but the bidder who made it. */}
+                          {!!r.commitments?.length && (
+                            <div className="mt-1 mb-2 flex flex-col gap-0.5">
+                              {r.commitments.map((c, i) => (
+                                <div key={c} className="flex items-baseline gap-2 text-[10px]">
+                                  <span className="text-fg-mute">bid {i + 1}</span>
+                                  <span className="text-fg-dim">{c.slice(2, 16)}…</span>
+                                  <span className="inline-block w-8 h-[9px] bg-fg align-middle" title="amount sealed" />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {/* "0 losing amounts, the winner's own bid, and the
+                              reserve" is a strange thing to read on a one-bid
+                              auction, and it is the sentence that carries the
+                              product's claim. Say the true thing for the case. */}
                           <div className="mt-1">
-                            {r.bidCount - 1} losing {r.bidCount - 1 === 1 ? "amount" : "amounts"},
-                            the winner's own bid, and the reserve.
+                            {r.bidCount <= 1
+                              ? "The winner's own bid and the reserve. It cleared at the reserve — there was no second bid to price it."
+                              : `${r.bidCount - 1} losing ${r.bidCount - 1 === 1 ? "amount" : "amounts"}, the winner's own bid, and the reserve.`}
                           </div>
                         </div>
                       </div>
@@ -461,7 +538,18 @@ export function Desk() {
                       <div className="grid lg:grid-cols-[1fr_20rem] gap-6">
                         <BidForm sel={r} address={address} onDone={(m) => { setLog(m); refresh(); }} />
                         <div className="lg:border-l lg:border-line lg:pl-6">
-                          <Lbl>Past the deadline?</Lbl>
+                          {/* This used to ask "Past the deadline?" — a question
+                              the desk can answer from one eth_blockNumber, and
+                              it offered the same button on an auction with two
+                              hours left as on one that closed yesterday. */}
+                          <Lbl>Clearing</Lbl>
+                          <p className="mt-1 mb-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+                            {block === null
+                              ? "Cannot read the chain's head, so whether the deadline has passed is unknown."
+                              : countdown(r.deadline, block).passed
+                                ? `Block ${r.deadline.toLocaleString()} is behind us — this can be cleared now.`
+                                : `Not until block ${r.deadline.toLocaleString()}, ${countdown(r.deadline, block).text}.`}
+                          </p>
                           <div className="mt-2 flex flex-col items-start gap-2">
                             <Btn
                               quiet
@@ -480,7 +568,7 @@ export function Desk() {
                               Clear RFQ {String(r.rfqId).padStart(3, "0")}
                             </Btn>
                             <span className="text-[10px] text-fg-mute max-w-[26ch] leading-relaxed">
-                              Anyone may clear after the deadline. Liveness never depends on the maker.
+                              Anyone may clear once it is past. Liveness never depends on the maker.
                             </span>
                           </div>
                         </div>
@@ -502,7 +590,10 @@ export function Desk() {
 
       <footer className="border-t-2 border-fg px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-[10px] tracking-[0.08em] uppercase text-fg-mute">
         <span>BUTA<Red>®</Red> — sealed-bid OTC on Flare Confidential Compute</span>
-        <span>Demo runs the simulated-TEE path <Red>///</Red> not audited <Red>///</Red> not deployed</span>
+        {/* "not deployed" sat three lines under a chip reading TEE PRODUCTION,
+            which is a contradiction to anyone reading top to bottom. Both were
+            true and neither said which sense it meant. */}
+        <span>Coston2 testnet only <Red>///</Red> simulated-TEE path <Red>///</Red> not audited</span>
       </footer>
       </div>
     </div>
@@ -608,6 +699,27 @@ function BidForm(props: {
         placeholder="130450"
         hint="Vickrey: if you win, you pay the runner-up's price — so bid what it is worth to you."
       />
+
+      {/* What has to be true before this can be sealed, said before it is
+          pressed. All four are decided in this browser: the reader can watch the
+          amount stop being a number they typed and become something only the
+          enclave can open. */}
+      <div className="flex flex-col gap-1">
+        <Lbl>Before it leaves this browser</Lbl>
+        {[
+          [/^\d+$/.test(amount.trim()) && BigInt(amount.trim() || "0") > 0n,
+            "A whole, positive number of quote units"],
+          [!!bidder, "A wallet to bind the bid to — the enclave recovers the signer"],
+          [true, "keccak256(amount ‖ nonce ‖ your address) computed here, not sent"],
+          [true, "The amount is ECIES-encrypted to the enclave key; the operator relays ciphertext"],
+        ].map(([ok, text]) => (
+          <div key={String(text)} className="flex items-baseline gap-2 text-[10px] leading-relaxed">
+            <span className={ok ? "text-accent" : "text-fg-mute"}>{ok ? "✓" : "○"}</span>
+            <span className={ok ? "text-fg-dim" : "text-fg-mute"}>{text}</span>
+          </div>
+        ))}
+      </div>
+
 
       {!bidder ? (
         <p className="text-[11px] text-fg-mute">Connect a wallet to seal a bid.</p>
