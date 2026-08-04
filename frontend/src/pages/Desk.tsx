@@ -513,9 +513,15 @@ export function Desk() {
                     />
                     <span>{r.bidCount}</span>
                     <span className="text-fg-mute leading-tight">
-                      blk {r.deadline.toLocaleString()}
+                      {/* data-volatile: both of these move with the chain, so
+                          the pixel baseline overwrites them rather than failing
+                          every run for the chain's reasons. */}
+                      <span data-volatile>blk {r.deadline.toLocaleString()}</span>
                       {!r.cleared && countdown(r.deadline, block).text && (
-                        <span className={"block text-[10px] " + (countdown(r.deadline, block).passed ? "text-accent" : "")}>
+                        <span
+                          data-volatile
+                          className={"block text-[10px] " + (countdown(r.deadline, block).passed ? "text-accent" : "")}
+                        >
                           {countdown(r.deadline, block).text}
                         </span>
                       )}
