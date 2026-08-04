@@ -13,6 +13,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { Address } from "viem";
 import { Folio } from "./Folio";
 import { TOKENS } from "../config/tokens";
+import { coston2 } from "../config/chain";
 import { demoBook } from "../lib/demoData";
 import { env } from "../config/env";
 import { readTeeStatus, type TeeStatus } from "../lib/teeStatus";
@@ -244,11 +245,16 @@ export function Desk() {
         </div>
 
         {/* The chain this desk is on, stated once and permanently. */}
-        <div className="hidden md:flex items-center gap-2 mx-4 my-3 px-2.5 py-1.5 border border-line bg-bg-1 text-[10px] tracking-[0.1em] uppercase text-fg-mute">
-          <span className={"w-1.5 h-1.5 " + (tee.state === "production" ? "bg-accent" : "bg-fg-mute")} />
-          {tee.state === "production" ? <>Coston2 <Red>///</Red> TEE production</>
-            : offline ? <Red>Extension offline</Red>
-            : <>Coston2 <Red>///</Red> simulated TEE</>}
+        {/* items-start and a shrink-0 dot: with items-center the label had no
+            room to wrap, so "TEE PRODUCTION" ran straight out through the right
+            border of its own box. */}
+        <div className="hidden md:flex items-start gap-2 mx-4 my-3 px-2.5 py-1.5 border border-line bg-bg-1 text-[10px] tracking-[0.1em] uppercase text-fg-mute leading-snug">
+          <span className={"mt-1 w-1.5 h-1.5 shrink-0 " + (tee.state === "production" ? "bg-accent" : "bg-fg-mute")} />
+          <span className="min-w-0">
+            {tee.state === "production" ? <>Coston2 <Red>///</Red> TEE production</>
+              : offline ? <Red>Extension offline</Red>
+              : <>Coston2 <Red>///</Red> simulated TEE</>}
+          </span>
         </div>
 
         {/* The one move that starts everything, and the only one that needs no
@@ -346,11 +352,9 @@ export function Desk() {
         // demo data; the machine is real. Say the first here and leave the
         // second to the Audit panel, which links it to the explorer.
         <div className="px-4 py-1.5 bg-accent text-bg text-[10px] tracking-[0.12em] uppercase">
-          Demo book — this browser has no proxy to reach the enclave through.
-          Run <span className="opacity-80">BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev</span> for the live flow.
-          {tee.state === "production" && (
-            <> The machine itself is registered and in production — see Audit.</>
-          )}
+          Demo book <span className="opacity-70">— no enclave reachable from this browser.</span>{" "}
+          <span className="opacity-70">Start it with <span className="opacity-100">go run ./cmd/dev</span> for the live flow;{" "}
+          the machine itself is registered — see Audit.</span>
         </div>
       )}
       {/* who this is for — the first thing a judge reads */}
@@ -457,7 +461,7 @@ export function Desk() {
               </div>
             </div>
 
-            <div className="grid grid-cols-[4rem_1fr_7rem_6rem_4rem_8rem_6rem_5rem] gap-3 px-4 py-1.5 border-y border-line text-[10px] tracking-[0.12em] uppercase text-fg-mute">
+            <div className="grid grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem_5rem] gap-3 px-4 py-1.5 border-y border-line text-[10px] tracking-[0.12em] uppercase text-fg-mute">
               <span>RFQ</span><span>Pair</span><span>Lot</span><span>Reserve</span>
               <span>Bids</span><span>Deadline</span><span>Status</span><span />
             </div>
@@ -481,7 +485,7 @@ export function Desk() {
                       inside a button is invalid and the inner one stops working. */}
                   <button
                     onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
-                    className="flex-1 min-w-0 text-left grid grid-cols-[4rem_1fr_7rem_6rem_4rem_8rem_6rem] gap-3 px-4 py-2.5 items-center"
+                    className="flex-1 min-w-0 text-left grid grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem] gap-3 px-4 py-2.5 items-center"
                   >
                     <span className="text-fg-mute">RFQ-{String(r.rfqId).padStart(3, "0")}</span>
                     <span>
@@ -600,7 +604,9 @@ export function Desk() {
                         </div>
                       </div>
                     ) : (
-                      <div className="grid lg:grid-cols-[1fr_20rem] gap-6">
+                      // max-w on the form: a bid is one number, and the field
+                      // was stretching the full width of the panel for it.
+                      <div className="grid lg:grid-cols-[minmax(0,34rem)_20rem] gap-6">
                         <BidForm sel={r} address={address} onDone={(m) => { say(m); refresh(); }} />
                         <div className="lg:border-l lg:border-line lg:pl-6">
                           {/* This used to ask "Past the deadline?" — a question
@@ -755,6 +761,11 @@ function BidForm(props: {
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState<{ commitment: string; nonce: string; amount: string } | null>(null);
   const { signMessageAsync } = useSignMessage();
+  // useAccount().chainId is the chain the WALLET is on. useChainId() is the
+  // chain wagmi is configured for — only Coston2 is configured, so it answered
+  // 114 whatever the wallet was doing, and the warning could never fire.
+  const { chainId: walletChain } = useAccount();
+  const chainId = walletChain ?? coston2.id;
 
   const bidder = props.address;
 
@@ -776,7 +787,7 @@ function BidForm(props: {
       />
 
       {/* What has to be true before this can be sealed, said before it is
-          pressed. All four are decided in this browser: the reader can watch the
+          pressed. All of it is decided in this browser: the reader can watch the
           amount stop being a number they typed and become something only the
           enclave can open. */}
       <div className="flex flex-col gap-1">
@@ -785,6 +796,14 @@ function BidForm(props: {
           [/^\d+$/.test(amount.trim()) && BigInt(amount.trim() || "0") > 0n,
             "A whole, positive number of quote units"],
           [!!bidder, "A wallet to bind the bid to — the enclave recovers the signer"],
+          // The signature is domain-separated by chain id, so a wallet on the
+          // wrong network produces one the enclave cannot match and the bid is
+          // rejected as a forgery. Nothing said so: the connect button hides the
+          // network, and the failure looks like the desk being broken.
+          [chainId === coston2.id,
+            chainId === coston2.id
+              ? "Your wallet is on Coston2, which the signature is bound to"
+              : `Your wallet is on chain ${chainId}, not Coston2 (${coston2.id}) — the enclave would reject this bid`],
           [true, "keccak256(amount ‖ nonce ‖ your address) computed here, not sent"],
           [true, "The amount is ECIES-encrypted to the enclave key; the operator relays ciphertext"],
         ].map(([ok, text]) => (
@@ -817,6 +836,7 @@ function BidForm(props: {
                 rfqId: props.sel!.rfqId,
                 bidder,
                 amount: amt,
+                chainId,
                 sign: (raw) => signMessageAsync({ message: { raw } }),
               });
               setReceipt({ commitment: r.commitment, nonce: r.nonce, amount: amt.toString() });
