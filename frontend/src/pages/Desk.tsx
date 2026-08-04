@@ -127,6 +127,10 @@ export function Desk() {
     setActivity((a) => [{ at, text }, ...a].slice(0, 50));
   }, []);
   const latest = activity[0]?.text ?? "";
+  // Rows the book arrived with that could not be shown. Saying so is the point:
+  // a desk that silently renders a shorter book than the enclave reported is
+  // hiding a disagreement between the two.
+  const [dropped, setDropped] = useState(0);
   const [offline, setOffline] = useState(false);
   const [demo, setDemo] = useState(false);
   // Read from the diamond, not from whether we can reach a proxy: those are two
@@ -168,8 +172,9 @@ export function Desk() {
       return;
     }
     try {
-      const list = await listRfqs();
+      const { rfqs: list, dropped: bad } = await listRfqs();
       setRfqs(list);
+      setDropped(bad);
       setOffline(false);
       setDemo(false);
     } catch {
@@ -457,6 +462,16 @@ export function Desk() {
               </div>
               <span className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">
                 {shown.length} shown
+                {/* A desk that quietly renders fewer rows than the enclave sent
+                    is hiding a disagreement between the two. */}
+                {dropped > 0 && (
+                  <>
+                    {" "}
+                    <Red>
+                      · {dropped} unreadable {dropped === 1 ? "row" : "rows"} dropped
+                    </Red>
+                  </>
+                )}
               </span>
               </div>
             </div>

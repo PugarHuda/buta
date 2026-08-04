@@ -1,7 +1,8 @@
 /** Typed access to VITE_* env vars with defaults. */
 
 export const env = {
-  /** Base URL of the TEE proxy (cors-proxy in dev). */
+  /** Base URL of the TEE proxy. Empty in a production bundle: the desk then
+   *  shows the demo book rather than polling something that cannot answer. */
   teeProxyUrl: import.meta.env.VITE_TEE_PROXY_URL as string || "",
   /** API key for the /direct endpoint. */
   directApiKey: import.meta.env.VITE_DIRECT_API_KEY as string || "",

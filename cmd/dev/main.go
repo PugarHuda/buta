@@ -99,8 +99,11 @@ func main() {
 	// extension's own HTTP handler in-process.
 	mux.HandleFunc("POST /direct", func(w http.ResponseWriter, r *http.Request) {
 		cors(w)
+		// Same bound as the extension itself. This facade is a dev tool, but it
+		// is the one people actually run, and an unbounded decode here would
+		// exhaust the same process the enclave lives in.
 		var di teetypes.DirectInstruction
-		if err := json.NewDecoder(r.Body).Decode(&di); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, extension.MaxActionBytes)).Decode(&di); err != nil {
 			http.Error(w, fmt.Sprintf("bad direct instruction: %v", err), http.StatusBadRequest)
 			return
 		}
@@ -187,6 +190,10 @@ func main() {
 		Addr:              fmt.Sprintf("127.0.0.1:%d", facadePort),
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
+		// The other three were zero, which is Go for "wait indefinitely".
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 60 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 	logger.Infof("dev facade on http://127.0.0.1:%d — point VITE_TEE_PROXY_URL here", facadePort)
 	if err := srv.ListenAndServe(); err != nil {
