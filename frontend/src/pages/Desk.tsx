@@ -8,9 +8,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAccount, useSignMessage } from "wagmi";
+import { useAccount, useSignMessage, useWriteContract } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import type { Address } from "viem";
+import { createPublicClient, http, type Address } from "viem";
 import { Folio } from "./Folio";
 import { TOKENS } from "../config/tokens";
 import { coston2 } from "../config/chain";
@@ -19,6 +19,7 @@ import { env } from "../config/env";
 import { readTeeStatus, type TeeStatus } from "../lib/teeStatus";
 import { readBlockNumber, countdown } from "../lib/blockClock";
 import { remember } from "../lib/seals";
+import { senderAbi, erc20Abi, preflight, INSTRUCTION_FEE, ZERO } from "../lib/onchain";
 
 import {
   clearAuction,
@@ -214,6 +215,92 @@ export function Desk() {
     return () => { live = false; };
   }, [address, canReachExtension, rfqs.length]);
 
+  // Reclaiming is a real transaction, so it says what it is doing and what
+  // happened — including the hash, which is the only part a maker can check
+  // against the chain themselves.
+  const { writeContractAsync } = useWriteContract();
+  const [reclaiming, setReclaiming] = useState<number | null>(null);
+  const reclaim = useCallback(
+    async (rfqId: number) => {
+      setReclaiming(rfqId);
+      try {
+        const hash = await writeContractAsync({
+          address: SENDER as Address,
+          abi: senderAbi,
+          functionName: "reclaimLot",
+          args: [BigInt(rfqId)],
+        });
+        say(`Reclaim sent for RFQ ${rfqId}: ${hash}. The lot returns to you and the auction closes with no winner.`);
+      } catch (e) {
+        // Wallet rejections and reverts arrive the same way; the contract's own
+        // message is more use than a generic failure.
+        const m = (e as { shortMessage?: string; message?: string });
+        say(`Reclaim failed: ${m.shortMessage ?? m.message ?? String(e)}`);
+      } finally {
+        setReclaiming(null);
+        refresh();
+      }
+    },
+    [writeContractAsync, say, refresh],
+  );
+
+  // Post a block as a transaction: escrow the lot, forward the instruction.
+  //
+  // Everything checkable is checked from public reads first. The desk's own
+  // history is the argument — the postRfq that ran on Coston2 failed on "ERC20:
+  // insufficient allowance", and the only way to find that out was to pay for a
+  // reverted transaction.
+  const postOnChain = useCallback(
+    async (lot: number, deadlineBlock: number, invited: string) => {
+      if (!address) return say("Connect a wallet first — posting on-chain is a transaction.");
+      const lotUnits = BigInt(Math.max(0, Math.floor(lot)));
+      const spender = SENDER as Address;
+      const token = TOKENS.FXRP.address;
+      try {
+        const pc = createPublicClient({ chain: coston2, transport: http() });
+        const [balance, allowance] = await Promise.all([
+          pc.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [address] }),
+          pc.readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [address, spender] }),
+        ]);
+        const pre = preflight({ lot: lotUnits, balance, allowance, deadlineBlock, head: headRef.current });
+        if (!pre.ok) return say(`Cannot post on-chain: ${pre.blocker}`);
+
+        if (pre.needsApproval) {
+          say(`Approving ${lotUnits} ${TOKENS.FXRP.symbol} to the escrow — one transaction, then the block.`);
+          const a = await writeContractAsync({
+            address: token, abi: erc20Abi, functionName: "approve", args: [spender, lotUnits],
+          });
+          await pc.waitForTransactionReceipt({ hash: a });
+          say(`Approved: ${a}`);
+        }
+
+        // The reserve rides as ECIES ciphertext, the same envelope the direct
+        // rail uses — empty here because the enclave treats an empty reserve as
+        // zero, and a maker who wants one can still post it over the rail that
+        // encrypts it. Wiring the ciphertext through the transaction is the next
+        // step, not a claim being made now.
+        const hash = await writeContractAsync({
+          address: spender,
+          abi: senderAbi,
+          functionName: "postRfq",
+          args: [TOKENS.USDT0.address, token, lotUnits, BigInt(deadlineBlock), (invited || ZERO) as Address, "0x"],
+          value: INSTRUCTION_FEE,
+        });
+        say(`Posted on-chain: ${hash}. The lot is escrowed and the instruction is on its way to the enclave.`);
+        await pc.waitForTransactionReceipt({ hash });
+        const count = await pc.readContract({ address: spender, abi: senderAbi, functionName: "rfqCount" });
+        say(`Confirmed. rfqCount is now ${count} — the auction exists on-chain before the enclave has heard of it.`);
+        setPanel("auto");
+      } catch (e) {
+        const m = e as { shortMessage?: string; message?: string };
+        say(`On-chain post failed: ${m.shortMessage ?? m.message ?? String(e)}`);
+      } finally {
+        refresh();
+      }
+    },
+    [address, writeContractAsync, say, refresh],
+  );
+
   const openCount = rfqs.filter((r) => !r.cleared).length;
   const sealedBids = rfqs.reduce((n, r) => n + (r.cleared ? 0 : r.bidCount), 0);
 
@@ -393,6 +480,7 @@ export function Desk() {
             <div className="px-4 pb-4"><PostForm
               address={address}
               block={block}
+              onChain={postOnChain}
               // Only leave the form when the block was actually posted. It
               // reports failures through the same callback with id 0, and
               // closing the form on those threw away what was typed along with
@@ -657,6 +745,31 @@ export function Desk() {
                               Anyone may clear once it is past. Liveness never depends on the maker.
                             </span>
                           </div>
+
+                          {/* Your own block, past its deadline, with nothing on
+                              it. reclaimLot has been in the contract from the
+                              start with no way to call it: a maker who drew no
+                              bid had escrowed a lot and no route back to it
+                              except a hand-written transaction. */}
+                          {!!address &&
+                            r.maker.toLowerCase() === address.toLowerCase() &&
+                            countdown(r.deadline, block).passed && (
+                              <div className="mt-4 pt-4 border-t border-line">
+                                <Lbl>Your lot</Lbl>
+                                <p className="mt-1 mb-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+                                  {r.bidCount === 0
+                                    ? "Nobody bid. Take the lot back — this closes the auction with no winner."
+                                    : `${r.bidCount} sealed ${r.bidCount === 1 ? "bid" : "bids"} are on this. Reclaiming closes it without clearing them.`}
+                                </p>
+                                <Btn
+                                  quiet
+                                  busy={reclaiming === r.rfqId}
+                                  onClick={() => reclaim(r.rfqId)}
+                                >
+                                  Reclaim the lot
+                                </Btn>
+                              </div>
+                            )}
                         </div>
                       </div>
                     )}
@@ -899,6 +1012,9 @@ function PostForm(props: {
   address?: Address;
   block: bigint | null;
   onDone: (msg: string, rfqId: number) => void;
+  /** The on-chain rail: approve the lot, then post it. Lives in the parent so
+   *  it can use the same wallet client the reclaim button does. */
+  onChain: (lot: number, deadlineBlock: number, invited: string) => void;
 }) {
   const [pair, setPair] = useState("FXRP/USDT0");
   const [lot, setLot] = useState("250000");
@@ -906,6 +1022,7 @@ function PostForm(props: {
   const [minutes, setMinutes] = useState("60");
   const [invited, setInvited] = useState("");
   const [bilateral, setBilateral] = useState(false);
+  const [rail, setRail] = useState<"direct" | "chain">("direct");
   const [busy, setBusy] = useState(false);
 
   // Minutes in, block out. The field used to ask for a block number, with a
@@ -982,6 +1099,34 @@ function PostForm(props: {
           hint="Only this address may bid. Your reserve still stays hidden from them."
         />
       )}
+      {/* Which rail. The direct one is the demo path the extension only opens
+          with BUTA_ALLOW_DIRECT_AUCTION; on-chain is a transaction that escrows
+          the lot in the contract and forwards the instruction through the
+          diamond. Only the second one makes the commitment set the clearing has
+          to match, so it is worth being able to choose. */}
+      <div>
+        <Lbl>Which rail</Lbl>
+        <div className="mt-2 flex">
+          {(["direct", "chain"] as const).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRail(r)}
+              className={
+                "px-3 py-1.5 text-[10px] tracking-[0.12em] uppercase border border-line -ml-px first:ml-0 " +
+                (rail === r ? "bg-fg text-bg border-fg" : "text-fg-mute hover:text-fg")
+              }
+            >
+              {r === "direct" ? "Direct (demo)" : "On-chain"}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-[10px] text-fg-mute leading-relaxed max-w-[52ch]">
+          {rail === "direct"
+            ? "Straight to the enclave. Nothing is escrowed and nothing is recorded on-chain — fine for a demo, not a trade."
+            : `A transaction: ${TOKENS.FXRP.symbol} is escrowed in the contract and the instruction goes through the diamond, so the commitment set exists on-chain before the enclave has heard of it. Needs an approval first.`}
+        </p>
+      </div>
+
       <Btn
         busy={busy}
         onClick={async () => {
@@ -991,6 +1136,7 @@ function PostForm(props: {
           if (bilateral && !/^0x[0-9a-fA-F]{40}$/.test(invited.trim())) {
             return props.onDone("A bilateral block needs the counterparty's address.", 0);
           }
+          if (rail === "chain") return props.onChain(Number(lot), deadlineBlock, bilateral ? invited.trim() : "");
           setBusy(true);
           try {
             const r = await postRfq({
