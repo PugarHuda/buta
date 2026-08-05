@@ -20,10 +20,16 @@ interface DirectResponse {
 /** The envelope returned from GET /action/result/:id. */
 export interface ActionResult {
   result: {
+    id?: string;
+    submissionTag?: string;
     status: number; // 0 = failed, 1 = success, 2 = pending
     log: string;
     data: string; // JSON-encoded result data
   };
+  /** The enclave over the result. relayClearing will not settle without it,
+   *  and the dev facade does not produce one — which is worth carrying rather
+   *  than dropping, so the desk can say which case it is in. */
+  signature?: string;
 }
 
 /**

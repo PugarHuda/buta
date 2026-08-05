@@ -19,13 +19,14 @@ import { env } from "../config/env";
 import { readTeeStatus, type TeeStatus } from "../lib/teeStatus";
 import { readBlockNumber, countdown } from "../lib/blockClock";
 import { remember } from "../lib/seals";
-import { senderAbi, erc20Abi, preflight, INSTRUCTION_FEE, ZERO } from "../lib/onchain";
+import { senderAbi, erc20Abi, preflight, bidPreflight, relayPreflight, INSTRUCTION_FEE, ZERO } from "../lib/onchain";
 
 import {
   clearAuction,
   listRfqs,
   postRfq,
   sealBid,
+  sealBidEnvelope,
   sealReserve,
   getMyBids,
   type ClearingOutcome,
@@ -107,7 +108,9 @@ function Btn(props: {
 // ── the desk ─────────────────────────────────────────────────────────────────
 
 export function Desk() {
-  const { address } = useAccount();
+  const { address, chainId: walletChain } = useAccount();
+  const chainId = walletChain ?? coston2.id;
+  const { signMessageAsync } = useSignMessage();
   const [rfqs, setRfqs] = useState<RfqState[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   // "auto" means the panel follows the book: whatever the selected auction can
@@ -298,6 +301,120 @@ export function Desk() {
         const m = e as { shortMessage?: string; message?: string };
         say(`On-chain post failed: ${m.shortMessage ?? m.message ?? String(e)}`);
       } finally {
+        refresh();
+      }
+    },
+    [address, writeContractAsync, say, refresh],
+  );
+
+  // Seal a bid as a transaction.
+  //
+  // The direct rail records the commitment in enclave memory; only this puts it
+  // in the set the contract keeps, and that set is what relayClearing checks the
+  // clearing against. A commitment that never reached the chain cannot be part
+  // of a settlement, so the demo rail can demonstrate the mechanism but never
+  // complete it.
+  const [sealingChain, setSealingChain] = useState<number | null>(null);
+  const bidOnChain = useCallback(
+    async (rfqId: number, amount: bigint) => {
+      if (!address) return say("Connect a wallet — sealing on-chain is a transaction.");
+      setSealingChain(rfqId);
+      try {
+        const pc = createPublicClient({ chain: coston2, transport: http() });
+        const sender = SENDER as Address;
+        const [row, already] = await Promise.all([
+          pc.readContract({ address: sender, abi: senderAbi, functionName: "rfqs", args: [BigInt(rfqId)] }),
+          pc.readContract({ address: sender, abi: senderAbi, functionName: "hasBid", args: [BigInt(rfqId), address] }),
+        ]);
+        const pre = bidPreflight({
+          exists: row[0] !== ZERO,
+          cleared: row[6],
+          deadlineBlock: Number(row[4]),
+          head: headRef.current,
+          invited: row[5],
+          bidder: address,
+          alreadyBid: already,
+        });
+        if (!pre.ok) return say(`Cannot seal on-chain: ${pre.blocker}`);
+
+        // Same commitment and the same sealed opening as the direct rail — only
+        // the transport differs, which is the point.
+        const sealed = await sealBidEnvelope({
+          rfqId, bidder: address, amount, chainId,
+          sign: (raw) => signMessageAsync({ message: { raw } }),
+        });
+        const hash = await writeContractAsync({
+          address: sender, abi: senderAbi, functionName: "commitBid",
+          args: [BigInt(rfqId), sealed.commitment, sealed.ciphertext],
+          value: INSTRUCTION_FEE,
+        });
+        remember({ rfqId, bidder: address, amount: amount.toString(), nonce: sealed.nonce, commitment: sealed.commitment });
+        say(`Sealed on-chain: ${hash}. The commitment is in the set the clearing has to match.`);
+        await pc.waitForTransactionReceipt({ hash });
+        say(`Confirmed. Nobody can read the amount, and nobody can drop the bid from the set either.`);
+      } catch (e) {
+        const m = e as { shortMessage?: string; message?: string };
+        say(`On-chain bid failed: ${m.shortMessage ?? m.message ?? String(e)}`);
+      } finally {
+        setSealingChain(null);
+        refresh();
+      }
+    },
+    [address, chainId, signMessageAsync, writeContractAsync, say, refresh],
+  );
+
+  // Settle it. The only function that moves money, and the only one that makes
+  // the whole design pay off: the contract will not settle a clearing whose
+  // signature does not recover to the registered enclave, or whose set digest
+  // is not the digest of the commitments IT recorded. An auctioneer who drops
+  // an inconvenient bid produces a clearing that reverts.
+  const [settling, setSettling] = useState<number | null>(null);
+  // The last clearing this session produced, kept because settling needs the
+  // signature and the action id — not just the winner and the price.
+  const [lastOutcome, setLastOutcome] = useState<
+    (ClearingOutcome & { actionId?: string; submissionTag?: string; signature?: string }) | null
+  >(null);
+  const settle = useCallback(
+    async (out: ClearingOutcome & { actionId?: string; submissionTag?: string; signature?: string }) => {
+      if (!address) return say("Connect a wallet — settling is a transaction.");
+      setSettling(out.rfqId);
+      try {
+        const pc = createPublicClient({ chain: coston2, transport: http() });
+        const sender = SENDER as Address;
+        const [row, onChainDigest] = await Promise.all([
+          pc.readContract({ address: sender, abi: senderAbi, functionName: "rfqs", args: [BigInt(out.rfqId)] }),
+          pc.readContract({ address: sender, abi: senderAbi, functionName: "commitmentDigest", args: [BigInt(out.rfqId)] }).catch(() => null),
+        ]);
+        const allowance = await pc.readContract({
+          address: row[1], abi: erc20Abi, functionName: "allowance", args: [out.winner as Address, sender],
+        }).catch(() => 0n);
+
+        const pre = relayPreflight({
+          cleared: row[6],
+          onChainDigest,
+          outcomeDigest: out.setDigest as `0x${string}`,
+          signature: out.signature as `0x${string}` | undefined,
+          winnerAllowance: allowance,
+          clearingPrice: BigInt(out.clearingPrice),
+        });
+        if (!pre.ok) return say(`Cannot settle: ${pre.blocker}`);
+
+        const hash = await writeContractAsync({
+          address: sender, abi: senderAbi, functionName: "relayClearing",
+          args: [
+            BigInt(out.rfqId), out.winner as Address, BigInt(out.clearingPrice),
+            out.setDigest as `0x${string}`, (out.actionId ?? ZERO) as `0x${string}`,
+            out.submissionTag ?? "submit", 1, out.signature as `0x${string}`,
+          ],
+        });
+        say(`Settling: ${hash}. The winner pays the second price and the lot moves in the same transaction.`);
+        await pc.waitForTransactionReceipt({ hash });
+        say(`Settled on-chain. Delivery versus payment, and the losing amounts were never revealed to anyone.`);
+      } catch (e) {
+        const m = e as { shortMessage?: string; message?: string };
+        say(`Settlement failed: ${m.shortMessage ?? m.message ?? String(e)}`);
+      } finally {
+        setSettling(null);
         refresh();
       }
     },
@@ -723,7 +840,13 @@ export function Desk() {
                       // max-w on the form: a bid is one number, and the field
                       // was stretching the full width of the panel for it.
                       <div className="grid lg:grid-cols-[minmax(0,34rem)_20rem] gap-6">
-                        <BidForm sel={r} address={address} onDone={(m) => { say(m); refresh(); }} />
+                        <BidForm
+                          sel={r}
+                          address={address}
+                          busyChain={sealingChain === r.rfqId}
+                          onChain={(amount) => bidOnChain(r.rfqId, amount)}
+                          onDone={(m) => { say(m); refresh(); }}
+                        />
                         <div className="lg:border-l lg:border-line lg:pl-6">
                           {/* This used to ask "Past the deadline?" — a question
                               the desk can answer from one eth_blockNumber, and
@@ -742,7 +865,8 @@ export function Desk() {
                               quiet
                               onClick={async () => {
                                 try {
-                                  const out: ClearingOutcome = await clearAuction(r.rfqId);
+                                  const out = await clearAuction(r.rfqId);
+                                  setLastOutcome(out);
                                   say(
                                     `Cleared RFQ ${out.rfqId}: winner ${out.winner} at ${out.clearingPrice.toLocaleString()} (second price, ${out.bidCount} bids). Set digest ${out.setDigest.slice(0, 10)}…`
                                   );
@@ -758,6 +882,26 @@ export function Desk() {
                               Anyone may clear once it is past. Liveness never depends on the maker.
                             </span>
                           </div>
+
+                          {/* Settling is the step that makes the rest pay off.
+                              The contract refuses a clearing whose signature
+                              does not recover to the registered enclave, or
+                              whose digest is not the digest of the commitments
+                              IT recorded — so an auctioneer who dropped a bid
+                              produces a settlement that reverts. */}
+                          {lastOutcome?.rfqId === r.rfqId && (
+                            <div className="mt-4 pt-4 border-t border-line">
+                              <Lbl>Settle it</Lbl>
+                              <p className="mt-1 mb-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+                                {lastOutcome.signature
+                                  ? "Signed by the enclave. relayClearing pays the maker and moves the lot in one transaction."
+                                  : "This rail returned no signature, and relayClearing will not settle without one."}
+                              </p>
+                              <Btn quiet busy={settling === r.rfqId} onClick={() => settle(lastOutcome)}>
+                                Settle on-chain
+                              </Btn>
+                            </div>
+                          )}
 
                           {/* Your own block, past its deadline, with nothing on
                               it. reclaimLot has been in the contract from the
@@ -896,6 +1040,10 @@ function Audit({ tee }: { tee: TeeStatus }) {
 function BidForm(props: {
   sel: RfqState;
   address?: Address;
+  /** Seal into a commitBid transaction instead of the direct channel. Only
+   *  this puts the commitment in the set relayClearing checks against. */
+  onChain: (amount: bigint) => void;
+  busyChain: boolean;
   onDone: (msg: string) => void;
 }) {
   const [amount, setAmount] = useState("");
@@ -1007,6 +1155,33 @@ function BidForm(props: {
         >
           Seal bid
         </Btn>
+      )}
+
+      {/* The same sealed envelope, in a transaction.
+          The direct rail records the commitment in enclave memory; only this
+          puts it in the set the contract keeps, and that set is what
+          relayClearing checks a clearing against. A commitment that never
+          reached the chain can demonstrate the mechanism but can never be part
+          of a settlement. */}
+      {!!bidder && (
+        <div className="pt-3 border-t border-line">
+          <Btn
+            quiet
+            busy={props.busyChain}
+            onClick={() => {
+              if (!/^\d+$/.test(amount.trim()) || BigInt(amount.trim()) <= 0n) {
+                return props.onDone("Bid must be a positive whole number.");
+              }
+              props.onChain(BigInt(amount.trim()));
+            }}
+          >
+            Seal on-chain instead
+          </Btn>
+          <p className="mt-2 text-[10px] text-fg-mute leading-relaxed max-w-[44ch]">
+            A transaction, so the commitment lands in the set the clearing has to match.
+            One bid per address, enforced by the contract as well as the enclave.
+          </p>
+        </div>
       )}
 
       {receipt && (

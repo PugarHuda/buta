@@ -166,30 +166,42 @@ export async function sealReserve(reserve: bigint, pair: string): Promise<Hex> {
   return ("0x" + ct.toString("hex")) as Hex;
 }
 
+/**
+ * A sealed bid, made but not sent.
+ *
+ * The two rails differ only in transport: the direct one POSTs this to the
+ * enclave, the on-chain one puts it in a `commitBid` transaction so the
+ * commitment lands in the set the contract keeps. Building it in one place is
+ * what stops the two drifting — a commitment computed differently on one rail
+ * would be rejected by the enclave with nothing pointing at why.
+ */
+export async function sealBidEnvelope(p: {
+  rfqId: number;
+  bidder: Address;
+  amount: bigint;
+  chainId: number;
+  sign: (raw: Hex) => Promise<Hex>;
+}): Promise<{ commitment: Hex; nonce: Hex; ciphertext: Hex }> {
+  const nonce = randomNonce();
+  const commitment = computeCommitment(p.amount, nonce, p.bidder);
+  const sig = await p.sign(bidSigPayload(p.rfqId, commitment, p.chainId));
+  const opening = JSON.stringify({ amount: Number(p.amount), nonce, sig });
+  const ct = await eciesEncrypt(await teePublicKey(), Buffer.from(opening));
+  return { commitment, nonce, ciphertext: ("0x" + ct.toString("hex")) as Hex };
+}
+
 export async function sealBid(p: {
   rfqId: number;
   bidder: Address;
   amount: bigint;
-  /** The chain the wallet is actually on. Hardcoding 114 meant a wallet on any
-   *  other network signed a payload the enclave could not match, and the bid
-   *  came back rejected as a forged sender with nothing pointing at the cause. */
   chainId: number;
-  /** personal_sign over raw 32 bytes — wagmi: signMessageAsync({ message: { raw } }) */
   sign: (raw: Hex) => Promise<Hex>;
 }): Promise<{ rfqId: number; bidCount: number; commitment: Hex; nonce: Hex }> {
-  const nonce = randomNonce();
-  const commitment = computeCommitment(p.amount, nonce, p.bidder);
-  const sig = await p.sign(bidSigPayload(p.rfqId, commitment, p.chainId));
-
-  // The opening — amount, nonce, signature — is ECIES-encrypted to the TEE key
-  // and sent as ciphertext. The operator relaying the request never sees the
-  // amount; only the enclave that holds the private key can open it. The
-  // commitment (which reveals nothing) is what lands on-chain.
-  const opening = JSON.stringify({ amount: Number(p.amount), nonce, sig });
-  const teeKey = await teePublicKey();
-  const ct = await eciesEncrypt(teeKey, Buffer.from(opening));
-  const ciphertext = ("0x" + ct.toString("hex")) as Hex;
-
+  // The opening — amount, nonce, signature — is ECIES-encrypted to the enclave
+  // key and sent as ciphertext. The operator relaying the request never sees the
+  // amount; only the enclave holding the private half can open it. The
+  // commitment, which reveals nothing, is what lands on-chain.
+  const { commitment, nonce, ciphertext } = await sealBidEnvelope(p);
   const res = await call<{ rfqId: number; bidCount: number }>("COMMIT_BID", {
     rfqId: p.rfqId,
     bidder: p.bidder,
@@ -199,8 +211,20 @@ export async function sealBid(p: {
   return { ...res, commitment, nonce };
 }
 
-export function clearAuction(rfqId: number): Promise<ClearingOutcome> {
-  return call<ClearingOutcome>("CLEAR_AUCTION", { rfqId });
+/** The outcome AND what it takes to settle it on-chain. The signature is what
+ *  relayClearing checks; without it the receipt is the operator's word. */
+export async function clearAuction(
+  rfqId: number,
+): Promise<ClearingOutcome & { actionId?: string; submissionTag?: string; signature?: string }> {
+  const id = await postDirect("CLEAR_AUCTION", { rfqId }, OP_TYPE);
+  const res = await pollResult(id);
+  if (res.result.status !== 1) throw new Error(res.result.log || "CLEAR_AUCTION failed");
+  return {
+    ...decodeResultData<ClearingOutcome>(res.result.data),
+    actionId: res.result.id,
+    submissionTag: res.result.submissionTag,
+    signature: res.signature,
+  };
 }
 
 export interface MyBid {

@@ -21,8 +21,13 @@ export const INSTRUCTION_FEE = 1_000_000_000n; // 1 gwei
 
 export const senderAbi = parseAbi([
   "function postRfq(address settleToken, address lotToken, uint256 lot, uint64 deadlineBlock, address invited, bytes encryptedReserve) payable returns (uint256)",
+  "function commitBid(uint256 rfqId, bytes32 commitment, bytes ciphertext) payable",
+  "function requestClearing(uint256 rfqId) payable",
+  "function relayClearing(uint256 rfqId, address winner, uint256 clearingPrice, bytes32 setDigest, bytes32 actionId, string submissionTag, uint8 status, bytes signature)",
   "function reclaimLot(uint256 rfqId)",
   "function rfqCount() view returns (uint256)",
+  "function commitmentDigest(uint256 rfqId) view returns (bytes32)",
+  "function hasBid(uint256, address) view returns (bool)",
   "function rfqs(uint256) view returns (address maker, address settleToken, address lotToken, uint256 lot, uint64 deadlineBlock, address invited, bool cleared, address winner, uint256 clearingPrice)",
 ]);
 
@@ -79,4 +84,77 @@ export function preflight(p: {
  *  than it needs. */
 export function approveCall(spender: Address, lot: bigint): Hex {
   return encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [spender, lot] });
+}
+
+/**
+ * Whether a bid can go on-chain, from what the contract itself checks.
+ *
+ * commitBid reverts on four separate conditions and the revert data is the only
+ * way to tell them apart after the fact. All four are readable beforehand.
+ */
+export function bidPreflight(p: {
+  exists: boolean;
+  cleared: boolean;
+  deadlineBlock: number;
+  head: bigint | null;
+  invited: Address;
+  bidder: Address;
+  alreadyBid: boolean;
+}): { ok: boolean; blocker: string | null } {
+  if (!p.exists) return { ok: false, blocker: "That auction is not on the contract." };
+  if (p.cleared) return { ok: false, blocker: "It has already cleared." };
+  if (p.head !== null && BigInt(p.deadlineBlock) < p.head) {
+    return { ok: false, blocker: "Its deadline has passed — bids are closed." };
+  }
+  if (p.invited !== ZERO && p.invited.toLowerCase() !== p.bidder.toLowerCase()) {
+    return { ok: false, blocker: "This block is reserved for one counterparty, and it is not you." };
+  }
+  if (p.alreadyBid) {
+    return { ok: false, blocker: "You already sealed a bid here. One per address, enforced by the contract." };
+  }
+  return { ok: true, blocker: null };
+}
+
+/**
+ * Whether a clearing can be relayed and settled.
+ *
+ * relayClearing is the only function that moves money, and it reverts on a
+ * mismatched set digest — the check that stops an auctioneer clearing over a
+ * subset. Comparing the digests here turns that from a failed transaction into
+ * a sentence.
+ */
+export function relayPreflight(p: {
+  cleared: boolean;
+  onChainDigest: Hex | null;
+  outcomeDigest: Hex;
+  signature?: Hex;
+  winnerAllowance: bigint;
+  clearingPrice: bigint;
+}): { ok: boolean; blocker: string | null } {
+  if (p.cleared) return { ok: false, blocker: "Already settled on-chain." };
+  if (!p.signature) {
+    return {
+      ok: false,
+      blocker:
+        "This clearing carries no enclave signature, and relayClearing will not settle without one. " +
+        "The dev facade signs nothing — this needs the real proxy.",
+    };
+  }
+  if (p.onChainDigest && p.onChainDigest.toLowerCase() !== p.outcomeDigest.toLowerCase()) {
+    return {
+      ok: false,
+      blocker:
+        "The clearing was computed over a different set than the contract recorded. " +
+        "That is precisely what the digest check exists to refuse.",
+    };
+  }
+  if (p.winnerAllowance < p.clearingPrice) {
+    // The winner pays the maker directly, so the contract needs their approval.
+    // Without it the whole settlement reverts and the auction stays open.
+    return {
+      ok: false,
+      blocker: `The winner has approved ${p.winnerAllowance} of the settlement token and owes ${p.clearingPrice}.`,
+    };
+  }
+  return { ok: true, blocker: null };
 }
