@@ -26,6 +26,7 @@ import {
   listRfqs,
   postRfq,
   sealBid,
+  sealReserve,
   getMyBids,
   type ClearingOutcome,
   type RfqState,
@@ -251,7 +252,7 @@ export function Desk() {
   // insufficient allowance", and the only way to find that out was to pay for a
   // reverted transaction.
   const postOnChain = useCallback(
-    async (lot: number, deadlineBlock: number, invited: string) => {
+    async (lot: number, deadlineBlock: number, invited: string, reserve: bigint, pair: string) => {
       if (!address) return say("Connect a wallet first — posting on-chain is a transaction.");
       const lotUnits = BigInt(Math.max(0, Math.floor(lot)));
       const spender = SENDER as Address;
@@ -274,16 +275,18 @@ export function Desk() {
           say(`Approved: ${a}`);
         }
 
-        // The reserve rides as ECIES ciphertext, the same envelope the direct
-        // rail uses — empty here because the enclave treats an empty reserve as
-        // zero, and a maker who wants one can still post it over the rail that
-        // encrypts it. Wiring the ciphertext through the transaction is the next
-        // step, not a claim being made now.
+        // The floor, sealed to the enclave and carried by the transaction.
+        //
+        // This was `0x`, which cost more than the reserve: the PAIR travels in
+        // the same envelope, so an on-chain block was recorded with no floor and
+        // no pair name at all. A zero floor is the giveaway the post form
+        // already refuses on the other rail.
+        const encryptedReserve = await sealReserve(reserve, pair);
         const hash = await writeContractAsync({
           address: spender,
           abi: senderAbi,
           functionName: "postRfq",
-          args: [TOKENS.USDT0.address, token, lotUnits, BigInt(deadlineBlock), (invited || ZERO) as Address, "0x"],
+          args: [TOKENS.USDT0.address, token, lotUnits, BigInt(deadlineBlock), (invited || ZERO) as Address, encryptedReserve],
           value: INSTRUCTION_FEE,
         });
         say(`Posted on-chain: ${hash}. The lot is escrowed and the instruction is on its way to the enclave.`);
@@ -1031,7 +1034,7 @@ function PostForm(props: {
   onDone: (msg: string, rfqId: number) => void;
   /** The on-chain rail: approve the lot, then post it. Lives in the parent so
    *  it can use the same wallet client the reclaim button does. */
-  onChain: (lot: number, deadlineBlock: number, invited: string) => void;
+  onChain: (lot: number, deadlineBlock: number, invited: string, reserve: bigint, pair: string) => void;
 }) {
   const [pair, setPair] = useState("FXRP/USDT0");
   const [lot, setLot] = useState("250000");
@@ -1163,7 +1166,9 @@ function PostForm(props: {
               0,
             );
           }
-          if (rail === "chain") return props.onChain(Number(lot), deadlineBlock, bilateral ? invited.trim() : "");
+          if (rail === "chain") {
+            return props.onChain(Number(lot), deadlineBlock, bilateral ? invited.trim() : "", BigInt(reserve.trim()), pair);
+          }
           setBusy(true);
           try {
             const r = await postRfq({

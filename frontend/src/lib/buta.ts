@@ -147,6 +147,25 @@ async function teePublicKey(): Promise<Buffer> {
   return Buffer.from(onChain);
 }
 
+/**
+ * The maker's floor, sealed for the transaction that posts the block.
+ *
+ * `postRfq(..., bytes encryptedReserve)` carries this, and the enclave opens it
+ * with `decodePostRfq`. The on-chain rail was sending `0x` — which cost more
+ * than the reserve: the pair travels in the same envelope, so an on-chain block
+ * was recorded with no floor AND no pair name. A zero floor means a lone bid
+ * takes the lot for nothing, which is exactly the giveaway the post form now
+ * refuses on the other rail.
+ *
+ * Same key path as a bid: the enclave's, read from the chain.
+ */
+export async function sealReserve(reserve: bigint, pair: string): Promise<Hex> {
+  const body = JSON.stringify({ reserve: Number(reserve), pair });
+  const key = await teePublicKey();
+  const ct = await eciesEncrypt(key, Buffer.from(body));
+  return ("0x" + ct.toString("hex")) as Hex;
+}
+
 export async function sealBid(p: {
   rfqId: number;
   bidder: Address;
