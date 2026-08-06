@@ -52,4 +52,60 @@ if (!fs.existsSync(path.join(dist, "index.html"))) {
   console.error("the landing page did not land at the root — dist/index.html is missing");
   process.exit(1);
 }
+/**
+ * Nothing secret may leave in the bundle.
+ *
+ * vite loads .env.local for PRODUCTION builds as well as dev, so a key put
+ * there ships to everyone who opens the site. VITE_DIRECT_API_KEY did exactly
+ * that, and was one `vercel --prod` away from being public. Dev-only values
+ * belong in .env.development.local, which `vite build` never reads.
+ *
+ * This looks for the values themselves rather than the variable names, because
+ * what ends up in the bundle is the value.
+ */
+const secrets = ["VITE_DIRECT_API_KEY"];
+const bundle = [];
+(function walk(dir) {
+  for (const name of fs.readdirSync(dir)) {
+    const p = path.join(dir, name);
+    if (fs.statSync(p).isDirectory()) walk(p);
+    else if (/\.(js|html|css|map)$/.test(name)) bundle.push(fs.readFileSync(p, "utf8"));
+  }
+})(dist);
+
+/**
+ * The value as vite would have seen it — read from the env files, not from
+ * process.env.
+ *
+ * This script runs as its own process after `vite build`, so it inherits none
+ * of what vite loaded. The first version of this check read process.env, found
+ * undefined, skipped every secret, and passed a build that DID contain the key.
+ * A guard that cannot see what it is guarding is worse than no guard: it
+ * reports safety.
+ */
+function fromEnvFiles(key) {
+  for (const file of [".env.local", ".env", ".env.production.local", ".env.production"]) {
+    const p = path.join(root, file);
+    if (!fs.existsSync(p)) continue;
+    const line = fs.readFileSync(p, "utf8").split(/\r?\n/).find((l) => l.startsWith(`${key}=`));
+    const v = line?.slice(key.length + 1).trim();
+    if (v) return v;
+  }
+  return process.env[key];
+}
+
+for (const key of secrets) {
+  const value = fromEnvFiles(key);
+  // A short value would match half the alphabet; only a real one is worth
+  // searching for.
+  if (!value || value.length < 12) continue;
+  if (bundle.some((f) => f.includes(value))) {
+    console.error(
+      `${key} is in the built bundle. Move it to .env.development.local — ` +
+        "vite reads .env.local for production builds too, and this would have been published.",
+    );
+    process.exit(1);
+  }
+}
+
 console.log(`assembled: landing at /, desk at /dashboard/ (${copied} landing file(s))`);

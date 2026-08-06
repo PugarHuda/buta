@@ -9,3 +9,6 @@ dist
 tsconfig.tsbuildinfo
 .vercel
 dist/
+.env.*.local
+.env.*
+!.env.example
