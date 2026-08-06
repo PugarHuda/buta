@@ -8,7 +8,7 @@
  * bid bounce, loudly.
  */
 
-import { encodePacked, keccak256, type Address, type Hex } from "viem";
+import { decodeAbiParameters, encodePacked, keccak256, type Address, type Hex } from "viem";
 import { encrypt as eciesEncrypt } from "ecies-geth";
 import { postDirect, pollResult, decodeResultData } from "./teeClient";
 import { readBook, readMyBids } from "./book";
@@ -211,16 +211,32 @@ export async function sealBid(p: {
   return { ...res, commitment, nonce };
 }
 
-/** The outcome AND what it takes to settle it on-chain. The signature is what
- *  relayClearing checks; without it the receipt is the operator's word. */
+/**
+ * The outcome, and what it takes to settle it on-chain.
+ *
+ * The result data is ABI-encoded, not JSON, and that is not a detail: the node
+ * signs those bytes as they are, and relayClearing rebuilds them with
+ * abi.encode(rfqId, winner, clearingPrice, setDigest) before hashing. The
+ * enclave used to emit JSON, so every clearing signature was unverifiable
+ * on-chain and relayClearing reverted BadTeeSignature on honest outcomes.
+ */
 export async function clearAuction(
   rfqId: number,
 ): Promise<ClearingOutcome & { actionId?: string; submissionTag?: string; signature?: string }> {
   const id = await postDirect("CLEAR_AUCTION", { rfqId }, OP_TYPE);
   const res = await pollResult(id);
   if (res.result.status !== 1) throw new Error(res.result.log || "CLEAR_AUCTION failed");
+  const [outRfq, winner, clearingPrice, setDigest] = decodeAbiParameters(
+    [{ type: "uint256" }, { type: "address" }, { type: "uint256" }, { type: "bytes32" }],
+    res.result.data as Hex,
+  );
   return {
-    ...decodeResultData<ClearingOutcome>(res.result.data),
+    rfqId: Number(outRfq),
+    winner,
+    clearingPrice: Number(clearingPrice),
+    // The contract does not carry a bid count and neither does the signed data.
+    bidCount: 0,
+    setDigest,
     actionId: res.result.id,
     submissionTag: res.result.submissionTag,
     signature: res.signature,

@@ -402,14 +402,24 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 		r.Openings[i].Nonce = [32]byte{}
 	}
 
-	b, _ := json.Marshal(clearAuctionResponse{
-		RfqID:         r.ID,
-		Winner:        out.Winner,
-		ClearingPrice: out.ClearingPrice,
-		BidCount:      out.BidCount,
-		SetDigest:     hexutil.Encode(out.SetDigest[:]),
-	})
-	return buildResult(action, df, b, 1, nil)
+	// ABI-encoded, not JSON, and this is load-bearing.
+	//
+	// The node signs over the RESULT DATA BYTES exactly as they are. The
+	// contract does not receive those bytes — relayClearing rebuilds them with
+	// abi.encode(rfqId, winner, clearingPrice, setDigest) and hashes that. So
+	// the two only agree if the enclave emits the same encoding.
+	//
+	// It emitted JSON. Every clearing signature was therefore unverifiable
+	// on-chain, and relayClearing reverted BadTeeSignature on a perfectly honest
+	// outcome — proven on Coston2 twice before this was found. The fork test
+	// never caught it because it signed the abi-encoded form itself, so it was
+	// checking the contract against its own assumption rather than against the
+	// enclave.
+	encoded, err := clearingResultData(r.ID, out.Winner, out.ClearingPrice, out.SetDigest)
+	if err != nil {
+		return buildResult(action, df, nil, 0, err)
+	}
+	return buildResult(action, df, encoded, 1, nil)
 }
 
 // processGetRfqState is the public read. Size and deadline are public by

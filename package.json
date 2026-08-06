@@ -11,6 +11,8 @@
     "verify:submission": "node scripts/verify-submission.mjs"
   },
   "dependencies": {
+    "ecies-geth": "^1.8.0",
+    "tsx": "^4.23.8",
     "viem": "^2.21.0"
   }
 }

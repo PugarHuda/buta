@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
+	teetypes "github.com/flare-foundation/tee-node/pkg/types"
 )
 
 // These encode exactly what ButaInstructionSender._sendInstruction encodes, and
@@ -174,4 +176,64 @@ func mustReq(t *testing.T, msg []byte) postRfqRequest {
 		t.Fatal(err)
 	}
 	return r
+}
+
+// The encoding IS the interface between the enclave and relayClearing.
+//
+// The node signs the result data byte for byte. The contract never receives
+// those bytes — it rebuilds them with
+// abi.encode(rfqId, winner, clearingPrice, setDigest) and hashes that. So the
+// signature only verifies if the enclave emitted exactly that encoding.
+//
+// It emitted JSON, and every clearing signature was therefore unverifiable
+// on-chain. relayClearing reverted BadTeeSignature on perfectly honest
+// outcomes, twice on Coston2, before anyone looked. The Foundry test did not
+// catch it because it signs the abi-encoded form itself — checking the contract
+// against its own assumption rather than against the enclave.
+func TestClearingResultIsEncodedTheWayTheContractRebuildsIt(t *testing.T) {
+	digest := [32]byte{0xab, 0xcd}
+	winner := "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+
+	got, err := clearingResultData(4211, winner, 129_850, digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// abi.encode of four static 32-byte words, and nothing else. A JSON body of
+	// the same fields is not 128 bytes and never could be.
+	if len(got) != 128 {
+		t.Fatalf("result data is %d bytes; abi.encode of four static words is 128", len(got))
+	}
+
+	id, w, price, d, err := decodeClearingResultData(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != 4211 || price != 129_850 || d != digest {
+		t.Errorf("round trip lost something: id=%d price=%d digest=%x", id, price, d)
+	}
+	if w != strings.ToLower(winner) {
+		t.Errorf("winner = %s, want %s", w, strings.ToLower(winner))
+	}
+
+	// The whole clearing path must produce this, not just the helper. A handler
+	// that goes back to json.Marshal passes every other test in this package.
+	e := newAuctionExtension()
+	alice, bob := newBidder(t, 1), newBidder(t, 2)
+	rfq := post(t, e, postRfqRequest{
+		Maker: "0xMAKER", Pair: "FXRP/USDT0", Lot: 480_000, Reserve: 4000, Deadline: 24_109_880,
+	})
+	commit(t, e, rfq, alice, 41, 5194)
+	commit(t, e, rfq, bob, 42, 5107)
+	body, _ := json.Marshal(clearAuctionRequest{RfqID: rfq})
+	ar := e.processClearAuction(teetypes.Action{}, &instruction.DataFixed{}, body)
+	if ar.Status != 1 {
+		t.Fatalf("clear failed: %s", ar.Log)
+	}
+	if len(ar.Data) != 128 {
+		t.Fatalf("the clearing returned %d bytes, not the 128 the contract rebuilds — this is the bug that reverted BadTeeSignature on-chain", len(ar.Data))
+	}
+	if _, _, p, _, err := decodeClearingResultData(ar.Data); err != nil || p != 5107 {
+		t.Fatalf("decoded price %d (err %v), want the runner-up's 5107", p, err)
+	}
 }

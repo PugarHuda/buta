@@ -112,6 +112,12 @@ func TestNoCommandEverReturnsABidAmount(t *testing.T) {
 	}
 	// The clearing response itself. It carries the second price, which is
 	// public — but the winner's own bid never is, and neither is the reserve.
+	// The clearing result is ABI-encoded now, so a decimal search over its bytes
+	// finds nothing either way — decode it and search the numbers themselves.
+	_, _, clearedPrice, _, derr := decodeClearingResultData(mustData(t, body))
+	if derr != nil {
+		t.Fatal(derr)
+	}
 	cleared := visible(t, body)
 	for _, name := range []string{"the reserve", "alice's bid"} {
 		if strings.Contains(cleared, strconv.Itoa(secrets[name])) {
@@ -120,8 +126,8 @@ func TestNoCommandEverReturnsABidAmount(t *testing.T) {
 	}
 	// And the premise: the second price IS in there, so a handler that returned
 	// an empty body could not pass this test by saying nothing at all.
-	if !strings.Contains(cleared, strconv.Itoa(bobBid)) {
-		t.Fatalf("the clearing price is not the runner-up's bid — this test proves nothing: %s", cleared)
+	if clearedPrice != uint64(bobBid) {
+		t.Fatalf("cleared at %d, not the runner-up's %d — this test proves nothing", clearedPrice, bobBid)
 	}
 
 	// After clearing, bob's number is public — it IS the clearing price, which is
@@ -130,4 +136,14 @@ func TestNoCommandEverReturnsABidAmount(t *testing.T) {
 	// a price, and every other bid stays sealed forever, the winner's included.
 	delete(secrets, "bob's bid")
 	sweep("cleared", secrets)
+}
+
+// mustData pulls the result bytes out of an ActionResult envelope.
+func mustData(t *testing.T, body []byte) []byte {
+	t.Helper()
+	var ar teetypes.ActionResult
+	if err := json.Unmarshal(body, &ar); err != nil {
+		t.Fatal(err)
+	}
+	return ar.Data
 }

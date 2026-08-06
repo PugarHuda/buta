@@ -133,10 +133,14 @@ func TestSealedLifecycle(t *testing.T) {
 	if clAR.Status != 1 {
 		t.Fatalf("clear failed: %s", clAR.Log)
 	}
-	var out clearAuctionResponse
-	if err := json.Unmarshal(clAR.Data, &out); err != nil {
+	// ABI, not JSON: the node signs these bytes and relayClearing rebuilds them
+	// with abi.encode, so the encoding is the interface between the two.
+	outRfq, outWinner, outPrice, _, err := decodeClearingResultData(clAR.Data)
+	if err != nil {
 		t.Fatal(err)
 	}
+	_ = outRfq
+	out := clearAuctionResponse{Winner: outWinner, ClearingPrice: outPrice}
 
 	if out.Winner != bob.hex() {
 		t.Errorf("winner = %q, want %s", out.Winner, bob.hex())

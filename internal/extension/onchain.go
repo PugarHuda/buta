@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -143,4 +144,44 @@ func decodeClearAuction(payload []byte) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(clearAuctionRequest{RfqID: rfqID})
+}
+
+// clearingResultData is the exact bytes ButaInstructionSender.relayClearing
+// rebuilds before it hashes them:
+//
+//	abi.encode(uint256 rfqId, address winner, uint256 clearingPrice, bytes32 setDigest)
+//
+// The node signs the result data as-is, and the contract never sees those bytes
+// — it reconstructs them. So this encoding IS the interface between the two, and
+// a drift makes every honest clearing unverifiable rather than making a forged
+// one pass, which is the safe direction but a silent one.
+func clearingResultData(rfqID uint64, winner string, price uint64, digest [32]byte) ([]byte, error) {
+	return clearingResultArgs.Pack(
+		new(big.Int).SetUint64(rfqID),
+		common.HexToAddress(winner),
+		new(big.Int).SetUint64(price),
+		digest,
+	)
+}
+
+var clearingResultArgs = abi.Arguments{
+	{Type: mustType("uint256")}, // rfqId
+	{Type: mustType("address")}, // winner
+	{Type: mustType("uint256")}, // clearingPrice
+	{Type: mustType("bytes32")}, // setDigest
+}
+
+// decodeClearingResultData reads back what clearingResultData produced. Only
+// tests need this — the contract does its own decoding — but a round trip is
+// the cheapest proof that the encoding is what the contract expects.
+func decodeClearingResultData(b []byte) (rfqID uint64, winner string, price uint64, digest [32]byte, err error) {
+	vals, err := clearingResultArgs.Unpack(b)
+	if err != nil {
+		return 0, "", 0, [32]byte{}, err
+	}
+	return vals[0].(*big.Int).Uint64(),
+		strings.ToLower(vals[1].(common.Address).Hex()),
+		vals[2].(*big.Int).Uint64(),
+		vals[3].([32]byte),
+		nil
 }
