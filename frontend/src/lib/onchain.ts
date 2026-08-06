@@ -115,6 +115,55 @@ export function bidPreflight(p: {
   return { ok: true, blocker: null };
 }
 
+/** The diamond's TeeInstructionsSent event puts the instruction id in topic 2.
+ *  Topic 1 is the EXTENSION id, which is the same on every instruction — taking
+ *  it meant asking the proxy for a result filed under something that was never
+ *  an id, and getting "not found" forever. */
+export function instructionIdFrom(logs: readonly { address: string; topics: readonly Hex[] }[]): Hex | null {
+  const DIAMOND = "0x1a9c4a0f9d76c0b1d91d22e24e573a9b377618ae";
+  return logs.find((l) => l.address.toLowerCase() === DIAMOND)?.topics[2] ?? null;
+}
+
+/**
+ * The signed clearing, once the enclave has produced one.
+ *
+ * On-chain instructions are filed under "threshold" first and re-emitted under
+ * "end"; the direct channel uses "submit". Trying all three is cheaper than
+ * knowing which, and the answer is the same object either way.
+ *
+ * Returns null when nothing signed arrives, which is a real outcome rather than
+ * an error: the dev facade signs nothing at all, and relayClearing will not take
+ * an unsigned result.
+ */
+export async function awaitSignedClearing(
+  proxyUrl: string,
+  instructionId: Hex,
+  opts: { tries?: number; everyMs?: number } = {},
+): Promise<{ data: Hex; actionId: Hex; submissionTag: string; signature: Hex } | null> {
+  const tries = opts.tries ?? 40;
+  for (let i = 0; i < tries; i++) {
+    for (const tag of ["threshold", "end", "submit"]) {
+      try {
+        const r = await fetch(`${proxyUrl}/action/result/${instructionId}?submissionTag=${tag}`);
+        if (!r.ok) continue;
+        const j = await r.json();
+        if (j?.result?.status === 1 && j?.signature) {
+          return {
+            data: j.result.data as Hex,
+            actionId: j.result.id as Hex,
+            submissionTag: j.result.submissionTag ?? tag,
+            signature: j.signature as Hex,
+          };
+        }
+      } catch {
+        /* keep waiting */
+      }
+    }
+    await new Promise((r) => setTimeout(r, opts.everyMs ?? 3000));
+  }
+  return null;
+}
+
 /**
  * Whether a clearing can be relayed and settled.
  *

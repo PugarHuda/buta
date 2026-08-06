@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useSignMessage, useWriteContract } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { createPublicClient, http, type Address } from "viem";
+import { createPublicClient, decodeAbiParameters, http, type Address } from "viem";
 import { Folio } from "./Folio";
 import { TOKENS } from "../config/tokens";
 import { coston2 } from "../config/chain";
@@ -19,7 +19,10 @@ import { env } from "../config/env";
 import { readTeeStatus, instructionSenderFromChain, type TeeStatus } from "../lib/teeStatus";
 import { readBlockNumber, countdown } from "../lib/blockClock";
 import { remember } from "../lib/seals";
-import { senderAbi, erc20Abi, preflight, bidPreflight, relayPreflight, INSTRUCTION_FEE, ZERO } from "../lib/onchain";
+import {
+  senderAbi, erc20Abi, preflight, bidPreflight, relayPreflight,
+  instructionIdFrom, awaitSignedClearing, INSTRUCTION_FEE, ZERO,
+} from "../lib/onchain";
 
 import {
   clearAuction,
@@ -424,6 +427,56 @@ export function Desk() {
       }
     },
     [address, writeContractAsync, say, refresh],
+  );
+
+  // Ask for the clearing ON-CHAIN, then wait for the enclave to sign it.
+  //
+  // The Clear button went down the direct channel, which a production stack
+  // refuses (BUTA_ALLOW_DIRECT_AUCTION is a demo switch and is off there) and
+  // whose facade signs nothing anyway. So the desk could reach a clearing it
+  // could never settle: relayClearing will not take an unsigned outcome. This
+  // is the path the script proved, in the product.
+  const [requesting, setRequesting] = useState<number | null>(null);
+  const requestClearingOnChain = useCallback(
+    async (rfqId: number) => {
+      if (!address) return say("Connect a wallet — requesting a clearing is a transaction.");
+      setRequesting(rfqId);
+      try {
+        const pc = createPublicClient({ chain: coston2, transport: http() });
+        const hash = await writeContractAsync({
+          address: sender, abi: senderAbi, functionName: "requestClearing",
+          args: [BigInt(rfqId)], value: INSTRUCTION_FEE,
+        });
+        say(`Clearing requested on-chain: ${hash}. The enclave opens the bids and signs the outcome.`);
+        const rcpt = await pc.waitForTransactionReceipt({ hash });
+        const id = instructionIdFrom(rcpt.logs);
+        if (!id) return say("The diamond logged no instruction id, so there is nothing to wait on.");
+
+        const signed = await awaitSignedClearing(env.teeProxyUrl, id);
+        if (!signed) {
+          return say(
+            "No signed outcome came back. The clearing may still have happened — but relayClearing " +
+              "cannot settle without a signature, and the dev facade produces none.",
+          );
+        }
+        const [oRfq, winner, price, digest] = decodeAbiParameters(
+          [{ type: "uint256" }, { type: "address" }, { type: "uint256" }, { type: "bytes32" }],
+          signed.data,
+        );
+        setLastOutcome({
+          rfqId: Number(oRfq), winner, clearingPrice: Number(price), bidCount: 0, setDigest: digest,
+          actionId: signed.actionId, submissionTag: signed.submissionTag, signature: signed.signature,
+        });
+        say(`Signed by the enclave: ${winner} wins at ${price}. Settle it to move the lot and the payment.`);
+      } catch (e) {
+        const m = e as { shortMessage?: string; message?: string };
+        say(`Clearing request failed: ${m.shortMessage ?? m.message ?? String(e)}`);
+      } finally {
+        setRequesting(null);
+        refresh();
+      }
+    },
+    [address, sender, writeContractAsync, say, refresh],
   );
 
   const openCount = rfqs.filter((r) => !r.cleared).length;
@@ -886,6 +939,25 @@ export function Desk() {
                             <span className="text-[10px] text-fg-mute max-w-[26ch] leading-relaxed">
                               Anyone may clear once it is past. Liveness never depends on the maker.
                             </span>
+                          </div>
+
+                          {/* The rail that can actually be settled. The button
+                              above goes down the direct channel, which a
+                              production stack refuses and whose facade signs
+                              nothing — so it reaches a clearing that
+                              relayClearing will never accept. */}
+                          <div className="mt-3">
+                            <Btn
+                              quiet
+                              busy={requesting === r.rfqId}
+                              onClick={() => requestClearingOnChain(r.rfqId)}
+                            >
+                              Request clearing on-chain
+                            </Btn>
+                            <p className="mt-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+                              A transaction. The enclave opens the bids and signs the outcome, and only a
+                              signed one can be settled.
+                            </p>
                           </div>
 
                           {/* Settling is the step that makes the rest pay off.
