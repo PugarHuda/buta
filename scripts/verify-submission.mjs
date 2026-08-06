@@ -121,6 +121,9 @@ for (const [label, re] of [
   // the table is that the same script settles again with nothing changed, so
   // the second hash has to hold up on its own.
   ["the second settlement", /Settled a second time[^`]*`(0x[0-9a-f]{64})`/],
+  // The one driven through the UI. Everything above it was reachable from node,
+  // which is exactly why none of it proved the product worked.
+  ["the settlement driven from the desk", /Settled from the desk[^`]*`(0x[0-9a-f]{64})`/],
 ]) {
   const hash = claimed(re, label);
   if (!hash) continue;

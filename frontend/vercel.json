@@ -1,4 +1,49 @@
 {
   "cleanUrls": true,
-  "rewrites": [{ "source": "/dashboard/:path*", "destination": "/dashboard/index.html" }]
+  "rewrites": [
+    {
+      "source": "/dashboard/:path*",
+      "destination": "/dashboard/index.html"
+    },
+    {
+      "source": "/info/:path*",
+      "destination": "https://sustainable-decreased-charity-liverpool.trycloudflare.com/info/:path*",
+      "buta:machine": true
+    },
+    {
+      "source": "/info",
+      "destination": "https://sustainable-decreased-charity-liverpool.trycloudflare.com/info",
+      "buta:machine": true
+    },
+    {
+      "source": "/direct/:path*",
+      "destination": "https://sustainable-decreased-charity-liverpool.trycloudflare.com/direct/:path*",
+      "buta:machine": true
+    },
+    {
+      "source": "/direct",
+      "destination": "https://sustainable-decreased-charity-liverpool.trycloudflare.com/direct",
+      "buta:machine": true
+    },
+    {
+      "source": "/state/:path*",
+      "destination": "https://sustainable-decreased-charity-liverpool.trycloudflare.com/state/:path*",
+      "buta:machine": true
+    },
+    {
+      "source": "/state",
+      "destination": "https://sustainable-decreased-charity-liverpool.trycloudflare.com/state",
+      "buta:machine": true
+    },
+    {
+      "source": "/action/:path*",
+      "destination": "https://sustainable-decreased-charity-liverpool.trycloudflare.com/action/:path*",
+      "buta:machine": true
+    },
+    {
+      "source": "/action",
+      "destination": "https://sustainable-decreased-charity-liverpool.trycloudflare.com/action",
+      "buta:machine": true
+    }
+  ]
 }

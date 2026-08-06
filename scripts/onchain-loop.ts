@@ -201,7 +201,14 @@ async function signedResult(id: Hex) {
         const r = await fetch(`${PROXY}/action/result/${id}?submissionTag=${tag}`);
         if (!r.ok) continue;
         const j = await r.json();
-        if (j?.result?.status === 1 && j?.signature) return { ...j, tag };
+        // The tag is not the test — the shape is. "end" carries the consensus
+        // envelope (1887 bytes of {"voteSequence":…}), signed and status 1 and
+        // useless for settling; only "threshold" carries the four-word ABI
+        // outcome relayClearing rebuilds. This loop settled twice by winning
+        // that race rather than by checking.
+        if (j?.result?.status === 1 && j?.signature && /^0x[0-9a-fA-F]{256}$/.test(j.result.data)) {
+          return { ...j, tag };
+        }
       } catch {
         /* keep waiting */
       }

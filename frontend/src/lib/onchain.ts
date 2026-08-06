@@ -125,6 +125,27 @@ export function instructionIdFrom(logs: readonly { address: string; topics: read
 }
 
 /**
+ * Is this the clearing outcome, or something else the proxy also signed?
+ *
+ * The three submission tags do not carry the same thing. Only "threshold" holds
+ * the enclave's ABI-encoded outcome — rfqId, winner, price, digest, four words,
+ * 128 bytes, exactly what relayClearing rebuilds. "end" holds the consensus
+ * envelope: 1887 bytes of `{"voteSequence":{"voteHash":…}}`, signed and status
+ * 1 and completely useless for settling.
+ *
+ * Taking whichever tag answered first was a race. It happened to land on
+ * "threshold" for the two settlements that proved this system works, and on
+ * "end" the first time the desk asked from a browser — where it decoded the
+ * leading `{` of that JSON as an rfqId of 55695370586825141013624577… and the
+ * mismatch guard, correctly, refused to settle anything.
+ *
+ * So the tag is not the test. The shape is.
+ */
+export function isClearingOutcome(data: unknown): data is Hex {
+  return typeof data === "string" && /^0x[0-9a-fA-F]{256}$/.test(data);
+}
+
+/**
  * The signed clearing, once the enclave has produced one.
  *
  * On-chain instructions are filed under "threshold" first and re-emitted under
@@ -147,7 +168,7 @@ export async function awaitSignedClearing(
         const r = await fetch(`${proxyUrl}/action/result/${instructionId}?submissionTag=${tag}`);
         if (!r.ok) continue;
         const j = await r.json();
-        if (j?.result?.status === 1 && j?.signature) {
+        if (j?.result?.status === 1 && j?.signature && isClearingOutcome(j.result.data)) {
           return {
             data: j.result.data as Hex,
             actionId: j.result.id as Hex,

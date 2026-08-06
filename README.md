@@ -74,8 +74,25 @@ kept in the browser, so the disclosure form fills itself from it.
 
 ```bash
 go test ./pkg/auction/... ./internal/extension/...   # clearing + handlers, no-leak assertions
-forge test                                            # 15 tests — relayClearing, trimmed-set, replay, reclaim
+forge test                                            # 19 tests — relayClearing, trimmed-set, replay, reclaim
 ```
+
+Against a live Coston2 stack:
+
+```bash
+npx tsx scripts/onchain-loop.ts          # approve → post → seal → clear → settle, from node
+node scripts/settle-from-browser.mjs     # the same thing, driven through the actual desk
+```
+
+The second one is not redundant. `onchain-loop.ts` shares its libraries with the
+desk and builds its own arguments, so it proves the contracts and the enclave —
+and skips the only place the UI can be wrong. Both bugs it found were invisible
+from node: the enclave proxy sends no CORS header, so a browser cannot reach it
+at all; and the settle control lived only in the branch for an auction that had
+not cleared, so a successful clearing removed the button that would settle it.
+
+It spends real testnet FXRP and drives two wallets, which is why it is a one-off
+and not part of any suite.
 
 ## Layout
 

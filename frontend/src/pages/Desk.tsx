@@ -19,6 +19,7 @@ import { env } from "../config/env";
 import { readTeeStatus, instructionSenderFromChain, type TeeStatus } from "../lib/teeStatus";
 import { readBlockNumber, countdown } from "../lib/blockClock";
 import { remember } from "../lib/seals";
+import { allClearings, forgetClearing, rememberClearing, type StoredClearing } from "../lib/clearings";
 import {
   senderAbi, erc20Abi, preflight, bidPreflight, relayPreflight,
   instructionIdFrom, awaitSignedClearing, gasForWrite, INSTRUCTION_FEE, ZERO,
@@ -108,6 +109,82 @@ function Btn(props: {
   );
 }
 
+/**
+ * Settling is the step that makes the rest pay off, and it used to live only in
+ * the branch for an auction that had NOT cleared.
+ *
+ * Which meant the act of succeeding removed it: the enclave clears, the next
+ * poll brings the row back with cleared = true, the whole clearing section
+ * unmounts, and the signed outcome sits in state with no way to spend it. The
+ * desk could reach a settlement it could never perform, and no script could
+ * find that, because a script never renders anything.
+ *
+ * Cleared and settled are two different facts about two different systems — the
+ * enclave opened the bids, the contract moved the money — so this renders on
+ * both sides of that split and stops when the CONTRACT says it is done.
+ */
+/**
+ * Ask the enclave to open the bids and sign the outcome.
+ *
+ * This lived only in the branch for an auction the ENCLAVE had not cleared,
+ * which conflated two facts about two systems. The enclave's `cleared` means an
+ * outcome exists; the contract's means the money moved. Between those two there
+ * is a real state — signed but not settled — and in it the desk offered
+ * nothing at all: the outcome lives in React state, a reload loses it, and the
+ * only control that could fetch it again was hidden precisely because the
+ * clearing had worked. The lot stays escrowed with no route out through the UI.
+ *
+ * Asking again does NOT reproduce it. The enclave answers
+ * `error: auction: already cleared` and returns nothing — the outcome is
+ * produced exactly once. That is why the signature is written to storage the
+ * moment it arrives (lib/clearings.ts), and why this control says so rather
+ * than offering a button that cannot work.
+ */
+function RequestClearingBlock(props: { busy: boolean; onRequest: () => void; signedAlready: boolean }) {
+  return (
+    <div className="mt-3">
+      {props.signedAlready ? (
+        <p className="text-[10px] text-fg-mute leading-relaxed max-w-[30ch]">
+          The enclave opened this one already, and it will not do it twice — asking again returns
+          <span className="text-fg-dim"> auction: already cleared</span>. The signature it produced is
+          kept in the browser that asked for it; settle from there. The lot stays escrowed until
+          somebody does.
+        </p>
+      ) : (
+        <>
+          <Btn quiet busy={props.busy} onClick={props.onRequest}>
+            Request clearing on-chain
+          </Btn>
+          <p className="mt-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+            A transaction. The enclave opens the bids and signs the outcome, and only a signed one can
+            be settled.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SettleBlock(props: {
+  outcome: { signature?: string; rfqId: number };
+  busy: boolean;
+  onSettle: () => void;
+}) {
+  return (
+    <div className="mt-4 pt-4 border-t border-line">
+      <Lbl>Settle it</Lbl>
+      <p className="mt-1 mb-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+        {props.outcome.signature
+          ? "Signed by the enclave. relayClearing pays the maker and moves the lot in one transaction."
+          : "This rail returned no signature, and relayClearing will not settle without one."}
+      </p>
+      <Btn quiet busy={props.busy} onClick={props.onSettle}>
+        Settle on-chain
+      </Btn>
+    </div>
+  );
+}
+
 // ── the desk ─────────────────────────────────────────────────────────────────
 
 export function Desk() {
@@ -171,13 +248,35 @@ export function Desk() {
     return () => { live = false; clearInterval(t); };
   }, []);
 
-  // A production bundle with no VITE_TEE_PROXY_URL has nowhere to ask: relative
-  // URLs only resolve through vite's dev proxy. Polling anyway meant a 404
-  // every few seconds in the console of anyone who opened the deployed desk,
-  // for an answer we already knew. Go straight to the demo book instead.
-  const canReachExtension = import.meta.env.DEV || Boolean(env.teeProxyUrl);
+  // Whether an enclave is reachable is a question about the deployment, not
+  // about the bundle, so it is answered by asking rather than by a constant.
+  //
+  // It used to be `DEV || VITE_TEE_PROXY_URL`, which was wrong in both
+  // directions. A full URL in the bundle cannot work at all — the extension
+  // proxy sends no Access-Control-Allow-Origin header, so the browser blocks
+  // every fetch before it leaves the page — and an empty one ruled out the only
+  // arrangement that DOES work: a same-origin rewrite in front of the desk
+  // (scripts/point-desk-at-machine.mjs), where /info is served from the machine
+  // and there is no preflight to fail.
+  //
+  // One HEAD-shaped probe on load. If it answers, poll; if not, the demo book,
+  // which is what a deployment with no machine behind it should show.
+  const [canReachExtension, setCanReachExtension] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${env.teeProxyUrl}/info`)
+      .then((r) => r.ok)
+      .catch(() => false)
+      .then((ok) => alive && setCanReachExtension(ok));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
+    // Still asking. Falling through would flash the demo book and its banner at
+    // every deployment that does have a machine.
+    if (canReachExtension === null) return;
     if (!canReachExtension) {
       setRfqs(demoBook(headRef.current));
       setOffline(true);
@@ -230,6 +329,27 @@ export function Desk() {
   // Reclaiming is a real transaction, so it says what it is doing and what
   // happened — including the hash, which is the only part a maker can check
   // against the chain themselves.
+  /**
+   * A demo row's number is not a number on the contract.
+   *
+   * Every row-scoped on-chain button took `r.rfqId` straight to a transaction,
+   * and when the enclave is unreachable those ids come from demoBook(). The run
+   * that found this had the desk showing demo row 5 — the proxy had rejected
+   * /direct for a missing API key — pressed "Request clearing on-chain", and
+   * sent a real, paid instruction about contract RFQ 5, which belonged to
+   * somebody else's auction entirely. Nothing looked wrong: the demo banner was
+   * up, the button worked, the transaction succeeded.
+   *
+   * Posting is not covered here on purpose. A post invents its own auction and
+   * does not reference a row, so it is legitimate even with no enclave to watch
+   * the result.
+   */
+  const rowIsReal = useCallback(() => {
+    if (!demo && !offline) return true;
+    say("This is the demo book. These rows are not on the contract, so there is nothing on-chain to act on.");
+    return false;
+  }, [demo, offline, say]);
+
   const { writeContractAsync } = useWriteContract();
 
   /**
@@ -256,6 +376,7 @@ export function Desk() {
   const [reclaiming, setReclaiming] = useState<number | null>(null);
   const reclaim = useCallback(
     async (rfqId: number) => {
+      if (!rowIsReal()) return;
       setReclaiming(rfqId);
       try {
         const hash = await send({
@@ -275,7 +396,7 @@ export function Desk() {
         refresh();
       }
     },
-    [writeContractAsync, say, refresh],
+    [writeContractAsync, say, refresh, rowIsReal],
   );
 
   // Post a block as a transaction: escrow the lot, forward the instruction.
@@ -298,6 +419,20 @@ export function Desk() {
         ]);
         const pre = preflight({ lot: lotUnits, balance, allowance, deadlineBlock, head: headRef.current });
         if (!pre.ok) return say(`Cannot post on-chain: ${pre.blocker}`);
+
+        // The settlement token has to exist. The address configured here had no
+        // code on Coston2 for the whole of this desk's history, so every block
+        // it posted escrowed a lot against a promise nobody could keep:
+        // relayClearing calls transferFrom on nothing, and the pre-flight read
+        // it back as "the winner has approved 0". One getCode says it plainly,
+        // before the lot is escrowed rather than after.
+        const quoteCode = await pc.getCode({ address: TOKENS.USDT0.address }).catch(() => undefined);
+        if (!quoteCode || quoteCode === "0x") {
+          return say(
+            `No contract at the settlement token ${TOKENS.USDT0.address}. A block posted against it ` +
+              "could never be settled, so it is not worth escrowing a lot for.",
+          );
+        }
 
         if (pre.needsApproval) {
           say(`Approving ${lotUnits} ${TOKENS.FXRP.symbol} to the escrow — one transaction, then the block.`);
@@ -348,6 +483,7 @@ export function Desk() {
   const bidOnChain = useCallback(
     async (rfqId: number, amount: bigint) => {
       if (!address) return say("Connect a wallet — sealing on-chain is a transaction.");
+      if (!rowIsReal()) return;
       setSealingChain(rfqId);
       try {
         const pc = createPublicClient({ chain: coston2, transport: http() });
@@ -366,6 +502,33 @@ export function Desk() {
           alreadyBid: already,
         });
         if (!pre.ok) return say(`Cannot seal on-chain: ${pre.blocker}`);
+
+        // Winning means paying, so the approval belongs here — at the moment
+        // the promise is made — and not at settlement, where it is somebody
+        // else's transaction that reverts.
+        //
+        // Without it the auction reaches a signed clearing and stops: the
+        // contract moves the price from the winner to the maker in the same
+        // call that moves the lot, and it cannot, so nothing moves at all and
+        // the lot stays escrowed. Approving the bid amount is enough — the
+        // second price is never above it.
+        const owed = await pc.readContract({
+          address: row[1], abi: erc20Abi, functionName: "allowance", args: [address, sender],
+        }).catch(() => null);
+        if (owed === null) {
+          return say(
+            "The settlement token on this auction does not answer — it may not be a contract at all. " +
+              "Nothing sealed here could ever be settled, so this stops now.",
+          );
+        }
+        if (owed < amount) {
+          say(`Approving ${amount} of the settlement token first — winning this means paying it.`);
+          const a = await send({
+            address: row[1], abi: erc20Abi, functionName: "approve", args: [sender, amount],
+          });
+          await pc.waitForTransactionReceipt({ hash: a });
+          say(`Approved: ${a}`);
+        }
 
         // Same commitment and the same sealed opening as the direct rail — only
         // the transport differs, which is the point.
@@ -390,7 +553,7 @@ export function Desk() {
         refresh();
       }
     },
-    [address, chainId, signMessageAsync, writeContractAsync, say, refresh],
+    [address, chainId, signMessageAsync, writeContractAsync, say, refresh, rowIsReal],
   );
 
   // Settle it. The only function that moves money, and the only one that makes
@@ -404,9 +567,14 @@ export function Desk() {
   const [lastOutcome, setLastOutcome] = useState<
     (ClearingOutcome & { actionId?: string; submissionTag?: string; signature?: string }) | null
   >(null);
+  // Clearings this browser has been given and not yet settled. Loaded on mount
+  // so a reload does not lose a signature the enclave will never issue again.
+  const [kept, setKept] = useState<StoredClearing[]>([]);
+  useEffect(() => setKept(allClearings()), []);
   const settle = useCallback(
     async (out: ClearingOutcome & { actionId?: string; submissionTag?: string; signature?: string }) => {
       if (!address) return say("Connect a wallet — settling is a transaction.");
+      if (!rowIsReal()) return;
       setSettling(out.rfqId);
       try {
         const pc = createPublicClient({ chain: coston2, transport: http() });
@@ -439,6 +607,8 @@ export function Desk() {
         });
         say(`Settling: ${hash}. The winner pays the second price and the lot moves in the same transaction.`);
         await pc.waitForTransactionReceipt({ hash });
+        forgetClearing(out.rfqId);
+        setKept(allClearings());
         say(`Settled on-chain. Delivery versus payment, and the losing amounts were never revealed to anyone.`);
       } catch (e) {
         const m = e as { shortMessage?: string; message?: string };
@@ -448,7 +618,7 @@ export function Desk() {
         refresh();
       }
     },
-    [address, writeContractAsync, say, refresh],
+    [address, writeContractAsync, say, refresh, rowIsReal],
   );
 
   // Ask for the clearing ON-CHAIN, then wait for the enclave to sign it.
@@ -462,6 +632,7 @@ export function Desk() {
   const requestClearingOnChain = useCallback(
     async (rfqId: number) => {
       if (!address) return say("Connect a wallet — requesting a clearing is a transaction.");
+      if (!rowIsReal()) return;
       setRequesting(rfqId);
       try {
         const pc = createPublicClient({ chain: coston2, transport: http() });
@@ -485,11 +656,32 @@ export function Desk() {
           [{ type: "uint256" }, { type: "address" }, { type: "uint256" }, { type: "bytes32" }],
           signed.data,
         );
+        // The id the CONTRACT knows, not the one the enclave echoed back.
+        // relayClearing is a contract call: it reads rfqs[id] and compares the
+        // digest of the commitments IT recorded, so settling under the enclave's
+        // own numbering reads the wrong row. They should agree — and when they
+        // do not, that is worth a sentence rather than silently picking one.
+        if (Number(oRfq) !== rfqId) {
+          return say(
+            `The enclave signed an outcome for RFQ ${oRfq}, and this desk asked about RFQ ${rfqId}. ` +
+              "Not settling that — the two are not the same auction.",
+          );
+        }
         setLastOutcome({
-          rfqId: Number(oRfq), winner, clearingPrice: Number(price), bidCount: 0, setDigest: digest,
+          rfqId, winner, clearingPrice: Number(price), bidCount: 0, setDigest: digest,
           actionId: signed.actionId, submissionTag: signed.submissionTag, signature: signed.signature,
         });
-        say(`Signed by the enclave: ${winner} wins at ${price}. Settle it to move the lot and the payment.`);
+        // Written down before anything else can go wrong. The enclave produces
+        // this exactly once — ask a second time and it answers
+        // "auction: already cleared" and returns nothing — so a reload between
+        // here and the settlement used to strand the lot for good.
+        rememberClearing({
+          rfqId, instructionId: id, data: signed.data, actionId: signed.actionId,
+          submissionTag: signed.submissionTag, signature: signed.signature,
+          winner, clearingPrice: Number(price), setDigest: digest,
+        });
+        setKept(allClearings());
+        say(`Signed by the enclave for RFQ ${rfqId}: ${winner} wins at ${price}. Settle it to move the lot and the payment.`);
       } catch (e) {
         const m = e as { shortMessage?: string; message?: string };
         say(`Clearing request failed: ${m.shortMessage ?? m.message ?? String(e)}`);
@@ -498,7 +690,7 @@ export function Desk() {
         refresh();
       }
     },
-    [address, sender, writeContractAsync, say, refresh],
+    [address, sender, writeContractAsync, say, refresh, rowIsReal],
   );
 
   const openCount = rfqs.filter((r) => !r.cleared).length;
@@ -865,6 +1057,7 @@ export function Desk() {
                 {selected === r.rfqId && (
                   <div className="px-4 py-4 bg-bg-1 border-t border-line">
                     {r.cleared ? (
+                      <>
                       <div className="grid sm:grid-cols-3 gap-px bg-line border border-line">
                         <div className="bg-bg px-3 py-2.5">
                           <Lbl>Winner</Lbl>
@@ -916,6 +1109,32 @@ export function Desk() {
                           </div>
                         </div>
                       </div>
+                      {/* The enclave has cleared it. Whether the CONTRACT has
+                          settled it is a different question, and until it does
+                          this row still has work left on it.
+                          The signature comes from state if this session
+                          produced it, and from storage if an earlier one did —
+                          the enclave will not issue it twice. */}
+                      {(() => {
+                        const held =
+                          lastOutcome?.rfqId === r.rfqId
+                            ? lastOutcome
+                            : kept.find((c) => c.rfqId === r.rfqId);
+                        return held ? (
+                          <SettleBlock
+                            outcome={held}
+                            busy={settling === r.rfqId}
+                            onSettle={() => settle({ ...held, bidCount: 0 } as never)}
+                          />
+                        ) : (
+                          <RequestClearingBlock
+                            busy={requesting === r.rfqId}
+                            onRequest={() => requestClearingOnChain(r.rfqId)}
+                            signedAlready
+                          />
+                        );
+                      })()}
+                      </>
                     ) : (
                       // max-w on the form: a bid is one number, and the field
                       // was stretching the full width of the panel for it.
@@ -968,19 +1187,11 @@ export function Desk() {
                               production stack refuses and whose facade signs
                               nothing — so it reaches a clearing that
                               relayClearing will never accept. */}
-                          <div className="mt-3">
-                            <Btn
-                              quiet
-                              busy={requesting === r.rfqId}
-                              onClick={() => requestClearingOnChain(r.rfqId)}
-                            >
-                              Request clearing on-chain
-                            </Btn>
-                            <p className="mt-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
-                              A transaction. The enclave opens the bids and signs the outcome, and only a
-                              signed one can be settled.
-                            </p>
-                          </div>
+                          <RequestClearingBlock
+                            busy={requesting === r.rfqId}
+                            onRequest={() => requestClearingOnChain(r.rfqId)}
+                            signedAlready={false}
+                          />
 
                           {/* Settling is the step that makes the rest pay off.
                               The contract refuses a clearing whose signature
@@ -989,17 +1200,11 @@ export function Desk() {
                               IT recorded — so an auctioneer who dropped a bid
                               produces a settlement that reverts. */}
                           {lastOutcome?.rfqId === r.rfqId && (
-                            <div className="mt-4 pt-4 border-t border-line">
-                              <Lbl>Settle it</Lbl>
-                              <p className="mt-1 mb-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
-                                {lastOutcome.signature
-                                  ? "Signed by the enclave. relayClearing pays the maker and moves the lot in one transaction."
-                                  : "This rail returned no signature, and relayClearing will not settle without one."}
-                              </p>
-                              <Btn quiet busy={settling === r.rfqId} onClick={() => settle(lastOutcome)}>
-                                Settle on-chain
-                              </Btn>
-                            </div>
+                            <SettleBlock
+                              outcome={lastOutcome}
+                              busy={settling === r.rfqId}
+                              onSettle={() => settle(lastOutcome)}
+                            />
                           )}
 
                           {/* Your own block, past its deadline, with nothing on

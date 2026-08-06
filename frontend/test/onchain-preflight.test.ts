@@ -7,7 +7,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { preflight, bidPreflight, relayPreflight, gasForWrite, ZERO } from "../src/lib/onchain.js";
+import { preflight, bidPreflight, relayPreflight, gasForWrite, isClearingOutcome, ZERO } from "../src/lib/onchain.js";
 
 const base = { lot: 100n, balance: 1000n, allowance: 1000n, deadlineBlock: 500, head: 100n };
 
@@ -140,4 +140,27 @@ test("when the estimate itself fails the wallet is left to decide", async () => 
   // known to fail, and pay for it.
   const pc = { estimateContractGas: async () => { throw new Error("execution reverted"); } };
   assert.equal(await gasForWrite(pc as never, {}), undefined);
+});
+
+// ---- which signed thing is the clearing --------------------------------
+// The proxy signs more than one thing per instruction and files each under a
+// different submission tag. Only one of them can be settled.
+
+test("the four-word ABI outcome is accepted", () => {
+  assert.equal(isClearingOutcome(`0x${"ab".repeat(128)}`), true);
+});
+
+test("the consensus envelope is not — it is signed, status 1, and useless", () => {
+  // What "end" actually returns: 1887 bytes beginning {"voteSequence":…
+  const json = Buffer.from('{"voteSequence":{"voteHash":"0x4c9d"}}').toString("hex");
+  assert.equal(isClearingOutcome(`0x${json}`), false, "a vote envelope was taken for a clearing");
+  // And the failure it caused: read as a uint256, that leading `{` becomes an
+  // rfqId in the 5.5e76 range.
+  assert.equal(isClearingOutcome(`0x7b${"00".repeat(127)}`.slice(0, 200)), false);
+});
+
+test("and nothing else that is merely the right length in bytes but not hex", () => {
+  assert.equal(isClearingOutcome(`0x${"zz".repeat(128)}`), false);
+  assert.equal(isClearingOutcome(undefined), false);
+  assert.equal(isClearingOutcome(`0x${"ab".repeat(127)}`), false, "127 words is not four words");
 });
