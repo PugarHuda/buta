@@ -117,6 +117,10 @@ for (const [label, re] of [
   // The settlement. The one that moves money, and the one this system could not
   // do at all until the result encoding was fixed.
   ["the settlement transaction", /\*\*Settled on Coston2[^`]*`(0x[0-9a-f]{64})`/],
+  // The repeat. One settlement can be a fluke of a hand-tuned run; the claim in
+  // the table is that the same script settles again with nothing changed, so
+  // the second hash has to hold up on its own.
+  ["the second settlement", /Settled a second time[^`]*`(0x[0-9a-f]{64})`/],
 ]) {
   const hash = claimed(re, label);
   if (!hash) continue;

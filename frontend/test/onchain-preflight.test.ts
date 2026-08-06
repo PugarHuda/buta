@@ -7,7 +7,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { preflight, bidPreflight, relayPreflight, ZERO } from "../src/lib/onchain.js";
+import { preflight, bidPreflight, relayPreflight, gasForWrite, ZERO } from "../src/lib/onchain.js";
 
 const base = { lot: 100n, balance: 1000n, allowance: 1000n, deadlineBlock: 500, head: 100n };
 
@@ -117,4 +117,27 @@ test("a winner who has not approved enough is named with both numbers", () => {
 
 test("and an auction already settled is not settled twice", () => {
   assert.match(relayPreflight({ ...relayBase, cleared: true }).blocker!, /already settled/i);
+});
+
+// ---- gas ---------------------------------------------------------------
+// A reclaim reverted twice at gasUsed 116700 of a 118988 estimate, and the
+// settlement that succeeded on Coston2 finished with 2% to spare. FXRP is an
+// FAsset: its transfer cost drifts between estimation and execution, and the
+// inner call only gets 63/64 of what remains.
+
+test("the gas sent is not the gas estimated — it carries headroom", async () => {
+  const pc = { estimateContractGas: async () => 118988n };
+  const gas = await gasForWrite(pc as never, {});
+  assert.ok(gas! > 118988n, "the estimate was sent unchanged, which is what starved the reclaim");
+  // The observed failure used 98% of its estimate, so anything under ~1.02x
+  // would still have reverted.
+  assert.ok(gas! >= 118988n * 2n, `${gas} leaves too little room for an FAsset transfer`);
+});
+
+test("when the estimate itself fails the wallet is left to decide", async () => {
+  // A blocked estimate almost always means a revert the pre-flight already
+  // explained. Inventing a gas number there would send a transaction that is
+  // known to fail, and pay for it.
+  const pc = { estimateContractGas: async () => { throw new Error("execution reverted"); } };
+  assert.equal(await gasForWrite(pc as never, {}), undefined);
 });

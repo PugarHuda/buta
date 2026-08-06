@@ -165,6 +165,37 @@ export async function awaitSignedClearing(
 }
 
 /**
+ * Gas for a write, with room for what estimation cannot see.
+ *
+ * Every transaction this desk sends moves FXRP, and FXRP is an FAsset whose
+ * transfer cost is not fixed. The estimate is taken against one block and the
+ * transaction executes in a later one; the inner ERC20 call only receives 63/64
+ * of what is left, so a few thousand gas of drift is enough to starve it. It
+ * returns false rather than reverting, and the contract's own
+ * `require(..., "lot refund failed")` fires — which reads like a refund bug and
+ * is really a ceiling.
+ *
+ * This is not hypothetical: a reclaim reverted twice at gasUsed 116700 of a
+ * 118988 estimate, and the settlement that DID succeed on Coston2 finished with
+ * 2% to spare. Unused gas is refunded, so the headroom costs nothing but the
+ * failure costs a stranded lot.
+ *
+ * Returns undefined when estimation itself fails, which leaves the wallet to do
+ * what it always did — a blocked estimate almost always means a revert the
+ * pre-flight has already explained in words.
+ */
+export async function gasForWrite(
+  pc: { estimateContractGas: (p: never) => Promise<bigint> },
+  params: unknown,
+): Promise<bigint | undefined> {
+  try {
+    return ((await pc.estimateContractGas(params as never)) * 2n);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Whether a clearing can be relayed and settled.
  *
  * relayClearing is the only function that moves money, and it reverts on a

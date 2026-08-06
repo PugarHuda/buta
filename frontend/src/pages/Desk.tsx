@@ -21,7 +21,7 @@ import { readBlockNumber, countdown } from "../lib/blockClock";
 import { remember } from "../lib/seals";
 import {
   senderAbi, erc20Abi, preflight, bidPreflight, relayPreflight,
-  instructionIdFrom, awaitSignedClearing, INSTRUCTION_FEE, ZERO,
+  instructionIdFrom, awaitSignedClearing, gasForWrite, INSTRUCTION_FEE, ZERO,
 } from "../lib/onchain";
 
 import {
@@ -231,12 +231,34 @@ export function Desk() {
   // happened — including the hash, which is the only part a maker can check
   // against the chain themselves.
   const { writeContractAsync } = useWriteContract();
+
+  /**
+   * Every write goes through here so none of them can be starved of gas.
+   *
+   * The wallet estimates against the current block and the transaction lands in
+   * a later one. For an FAsset that difference is enough — see gasForWrite. Six
+   * call sites, one ceiling to get wrong, so there is one place that sets it.
+   */
+  const send = useCallback(
+    // Reached through a variable, wagmi's parameter union narrows `value` to
+    // undefined for the payable functions, so the cast lives here instead of at
+    // six call sites.
+    async (params: Omit<Parameters<typeof writeContractAsync>[0], "value"> & { value?: bigint }) => {
+      const pc = createPublicClient({ chain: coston2, transport: http() });
+      const gas = await gasForWrite(pc, { ...params, account: address });
+      return writeContractAsync({ ...params, ...(gas ? { gas } : {}) } as Parameters<
+        typeof writeContractAsync
+      >[0]);
+    },
+    [writeContractAsync, address],
+  );
+
   const [reclaiming, setReclaiming] = useState<number | null>(null);
   const reclaim = useCallback(
     async (rfqId: number) => {
       setReclaiming(rfqId);
       try {
-        const hash = await writeContractAsync({
+        const hash = await send({
           address: sender,
           abi: senderAbi,
           functionName: "reclaimLot",
@@ -279,7 +301,7 @@ export function Desk() {
 
         if (pre.needsApproval) {
           say(`Approving ${lotUnits} ${TOKENS.FXRP.symbol} to the escrow — one transaction, then the block.`);
-          const a = await writeContractAsync({
+          const a = await send({
             address: token, abi: erc20Abi, functionName: "approve", args: [spender, lotUnits],
           });
           await pc.waitForTransactionReceipt({ hash: a });
@@ -293,7 +315,7 @@ export function Desk() {
         // no pair name at all. A zero floor is the giveaway the post form
         // already refuses on the other rail.
         const encryptedReserve = await sealReserve(reserve, pair);
-        const hash = await writeContractAsync({
+        const hash = await send({
           address: spender,
           abi: senderAbi,
           functionName: "postRfq",
@@ -351,7 +373,7 @@ export function Desk() {
           rfqId, bidder: address, amount, chainId,
           sign: (raw) => signMessageAsync({ message: { raw } }),
         });
-        const hash = await writeContractAsync({
+        const hash = await send({
           address: sender, abi: senderAbi, functionName: "commitBid",
           args: [BigInt(rfqId), sealed.commitment, sealed.ciphertext],
           value: INSTRUCTION_FEE,
@@ -407,7 +429,7 @@ export function Desk() {
         });
         if (!pre.ok) return say(`Cannot settle: ${pre.blocker}`);
 
-        const hash = await writeContractAsync({
+        const hash = await send({
           address: sender, abi: senderAbi, functionName: "relayClearing",
           args: [
             BigInt(out.rfqId), out.winner as Address, BigInt(out.clearingPrice),
@@ -443,7 +465,7 @@ export function Desk() {
       setRequesting(rfqId);
       try {
         const pc = createPublicClient({ chain: coston2, transport: http() });
-        const hash = await writeContractAsync({
+        const hash = await send({
           address: sender, abi: senderAbi, functionName: "requestClearing",
           args: [BigInt(rfqId)], value: INSTRUCTION_FEE,
         });

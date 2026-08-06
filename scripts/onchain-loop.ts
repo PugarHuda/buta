@@ -236,13 +236,21 @@ console.log(`    set digest ${outcome.setDigest.slice(0, 18)}…`);
 // ── 7. settle ────────────────────────────────────────────────────────────────
 step(7, "settle — delivery versus payment, in one transaction");
 const before = await pc.readContract({ address: FXRP, abi: erc20Abi, functionName: "balanceOf", args: [account.address] });
-const relayHash = await wc.writeContract({
-  address: SENDER, abi: senderAbi, functionName: "relayClearing",
+// Two FAsset transfers in one call, which is the most gas-exposed transaction
+// this system sends. The settlement that first proved this loop finished with
+// 2% of its estimate to spare, and a reclaim reverted twice at 98% — FXRP's
+// transfer cost drifts between estimation and execution and the inner call only
+// gets 63/64 of what is left. Unused gas is refunded; a starved settlement
+// leaves the lot escrowed and the auction open.
+const relayArgs = {
+  address: SENDER, abi: senderAbi, functionName: "relayClearing" as const,
   args: [
     outcome.rfqId, outcome.winner, outcome.clearingPrice, outcome.setDigest,
     signed.result.id, signed.result.submissionTag ?? signed.tag, 1, signed.signature,
-  ],
-});
+  ] as const,
+};
+const relayGas = await pc.estimateContractGas({ ...relayArgs, account } as never).catch(() => null);
+const relayHash = await wc.writeContract({ ...relayArgs, ...(relayGas ? { gas: relayGas * 2n } : {}) } as never);
 await wait(relayHash);
 const after = await pc.readContract({ address: FXRP, abi: erc20Abi, functionName: "balanceOf", args: [account.address] });
 const row = await pc.readContract({ address: SENDER, abi: senderAbi, functionName: "rfqs", args: [rfqId] });
