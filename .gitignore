@@ -31,3 +31,4 @@ config/register-tee.state
 node_modules/
 package-lock.json
 tunnel.log
+.bidder.key

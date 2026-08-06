@@ -56,7 +56,13 @@ function claimed(re, what) {
 }
 
 // ---- the contract -----------------------------------------------------------
-const sender = claimed(/`(0x20d9[0-9a-fA-F]{36})`/, "the instruction sender address");
+// Anchored on the LABEL, not on the address. It matched /0x20d9…/ — the
+// prefix of the first deployment — so redeploying made the check report that
+// the claim was missing rather than checking the new one.
+const sender = claimed(
+  /\*\*Contract \(Coston2, verified\):?\*\*[^`]*`(0x[0-9a-fA-F]{40})`/,
+  "the instruction sender address",
+);
 if (sender) {
   const code = await pc.getCode({ address: sender });
   check("the instruction sender is deployed", !!code && code !== "0x", "no code at that address");
@@ -108,6 +114,9 @@ if (machine) {
 for (const [label, re] of [
   ["the postRfq transaction", /\*\*`postRfq` executed on-chain\*\* \| tx \[`(0x[0-9a-f]{64})`\]/],
   ["the updateTeeMachineSettings transaction", /updateTeeMachineSettings.*?`(0x[0-9a-f]{64})`/],
+  // The settlement. The one that moves money, and the one this system could not
+  // do at all until the result encoding was fixed.
+  ["the settlement transaction", /\*\*Settled on Coston2[^`]*`(0x[0-9a-f]{64})`/],
 ]) {
   const hash = claimed(re, label);
   if (!hash) continue;

@@ -25,6 +25,7 @@ import {
   http,
   parseAbi,
   formatUnits,
+  decodeAbiParameters,
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -32,7 +33,7 @@ import { flareTestnet } from "viem/chains";
 import { encrypt } from "ecies-geth";
 
 const RPC = process.env.CHAIN_URL ?? "https://coston2-api.flare.network/ext/C/rpc";
-const SENDER = "0x04Ad1f8E59027E05D8bFc867e8e30B630aB4681F";
+const SENDER = "0x3085C89540353A4b275704b0Bd03eEc3C718D702";
 const DIAMOND = "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE";
 const EXT_ID = 65642n;
 const PROXY = process.env.EXT_PROXY_URL ?? "http://localhost:6674";
@@ -41,9 +42,9 @@ const PROXY = process.env.EXT_PROXY_URL ?? "http://localhost:6674";
 // the postRfq that ran in July used FXRP for settle and lot alike — a demo that
 // cannot settle is not a demonstration of settlement.
 const FXRP = "0x0b6A3645c240605887a5532109323A3E12273dc7";
-const LOT = 5_000_000n; // 5 FXRP, six decimals
-const RESERVE = 1_000_000n; // the floor a lone bidder pays
-const BID = 3_000_000n;
+const LOT = 2_000_000n; // 2 FXRP, six decimals
+const RESERVE = 500_000n; // the floor a lone bidder pays
+const BID = 1_500_000n;
 const FEE = 1_000_000_000n; // what the diamond charges to forward one instruction
 const DEADLINE_BLOCKS = 25n; // ~45s at 1.8s a block
 
@@ -79,8 +80,18 @@ if (!key) {
   process.exit(2);
 }
 const account = privateKeyToAccount((key.startsWith("0x") ? key : `0x${key}`) as Hex);
+
+// A SECOND wallet bids, and this is not tidiness.
+//
+// relayClearing moves the clearing price from the winner to the maker, and FXRP
+// refuses a self-transfer — one address playing both roles reverts
+// CannotTransferToSelf() however correct everything else is. A settlement demo
+// with one wallet could never have settled.
+const bidderKey = fs.readFileSync(path.join(root, ".bidder.key"), "utf8").trim() as Hex;
+const bidder = privateKeyToAccount(bidderKey);
 const pc = createPublicClient({ chain: flareTestnet, transport: http(RPC) });
 const wc = createWalletClient({ account, chain: flareTestnet, transport: http(RPC) });
+const bwc = createWalletClient({ account: bidder, chain: flareTestnet, transport: http(RPC) });
 
 const step = (n: number, s: string) => console.log(`\n[${n}] ${s}`);
 const xrp = (v: bigint) => `${formatUnits(v, 6)} FXRP`;
@@ -142,12 +153,14 @@ console.log(`    RFQ ${rfqId}  lot ${xrp(LOT)}  deadline block ${deadline}  ${po
 step(3, "seal a bid — the commitment lands in the set the clearing must match");
 const { keccak256, encodePacked } = await import("viem");
 const nonce = ("0x" + Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex")) as Hex;
-const commitment = keccak256(encodePacked(["uint256", "bytes32", "address"], [BID, nonce, account.address]));
-const bidSig = await account.signMessage({
+const commitment = keccak256(encodePacked(["uint256", "bytes32", "address"], [BID, nonce, bidder.address]));
+const bidSig = await bidder.signMessage({
   message: { raw: keccak256(encodePacked(["string", "uint256", "uint256", "bytes32"], ["BUTA_BID", 114n, rfqId, commitment])) },
 });
 const opening = await encrypt(await enclaveKey(), Buffer.from(JSON.stringify({ amount: Number(BID), nonce, sig: bidSig })));
-const bidHash = await wc.writeContract({
+const appr = await bwc.writeContract({ address: FXRP, abi: erc20Abi, functionName: "approve", args: [SENDER, BID] });
+await wait(appr);
+const bidHash = await bwc.writeContract({
   address: SENDER, abi: senderAbi, functionName: "commitBid",
   args: [rfqId, commitment, `0x${opening.toString("hex")}`],
   value: FEE,
@@ -210,8 +223,14 @@ if (!signed) {
     escrow and reclaimLot returns it to the maker.`);
   process.exit(1);
 }
-const outcome = JSON.parse(Buffer.from(signed.result.data.slice(2), "hex").toString());
-console.log(`    winner ${outcome.winner}  price ${xrp(BigInt(outcome.clearingPrice))}  (tag: ${signed.tag})`);
+// ABI-encoded, which is the whole point: these are the bytes the node signed
+// and the bytes relayClearing rebuilds.
+const [oRfq, oWinner, oPrice, oDigest] = decodeAbiParameters(
+  [{ type: "uint256" }, { type: "address" }, { type: "uint256" }, { type: "bytes32" }],
+  signed.result.data as Hex,
+);
+const outcome = { rfqId: oRfq, winner: oWinner, clearingPrice: oPrice, setDigest: oDigest };
+console.log(`    winner ${outcome.winner}  price ${xrp(outcome.clearingPrice)}  (tag: ${signed.tag})`);
 console.log(`    set digest ${outcome.setDigest.slice(0, 18)}…`);
 
 // ── 7. settle ────────────────────────────────────────────────────────────────
@@ -220,7 +239,7 @@ const before = await pc.readContract({ address: FXRP, abi: erc20Abi, functionNam
 const relayHash = await wc.writeContract({
   address: SENDER, abi: senderAbi, functionName: "relayClearing",
   args: [
-    rfqId, outcome.winner, BigInt(outcome.clearingPrice), outcome.setDigest,
+    outcome.rfqId, outcome.winner, outcome.clearingPrice, outcome.setDigest,
     signed.result.id, signed.result.submissionTag ?? signed.tag, 1, signed.signature,
   ],
 });
