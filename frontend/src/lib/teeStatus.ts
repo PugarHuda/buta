@@ -10,7 +10,7 @@
  * Reading it here costs one eth_call against a public RPC, needs no wallet, and
  * separates "I cannot reach the backend" from "there is no backend".
  */
-import { createPublicClient, hexToBytes, http, parseAbi } from "viem";
+import { createPublicClient, hexToBytes, http, parseAbi, type Address } from "viem";
 import { coston2 } from "../config/chain";
 
 const DIAMOND = "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE";
@@ -37,6 +37,31 @@ const ABI = parseAbi([
  * If the chain cannot be read, this returns null and the caller refuses to
  * seal: a bid encrypted to a key nobody could verify is worse than no bid.
  */
+/**
+ * Which contract is the instruction sender for our extension, asked of the
+ * diamond rather than written down.
+ *
+ * It was a constant, and it went stale the moment the contract was redeployed —
+ * silently, because a wrong address does not throw, it just makes every
+ * transaction revert against a contract that is no longer bound to anything.
+ * The desk carried the FIRST of four deployments while three later ones were
+ * live. The diamond is the authority on this and answers in one eth_call.
+ */
+export async function instructionSenderFromChain(): Promise<Address | null> {
+  try {
+    const pc = createPublicClient({ chain: coston2, transport: http() });
+    const a = await pc.readContract({
+      address: DIAMOND,
+      abi: parseAbi(["function getTeeExtensionInstructionsSender(uint256) view returns (address)"]),
+      functionName: "getTeeExtensionInstructionsSender",
+      args: [EXTENSION_ID],
+    });
+    return a === "0x0000000000000000000000000000000000000000" ? null : a;
+  } catch {
+    return null;
+  }
+}
+
 export async function teeKeyFromChain(): Promise<Uint8Array | null> {
   try {
     const pc = createPublicClient({ chain: coston2, transport: http() });

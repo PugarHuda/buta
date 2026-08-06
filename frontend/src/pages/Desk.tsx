@@ -16,7 +16,7 @@ import { TOKENS } from "../config/tokens";
 import { coston2 } from "../config/chain";
 import { demoBook } from "../lib/demoData";
 import { env } from "../config/env";
-import { readTeeStatus, type TeeStatus } from "../lib/teeStatus";
+import { readTeeStatus, instructionSenderFromChain, type TeeStatus } from "../lib/teeStatus";
 import { readBlockNumber, countdown } from "../lib/blockClock";
 import { remember } from "../lib/seals";
 import { senderAbi, erc20Abi, preflight, bidPreflight, relayPreflight, INSTRUCTION_FEE, ZERO } from "../lib/onchain";
@@ -143,6 +143,11 @@ export function Desk() {
   const [tee, setTee] = useState<TeeStatus>({ state: "unknown" });
   useEffect(() => { readTeeStatus().then(setTee); }, []);
 
+  // The contract the diamond says is bound to our extension. A constant here
+  // was the first of four deployments while three later ones were live.
+  const [sender, setSender] = useState<Address>(SENDER_FALLBACK as Address);
+  useEffect(() => { instructionSenderFromChain().then((a) => a && setSender(a)); }, []);
+
   // The chain's own clock. Deadlines are block numbers, which mean nothing to a
   // reader, and "Past the deadline?" was a question the desk could answer.
   const [block, setBlock] = useState<bigint | null>(null);
@@ -229,7 +234,7 @@ export function Desk() {
       setReclaiming(rfqId);
       try {
         const hash = await writeContractAsync({
-          address: SENDER as Address,
+          address: sender,
           abi: senderAbi,
           functionName: "reclaimLot",
           args: [BigInt(rfqId)],
@@ -258,7 +263,7 @@ export function Desk() {
     async (lot: number, deadlineBlock: number, invited: string, reserve: bigint, pair: string) => {
       if (!address) return say("Connect a wallet first — posting on-chain is a transaction.");
       const lotUnits = BigInt(Math.max(0, Math.floor(lot)));
-      const spender = SENDER as Address;
+      const spender = sender;
       const token = TOKENS.FXRP.address;
       try {
         const pc = createPublicClient({ chain: coston2, transport: http() });
@@ -321,7 +326,7 @@ export function Desk() {
       setSealingChain(rfqId);
       try {
         const pc = createPublicClient({ chain: coston2, transport: http() });
-        const sender = SENDER as Address;
+        
         const [row, already] = await Promise.all([
           pc.readContract({ address: sender, abi: senderAbi, functionName: "rfqs", args: [BigInt(rfqId)] }),
           pc.readContract({ address: sender, abi: senderAbi, functionName: "hasBid", args: [BigInt(rfqId), address] }),
@@ -380,7 +385,7 @@ export function Desk() {
       setSettling(out.rfqId);
       try {
         const pc = createPublicClient({ chain: coston2, transport: http() });
-        const sender = SENDER as Address;
+        
         const [row, onChainDigest] = await Promise.all([
           pc.readContract({ address: sender, abi: senderAbi, functionName: "rfqs", args: [BigInt(out.rfqId)] }),
           pc.readContract({ address: sender, abi: senderAbi, functionName: "commitmentDigest", args: [BigInt(out.rfqId)] }).catch(() => null),
@@ -643,7 +648,7 @@ export function Desk() {
             </div>
           </div>
         ) : panel === "audit" ? (
-          <Audit tee={tee} />
+          <Audit tee={tee} sender={sender} />
         ) : (
           <>
             {/* The privacy property, stated above the book rather than left for
@@ -977,14 +982,18 @@ export function Desk() {
  * the diamond on load, so this panel cannot claim a machine that is not there.
  */
 const EXPLORER = "https://coston2-explorer.flare.network/address/";
-const SENDER = env.instructionSender || "0x20d9CcAA7140bf38AD91D2F102bA996417798e8f";
+// Only a last resort. The desk asks the diamond which contract is bound to
+// extension 65642 — a constant here was the first of four deployments while
+// three later ones were live, and a stale address does not throw, it just
+// reverts every transaction against a contract nobody is bound to any more.
+const SENDER_FALLBACK = env.instructionSender || "0x3085C89540353A4b275704b0Bd03eEc3C718D702";
 
-function Audit({ tee }: { tee: TeeStatus }) {
+function Audit({ tee, sender }: { tee: TeeStatus; sender: string }) {
   const rows: [string, React.ReactNode, string][] = [
     [
       "Instruction sender",
-      <a className="hover:text-accent break-all" href={`${EXPLORER}${SENDER}`} target="_blank" rel="noopener">{SENDER}</a>,
-      "Source-verified on the explorer. Records every commitment, checks the enclave's signature, and rejects a clearing whose set digest is not the set it recorded.",
+      <a className="hover:text-accent break-all" href={`${EXPLORER}${sender}`} target="_blank" rel="noopener">{sender}</a>,
+      "Read from the diamond, not written down here — this is whatever contract is bound to extension 65642 right now. It records every commitment, checks the enclave's signature, and rejects a clearing whose set digest is not the set it recorded.",
     ],
     [
       "FCC extension",
