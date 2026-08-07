@@ -69,25 +69,10 @@ func main() {
 	ext.SetDecryptor(extension.NewLocalDecryptor(teeKey))
 	pub := teeKey.PublicKey
 
-	// Solvency screening. Off unless a chain is given, because an enclave that
-	// cannot read balances must not conclude that nobody can pay — and because a
-	// dev run with no network should still clear auctions.
-	//
-	//   BUTA_FUNDS_RPC=https://coston2-api.flare.network/ext/C/rpc \n	//   BUTA_INSTRUCTION_SENDER=0x20d9CcAA7140bf38AD91D2F102bA996417798e8f
-	if rpc := os.Getenv("BUTA_FUNDS_RPC"); rpc != "" {
-		sender := common.HexToAddress(os.Getenv("BUTA_INSTRUCTION_SENDER"))
-		if sender == (common.Address{}) {
-			logger.Fatalf("BUTA_FUNDS_RPC is set but BUTA_INSTRUCTION_SENDER is not — the screen needs the spender relayClearing pulls through")
-		}
-		funds, ferr := extension.NewChainFunds(rpc, sender)
-		if ferr != nil {
-			logger.Fatalf("solvency screen: %v", ferr)
-		}
-		ext.SetFunds(funds, sender)
-		logger.Infof("solvency screening ON: a bidder who cannot settle is passed over (spender %s)", sender.Hex())
-	} else {
-		logger.Infof("solvency screening off — set BUTA_FUNDS_RPC to enable it")
-	}
+	// Solvency screening is wired in extension.New, from BUTA_FUNDS_RPC and
+	// BUTA_INSTRUCTION_SENDER, so the facade and the enclave that actually
+	// settles get it from the same place. It used to be set up only here, which
+	// meant the screen was on in the process nobody deploys.
 
 	store := &resultStore{m: make(map[common.Hash]json.RawMessage)}
 

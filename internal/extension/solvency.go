@@ -22,6 +22,7 @@ package extension
 import (
 	"context"
 	"math/big"
+	"os"
 	"strings"
 	"time"
 
@@ -42,6 +43,44 @@ type Funds interface {
 	CanSettle(ctx context.Context, token, owner, spender common.Address, amount *big.Int) (bool, error)
 	// SettleToken reads which token an auction settles in, off the contract.
 	SettleToken(ctx context.Context, rfqID uint64) (common.Address, error)
+}
+
+// enableSolvencyScreenFromEnv turns the screen on for every way this extension
+// is started, which used to be one way out of two.
+//
+// The wiring lived in cmd/dev — the local facade — and nowhere else, so the
+// enclave that actually settles ran with the screen off. Everything about it
+// was true except where it happened: tested, documented in the submission, and
+// unreachable in production. A feature that exists in the process nobody
+// deploys is not a feature.
+//
+// Off unless a chain is given, deliberately. An enclave that cannot read
+// balances must not conclude that nobody can pay, and a dev run with no network
+// still has to clear auctions.
+func (e *Extension) enableSolvencyScreenFromEnv() {
+	rpc := os.Getenv("BUTA_FUNDS_RPC")
+	if rpc == "" {
+		logger.Infof("solvency screening off — set BUTA_FUNDS_RPC to enable it")
+		return
+	}
+	// INSTRUCTION_SENDER is the name config/extension.env uses, which is the file
+	// the deploy writes and the one docker-compose feeds this container. Reading
+	// it means the address cannot drift from the contract that was deployed;
+	// BUTA_INSTRUCTION_SENDER still wins for a one-off override.
+	raw := os.Getenv("BUTA_INSTRUCTION_SENDER")
+	if raw == "" {
+		raw = os.Getenv("INSTRUCTION_SENDER")
+	}
+	sender := common.HexToAddress(raw)
+	if sender == (common.Address{}) {
+		logger.Fatalf("BUTA_FUNDS_RPC is set but no instruction sender is — the screen needs the spender relayClearing pulls through (BUTA_INSTRUCTION_SENDER, or INSTRUCTION_SENDER from config/extension.env)")
+	}
+	funds, err := NewChainFunds(rpc, sender)
+	if err != nil {
+		logger.Fatalf("solvency screen: %v", err)
+	}
+	e.SetFunds(funds, sender)
+	logger.Infof("solvency screening ON: a bidder who cannot settle is passed over (spender %s)", sender.Hex())
 }
 
 const erc20AndRfqABI = `[

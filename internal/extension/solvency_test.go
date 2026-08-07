@@ -90,3 +90,27 @@ func TestAFailedReadAllowsRatherThanDisqualifies(t *testing.T) {
 		t.Fatal("an RPC failure disqualified a bidder — that hands the auction to whoever can break our RPC")
 	}
 }
+
+// The screen has to come up for the process that actually settles, not only for
+// the local facade. It was wired in cmd/dev and nowhere else, so the enclave in
+// the container ran without it — tested, documented, and unreachable. New() is
+// the one constructor both paths go through, which is why the env is read there
+// and why this test calls New() rather than the helper above.
+func TestNewTurnsTheScreenOnFromTheEnvironment(t *testing.T) {
+	off := New(0, 0)
+	if off.funds != nil {
+		t.Fatal("no BUTA_FUNDS_RPC set, so nothing should have been wired")
+	}
+
+	// A URL that is never dialled: ethclient over http connects lazily, so this
+	// exercises the wiring without needing a chain.
+	t.Setenv("BUTA_FUNDS_RPC", "http://127.0.0.1:1/never")
+	t.Setenv("BUTA_INSTRUCTION_SENDER", addr(0xAB).Hex())
+	on := New(0, 0)
+	if on.funds == nil {
+		t.Fatal("BUTA_FUNDS_RPC is set and the extension came up without a solvency screen")
+	}
+	if on.instructionSender != addr(0xAB) {
+		t.Fatalf("spender is %s, want %s", on.instructionSender.Hex(), addr(0xAB).Hex())
+	}
+}

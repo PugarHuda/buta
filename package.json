@@ -8,7 +8,9 @@
     "machine-url": "node scripts/update-machine-url.mjs",
     "health": "node scripts/health.mjs",
     "health:watch": "node scripts/health.mjs --watch",
-    "verify:submission": "node scripts/verify-submission.mjs"
+    "verify:submission": "node scripts/verify-submission.mjs",
+    "sync:machine": "node scripts/sync-machine-address.mjs",
+    "sync:machine:check": "node scripts/sync-machine-address.mjs --check"
   },
   "dependencies": {
     "ecies-geth": "^1.8.0",

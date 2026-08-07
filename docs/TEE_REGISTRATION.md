@@ -27,7 +27,15 @@
 > ```bash
 > node scripts/health.mjs                       # names the stray, if there is one
 > node scripts/retire-machine.mjs <old machine>  # pause it
+> npm run sync:machine                          # put the live one in the documents
 > ```
+>
+> 4. Recreate BOTH `extension-tee` and `ext-proxy`, not just the enclave. The
+>    proxy caches the key it first saw, so recreating the enclave alone leaves
+>    `/info` — and therefore health.mjs, and therefore you — reporting a machine
+>    that is not the one signing. And give them a minute: the enclave comes up
+>    before the proxy is listening and logs `connection refused` posting its
+>    first results, which costs the first clearing you ask for.
 
 > **Restarting the container mints a NEW machine.** `tee-node` calls
 > `crypto.GenerateKey()` at startup (`internal/node/node.go`) — there is no
@@ -116,9 +124,12 @@ TEE registration, and is fixed:
   this repo. Verified by physically removing the sibling checkouts and building
   both modules from scratch.
 - **`local/tee-proxy` builds** from the tee-proxy repo at v0.0.20. v0.0.19 builds too, but rejects the node with "invalid signature".
-- **`config/extension.env`** is written by hand and committed. Do **not** run
-  `pre-build.sh`: it deploys a new contract and registers a new extension, and
-  we already have both.
+- **`config/extension.env`** is written by `pre-build.sh` and committed. Running
+  it deploys a new contract and registers a new extension, which for weeks was a
+  reason not to — until 7 August, when the pinned-enclave bug made it the only
+  way forward. Run it only when the contract itself has to change; everything
+  else in this repo reads the ids out of that file, so a redeploy is one command
+  followed by `post-build.sh`, `setTeeAddress` and `npm run sync:machine`.
 - **The registration tooling compiles and is synced to scaffold v0.0.22** —
   `set-governance`, the `bytes32` version, the governance hash on the machine
   data, the domain-separated proxy recovery, the fresh-attestation-on-re-run

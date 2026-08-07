@@ -68,6 +68,8 @@ func New(extensionPort, signPort int) *Extension {
 		logger.Infof("registered trading pair: %s (base=%s, quote=%s)", pair.Name, pair.BaseToken.Hex(), pair.QuoteToken.Hex())
 	}
 
+	e.enableSolvencyScreenFromEnv()
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /action", e.actionHandler)
 

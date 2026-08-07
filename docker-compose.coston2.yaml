@@ -6,12 +6,24 @@ services:
       - ./config/proxy/extension_proxy.coston2.docker.toml:/app/config/config.toml:ro
 
   extension-tee:
+    # INSTRUCTION_SENDER, written by pre-build.sh. Passed in rather than pinned
+    # here so a redeploy cannot leave the enclave screening against the previous
+    # contract — the address it reads is the address that was deployed.
+    env_file:
+      - config/extension.env
     environment:
       - CHAIN_URL=${CHAIN_URL:-https://coston2-api.flare.network/ext/C/rpc}
       # The node signs over a chain-ID-bound payload, so without this it fails
       # every signature with "could not get chain id" and the proxy rejects the
       # empty result as "signature must be 65 bytes, got 0".
       - CHAIN_ID=${CHAIN_ID:-114}
+      # Solvency screening. The enclave already holds the decrypted amounts, so
+      # it can pass over a bidder who could not settle without telling anyone
+      # what anybody bid. Without it, a bidder with no funds wins and
+      # relayClearing reverts on the transferFrom — the auction dies, and the
+      # runner-up who could have paid gets nothing. Bidding costs nothing, so
+      # that is an attack on the maker, not a rare accident.
+      - BUTA_FUNDS_RPC=${BUTA_FUNDS_RPC:-https://coston2-api.flare.network/ext/C/rpc}
 
 networks:
   default:
