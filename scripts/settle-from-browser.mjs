@@ -132,7 +132,12 @@ const require = createRequire(path.join(qaDir, "wallet.mjs"));
 const pw = await import(fileUrl(require.resolve("playwright")));
 const chromium = pw.chromium ?? pw.default?.chromium;
 const { installWallet, connect } = await import(fileUrl(path.join(qaDir, "wallet.mjs")));
-const browser = await chromium.launch();
+// HEADLESS=0 runs it visibly, which is what makes it usable as demo footage for
+// the beats a human would otherwise have to click through twice.
+const browser = await chromium.launch({
+  headless: process.env.HEADLESS !== "0",
+  slowMo: Number(process.env.SLOW_MO ?? (process.env.HEADLESS === "0" ? 250 : 0)),
+});
 
 /** A page with a broadcasting wallet, already connected. */
 async function desk(privateKey, address, seedClearing) {
