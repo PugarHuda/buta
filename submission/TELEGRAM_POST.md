@@ -26,7 +26,7 @@ short and human.
 > Live on Coston2 (simulated-TEE path), contract verified on the explorer:
 > — desk: https://buta-desk.vercel.app/dashboard
 > — code: https://github.com/PugarHuda/buta
-> — contract: 0x20d9CcAA7140bf38AD91D2F102bA996417798e8f
+> — contract: 0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D
 >
 > Question for the FCC folks: for the real (non-simulated) round trip, is the
 > current register flow against the new FlareTeeManager diamond

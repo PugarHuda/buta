@@ -1,5 +1,34 @@
 # Registering the TEE machine
 
+> **7 August: the extension is 66009 and the contract is
+> `0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D`.** Older numbers below are the
+> retired 65642 / `0x3085C895…`; the sequence is unchanged, only the ids are.
+> Scripts no longer hardcode either — `scripts/ext-config.mjs` reads
+> `config/extension.env`, which is what `pre-build.sh` writes.
+>
+> **Three things this runbook was missing, all found the hard way on 7 August:**
+>
+> 1. `docker compose restart extension-tee` keeps the key. `docker compose up -d
+>    --force-recreate extension-tee` mints a new one. The rule below is right,
+>    but "restart" is the wrong word for which of the two triggers it.
+> 2. **Re-registering is not enough — the contract has to be rotated too.**
+>    `relayClearing` checks the signature against the address stored by
+>    `setTeeAddress`, so a freshly registered machine still cannot settle until
+>    `cast send $INSTRUCTION_SENDER "setTeeAddress(address)" <new machine>` runs.
+>    Everything else reads healthy in the gap: the machine is PRODUCTION, alone
+>    in the active set, and the published URL answers. Only settlement fails,
+>    with `BadTeeSignature()`. `npm run verify:submission` now checks this.
+> 3. **Retire the old machine before believing any timeout.** Two machines in
+>    the active set means `getRandomTeeIds` hands out either, so roughly half the
+>    instructions go to an address nobody is listening on and the run dies at "no
+>    signed outcome came back" — which reads like a slow network, not a routing
+>    error. Three runs were lost to this before `scripts/health.mjs` named it.
+>
+> ```bash
+> node scripts/health.mjs                       # names the stray, if there is one
+> node scripts/retire-machine.mjs <old machine>  # pause it
+> ```
+
 > **Restarting the container mints a NEW machine.** `tee-node` calls
 > `crypto.GenerateKey()` at startup (`internal/node/node.go`) — there is no
 > volume, no seed, no env override. `docker compose up -d extension-tee` after a

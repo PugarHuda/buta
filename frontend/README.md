@@ -33,7 +33,7 @@ proxy and is showing demo data. That is the honest state, not a crash.
 <https://buta-app.vercel.app> runs on demo data, and says so on the page.
 
 There is no public proxy to point it at: no TEE machine is registered for
-extension 65642, so nothing on-chain can be served yet. The live flow runs
+extension 66009, so nothing on-chain can be served yet. The live flow runs
 locally, which is what the banner tells you.
 
 Two things were deleted rather than left pointing somewhere plausible:
@@ -58,7 +58,7 @@ Two things were deleted rather than left pointing somewhere plausible:
 |---|---|---|
 | `VITE_TEE_PROXY_URL` | *(empty)* | Full proxy URL when serving a built bundle. Empty in dev. |
 | `VITE_PROXY_UPSTREAM` | `http://localhost:6674` | Where vite's dev proxy forwards. |
-| `VITE_INSTRUCTION_SENDER` | *(from `generated.ts`)* | `ButaInstructionSender`. Coston2: `0x20d9CcAA7140bf38AD91D2F102bA996417798e8f` |
+| `VITE_INSTRUCTION_SENDER` | *(from `generated.ts`)* | `ButaInstructionSender`. Coston2: `0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D` |
 | `VITE_DIRECT_API_KEY` | *(empty)* | Key the proxy expects, if it wants one. |
 | `VITE_WALLETCONNECT_PROJECT_ID` | *(empty)* | Optional. Unset means injected wallets only. |
 | `VITE_SHOW_FAUCET` | `true` | Testnet faucet link. |

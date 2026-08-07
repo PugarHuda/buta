@@ -30,7 +30,7 @@ unacceptable.
 - Live: https://buta-desk.vercel.app — landing at /, working desk at /dashboard
 - Demo video: _[paste your recorded link — script in DEMO_SCRIPT.md]_
 - Run locally: `BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev` then `npm run dev`
-  in `frontend/`. A TEE machine is registered and PRODUCTION for extension 65642, so instructions reach the diamond; the enclave itself runs the simulated-TEE path Flare accepts for this hackathon.
+  in `frontend/`. A TEE machine is registered and PRODUCTION for extension 66009, so instructions reach the diamond; the enclave itself runs the simulated-TEE path Flare accepts for this hackathon.
 
 **GitHub / technical materials**
 https://github.com/PugarHuda/buta
@@ -66,8 +66,8 @@ Bisik/Canton). Each left the same open problem — the settler still sees the bi
 Buta is the build where an attested enclave finally removes that reader.
 
 **Smart contract addresses / deployment details**
-- Network: Coston2 (chain 114). TEE machine `0xB7b23B94…Ed7C` is registered and PRODUCTION for extension 65642 — `getRandomTeeIds` resolves instead of reverting `TooMany()`. Enclave on the simulated-TEE path.
-- `ButaInstructionSender`: `0x20d9CcAA7140bf38AD91D2F102bA996417798e8f` — https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f
+- Network: Coston2 (chain 114). TEE machine `0x1608050E…3f62` is registered and PRODUCTION for extension 66009 — `getRandomTeeIds` resolves instead of reverting `TooMany()`. Enclave on the simulated-TEE path.
+- `ButaInstructionSender`: `0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D` — https://coston2-explorer.flare.network/address/0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D
 - Deploy runbook: `docs/DEPLOY.md`.
 
 **Short roadmap / next steps**

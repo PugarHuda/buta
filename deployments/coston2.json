@@ -1,14 +1,28 @@
 {
   "network": "coston2",
   "chainId": 114,
-  "deployedAt": "2026-07-22",
+  "deployedAt": "2026-08-07",
   "contracts": {
-    "ButaInstructionSender": "0x20d9CcAA7140bf38AD91D2F102bA996417798e8f"
+    "ButaInstructionSender": "0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D"
   },
   "teeManager": "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE",
   "deployer": "0x100158159dD923E6009a1eD56fB2e8b2347aF42f",
-  "explorer": "https://coston2-explorer.flare.network/address/0x20d9CcAA7140bf38AD91D2F102bA996417798e8f",
-  "note": "Extension registered in the FCC diamond (id 65642); setExtensionId + setTeeAddress done. Simulated-TEE path for the hackathon \u2014 processing needs a registered TEE machine (Level 2).",
-  "extensionId": 65642,
-  "teeAddress": "0x100158159dD923E6009a1eD56fB2e8b2347aF42f"
+  "explorer": "https://coston2-explorer.flare.network/address/0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D",
+  "note": "Extension registered in the FCC diamond (id 66009); setExtensionId + setTeeAddress done, and setTeeAddress now rotates to whichever machine the diamond reports as PRODUCTION. Simulated-TEE path for the hackathon.",
+  "extensionId": 66009,
+  "teeAddress": "0x1608050Eadf3b07FB0e91FFecf13CaE5B8B13f62",
+  "predecessors": [
+    {
+      "address": "0x3085C89540353A4b275704b0Bd03eEc3C718D702",
+      "extensionId": 65642,
+      "retiredAt": "2026-08-07",
+      "why": "setTeeAddress could only run once, so the contract stayed pinned to an enclave key that no longer existed after the container was replaced. Every clearing signed afterwards reverted BadTeeSignature. Its settlement receipts are still valid history."
+    },
+    {
+      "address": "0x20d9CcAA7140bf38AD91D2F102bA996417798e8f",
+      "extensionId": 65642,
+      "retiredAt": "2026-07-27",
+      "why": "First deployment, superseded before the settle path existed."
+    }
+  ]
 }
