@@ -13,6 +13,7 @@
  * the enclave signs JSON for this instruction, or the id being asked about is
  * not this instruction's.
  */
+import { EXT_ID } from "./ext-config.mjs";
 import { createPublicClient, createWalletClient, decodeAbiParameters, http, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { flareTestnet } from "viem/chains";
@@ -44,7 +45,7 @@ const ABI = parseAbi([
 const pc = createPublicClient({ chain: flareTestnet, transport: http(RPC) });
 const wc = createWalletClient({ account, chain: flareTestnet, transport: http(RPC) });
 const SENDER = await pc.readContract({
-  address: DIAMOND, abi: ABI, functionName: "getTeeExtensionInstructionsSender", args: [65642n],
+  address: DIAMOND, abi: ABI, functionName: "getTeeExtensionInstructionsSender", args: [EXT_ID],
 });
 
 const hash = await wc.writeContract({

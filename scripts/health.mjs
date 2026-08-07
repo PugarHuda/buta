@@ -12,9 +12,17 @@
 // component, so the answer is not "something is wrong" but "this is wrong".
 import { createPublicClient, http, parseAbi, keccak256 } from "viem";
 import { flareTestnet } from "viem/chains";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const DIAMOND = "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE";
-const EXT_ID = 65642n;
+// From the file pre-build.sh writes, so a redeploy cannot leave the health check
+// reporting on an extension nobody serves any more.
+const EXT_ID = BigInt(
+  fs.readFileSync(fileURLToPath(new URL("../config/extension.env", import.meta.url)), "utf8")
+    .split(/\r?\n/).find((l) => l.startsWith("EXTENSION_ID="))?.slice("EXTENSION_ID=".length).trim()
+    ?? (() => { throw new Error("EXTENSION_ID missing from config/extension.env"); })(),
+);
 const RPC = process.env.CHAIN_URL ?? "https://coston2-api.flare.network/ext/C/rpc";
 const LOCAL = process.env.EXT_PROXY_URL ?? "http://localhost:6674";
 
@@ -127,7 +135,7 @@ async function check() {
       }
     }
   } catch {
-    problems.push("getRandomTeeIds reverts — no active machine for extension 65642, so postRfq, commitBid and requestClearing all revert before reaching the diamond");
+    problems.push("getRandomTeeIds reverts — no active machine for the extension, so postRfq, commitBid and requestClearing all revert before reaching the diamond");
   }
 
   return { problems, notes };

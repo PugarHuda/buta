@@ -109,7 +109,7 @@ cat <<EOF
 
   # and the one that matters — an address instead of TooMany()
   cast call 0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE \\
-    "getRandomTeeIds(uint256,uint256)(address[])" 65642 1
+    "getRandomTeeIds(uint256,uint256)(address[])" <EXTENSION_ID from config/extension.env> 1
 
 Leave the tunnel running. If it stops, the hostname on-chain goes dead and the
 machine drops back to unreachable — that is why this is a named tunnel and not a

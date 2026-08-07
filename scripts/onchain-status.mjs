@@ -7,9 +7,9 @@
 //   node scripts/onchain-status.mjs
 
 const RPC = "https://coston2-api.flare.network/ext/C/rpc";
-const BUTA = "0x20d9CcAA7140bf38AD91D2F102bA996417798e8f";
+import { SENDER as BUTA } from "./ext-config.mjs";
 const DIAMOND = "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE";
-const EXT_ID = 65642n; // 0x1006a — assigned by the FCC diamond at registration
+import { EXT_ID } from "./ext-config.mjs"; // both assigned at registration; never pinned here again
 const EXPLORER = "https://coston2-explorer.flare.network/address/";
 
 async function ethCall(to, data) {
@@ -64,7 +64,7 @@ try {
   line("teeAddress set", (BigInt(set) === 1n ? "yes → " : "no ") + lastAddr(addr));
 } catch (e) { line("teeAddress", "read failed: " + e.message); }
 
-// 3) the FCC registration: does the diamond point extension 65642 at us?
+// 3) the FCC registration: does the diamond point our extension at us?
 line("FCC extension ID", `${EXT_ID}  (0x${EXT_ID.toString(16)})`);
 try {
   const who = await ethCall(DIAMOND, SEL.senderOf + EXT_ID.toString(16).padStart(64, "0"));
@@ -96,7 +96,7 @@ line("Active TEE machine", machineLine);
 
 console.log(
   "\n  The diamond records our contract as the instruction sender for extension\n" +
-  "  65642, and setExtensionId() found and stored that id on-chain. A TEE\n" +
+  `  ${EXT_ID}, and setExtensionId() found and stored that id on-chain. A TEE\n` +
   "  machine is registered and in production for it, so getRandomTeeIds resolves\n" +
   "  and _sendInstruction reaches the diamond rather than reverting TooMany().\n"
 );

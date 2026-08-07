@@ -18,6 +18,7 @@
  * because a desk that prints "Settled" while nothing moved is the failure this
  * is looking for.
  */
+import { EXT_ID } from "./ext-config.mjs";
 import { createPublicClient, decodeAbiParameters, formatUnits, http, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { flareTestnet } from "viem/chains";
@@ -79,7 +80,7 @@ const pc = createPublicClient({ chain: flareTestnet, transport: http(RPC) });
 
 // The contract the diamond currently points at, not one written down here.
 const SENDER = await pc.readContract({
-  address: DIAMOND, abi: ABI, functionName: "getTeeExtensionInstructionsSender", args: [65642n],
+  address: DIAMOND, abi: ABI, functionName: "getTeeExtensionInstructionsSender", args: [EXT_ID],
 });
 
 head("the stack the desk will talk to");

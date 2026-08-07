@@ -33,9 +33,20 @@ import { flareTestnet } from "viem/chains";
 import { encrypt } from "ecies-geth";
 
 const RPC = process.env.CHAIN_URL ?? "https://coston2-api.flare.network/ext/C/rpc";
-const SENDER = "0x3085C89540353A4b275704b0Bd03eEc3C718D702";
 const DIAMOND = "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE";
-const EXT_ID = 65642n;
+
+// Read from the file pre-build.sh writes, rather than pinned here. A redeploy
+// changes both of these together, and a script holding a stale sender does not
+// fail loudly — it queries a contract that answers, about auctions that are not
+// the ones anybody is looking at.
+const extEnv = fs.readFileSync(fileURLToPath(new URL("../config/extension.env", import.meta.url)), "utf8");
+const envValue = (key: string) => {
+  const line = extEnv.split(/\r?\n/).find((l) => l.startsWith(`${key}=`));
+  if (!line) throw new Error(`${key} missing from config/extension.env`);
+  return line.slice(key.length + 1).trim();
+};
+const SENDER = envValue("INSTRUCTION_SENDER") as `0x${string}`;
+const EXT_ID = BigInt(envValue("EXTENSION_ID"));
 const PROXY = process.env.EXT_PROXY_URL ?? "http://localhost:6674";
 
 // FXRP on both legs. USDT0 has no code at the configured Coston2 address, and
@@ -194,8 +205,16 @@ console.log(`    ${reqHash}`);
 const instructionId = reqRcpt.logs.find((l) => l.address.toLowerCase() === DIAMOND.toLowerCase())?.topics[2] as Hex | undefined;
 console.log(`    instruction ${instructionId?.slice(0, 18) ?? "(not found in logs)"}…`);
 
+// Six minutes, not two. The signed outcome does not appear when the enclave
+// finishes — it appears when enough data providers have voted on it, and that
+// is their schedule, not ours. Two minutes settled one auction and timed out on
+// the next two with nothing wrong: the proxy was up, the machine was PRODUCTION,
+// the published URL answered. A window shorter than the thing it waits for turns
+// a slow round into a failure report.
+const RESULT_ATTEMPTS = Number(process.env.RESULT_ATTEMPTS ?? 120);
+
 async function signedResult(id: Hex) {
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < RESULT_ATTEMPTS; i++) {
     for (const tag of ["threshold", "end", "submit"]) {
       try {
         const r = await fetch(`${PROXY}/action/result/${id}?submissionTag=${tag}`);
@@ -222,7 +241,7 @@ step(6, "collect the enclave's signature");
 const signed = instructionId ? await signedResult(instructionId) : null;
 if (!signed) {
   console.error(`
-    No signed outcome came back within two minutes.
+    No signed outcome came back in time.
 
     The clearing itself may still have happened — check the enclave's log — but
     relayClearing cannot settle without the signature, and that is the honest

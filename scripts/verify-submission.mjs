@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 const RPC = process.env.CHAIN_URL ?? "https://coston2-api.flare.network/ext/C/rpc";
 const DIAMOND = "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE";
-const EXT_ID = 65642n;
+import { EXT_ID } from "./ext-config.mjs";
 
 const doc = fileURLToPath(new URL("../SUBMISSION.md", import.meta.url));
 const md = fs.readFileSync(doc, "utf8");
@@ -31,6 +31,7 @@ const ABI = parseAbi([
   "function getTeeMachineStatus(address) view returns (uint8)",
   "function getRandomTeeIds(uint256,uint256) view returns (address[])",
   "function teeAddressSet() view returns (bool)",
+  "function teeAddress() view returns (address)",
   "function rfqCount() view returns (uint256)",
 ]);
 
@@ -108,12 +109,30 @@ if (machine) {
     active.length === 1 && active[0].toLowerCase() === machine.toLowerCase(),
     `active set: ${active.join(", ") || "empty"}`,
   );
+
+  // The invariant that actually broke. A machine can be PRODUCTION and alone in
+  // the set while the contract still trusts a predecessor that no longer exists,
+  // and every read above passes in that state — the only thing that fails is
+  // relayClearing, with BadTeeSignature, at the moment money should move.
+  if (sender) {
+    const trusted = await pc.readContract({ address: sender, abi: ABI, functionName: "teeAddress" });
+    check(
+      "the contract trusts the machine that is actually serving",
+      trusted.toLowerCase() === machine.toLowerCase(),
+      `contract trusts ${trusted}, the live machine is ${machine} — rotate with setTeeAddress`,
+    );
+  }
 }
 
 // ---- the transactions it cites ----------------------------------------------
 for (const [label, re] of [
   ["the postRfq transaction", /\*\*`postRfq` executed on-chain\*\* \| tx \[`(0x[0-9a-f]{64})`\]/],
   ["the updateTeeMachineSettings transaction", /updateTeeMachineSettings.*?`(0x[0-9a-f]{64})`/],
+  // The rotation. Without it the desk is one container replacement away from a
+  // contract that can never settle again, which is not a hypothetical — it is
+  // what the predecessor deployment ended as.
+  ["the rotation transaction", /\*\*The enclave the desk trusts can be rotated\*\*[^)]*\/tx\/(0x[0-9a-f]{64})\)/],
+  ["the settlement after the rotation", /Settled again after the rotation[^)]*\/tx\/(0x[0-9a-f]{64})\)/],
   // The settlement. The one that moves money, and the one this system could not
   // do at all until the result encoding was fixed.
   ["the settlement transaction", /\*\*Settled on Coston2[^`]*`(0x[0-9a-f]{64})`/],

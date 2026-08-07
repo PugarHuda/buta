@@ -15,7 +15,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const PROXY = process.env.EXT_PROXY_URL ?? "http://localhost:6674";
-const SENDER = process.env.BUTA_INSTRUCTION_SENDER ?? "0x20d9CcAA7140bf38AD91D2F102bA996417798e8f";
+import { SENDER as CONFIGURED } from "./ext-config.mjs";
+const SENDER = process.env.BUTA_INSTRUCTION_SENDER ?? CONFIGURED;
 const FXRP = "0x0b6A3645c240605887a5532109323A3E12273dc7";
 const CHAIN_ID = 114;
 

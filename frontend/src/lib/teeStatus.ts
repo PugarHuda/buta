@@ -12,9 +12,10 @@
  */
 import { createPublicClient, hexToBytes, http, parseAbi, type Address } from "viem";
 import { coston2 } from "../config/chain";
+import { env } from "../config/env";
 
 const DIAMOND = "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE";
-const EXTENSION_ID = 65642n;
+const EXTENSION_ID = env.extensionId;
 
 const ABI = parseAbi([
   "function getRandomTeeIds(uint256,uint256) view returns (address[])",

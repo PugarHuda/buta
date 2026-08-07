@@ -22,7 +22,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DIAMOND = "0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE";
-const EXT_ID = 65642n;
+import { EXT_ID } from "./ext-config.mjs";
 const RPC = process.env.CHAIN_URL ?? "https://coston2-api.flare.network/ext/C/rpc";
 
 const target = process.argv[2];

@@ -1282,29 +1282,29 @@ export function Desk() {
  */
 const EXPLORER = "https://coston2-explorer.flare.network/address/";
 // Only a last resort. The desk asks the diamond which contract is bound to
-// extension 65642 — a constant here was the first of four deployments while
+// the desk's extension — a constant here was the first of four deployments while
 // three later ones were live, and a stale address does not throw, it just
 // reverts every transaction against a contract nobody is bound to any more.
-const SENDER_FALLBACK = env.instructionSender || "0x3085C89540353A4b275704b0Bd03eEc3C718D702";
+const SENDER_FALLBACK = env.instructionSender || "0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D";
 
 function Audit({ tee, sender }: { tee: TeeStatus; sender: string }) {
   const rows: [string, React.ReactNode, string][] = [
     [
       "Instruction sender",
       <a className="hover:text-accent break-all" href={`${EXPLORER}${sender}`} target="_blank" rel="noopener">{sender}</a>,
-      "Read from the diamond, not written down here — this is whatever contract is bound to extension 65642 right now. It records every commitment, checks the enclave's signature, and rejects a clearing whose set digest is not the set it recorded.",
+      "Read from the diamond, not written down here — this is whatever contract is bound to the desk's extension right now. It records every commitment, checks the enclave's signature, and rejects a clearing whose set digest is not the set it recorded.",
     ],
     [
       "FCC extension",
-      <span>65642</span>,
-      "The diamond returns this contract for getTeeExtensionInstructionsSender(65642).",
+      <span>{String(env.extensionId)}</span>,
+      "The diamond returns this contract for getTeeExtensionInstructionsSender(extensionId).",
     ],
     [
       "TEE machine",
       tee.state === "production"
         ? <a className="hover:text-accent break-all" href={`${EXPLORER}${tee.machine}`} target="_blank" rel="noopener">{tee.machine}</a>
         : <span className="text-fg-mute">{tee.state === "none" ? "none active" : "could not read"}</span>,
-      "Read from the diamond by this browser on load, not written down here. getRandomTeeIds(65642, 1) returns it instead of reverting TooMany().",
+      "Read from the diamond by this browser on load, not written down here. getRandomTeeIds(extensionId, 1) returns it instead of reverting TooMany().",
     ],
     [
       "Settles in",

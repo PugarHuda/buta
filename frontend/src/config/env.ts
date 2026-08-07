@@ -11,6 +11,9 @@ export const env = {
   /** Override for the deployed ButaInstructionSender contract address.
    *  Falls back to the value baked into generated.ts by sync-config. */
   instructionSender: import.meta.env.VITE_INSTRUCTION_SENDER as string || "",
+  /** FCC extension id. The desk asks the diamond which contract is bound to it,
+   *  so this is the one identifier a redeploy has to change here. */
+  extensionId: BigInt(import.meta.env.VITE_EXTENSION_ID as string || "66009"),
   /** Settlement/delivery token overrides (Coston2 FXRP / USDT0). */
   fxrp: import.meta.env.VITE_FXRP as string || "",
   usdt0: import.meta.env.VITE_USDT0 as string || "",
