@@ -87,7 +87,10 @@ if (sender) {
 }
 
 // ---- the TEE machine --------------------------------------------------------
-const machine = claimed(/\*\*TEE machine in PRODUCTION\*\* \| `(0x[0-9a-fA-F]{40})`/, "a TEE machine in production");
+// The address may be a plain code span or a linked one — both forms have been
+// in this row, and anchoring on one of them made a formatting change read as
+// "the claim is gone from the document".
+const machine = claimed(/\*\*TEE machine in PRODUCTION\*\* \| \[?`(0x[0-9a-fA-F]{40})`/, "a TEE machine in production");
 if (machine) {
   const status = Number(
     await pc.readContract({ address: DIAMOND, abi: ABI, functionName: "getTeeMachineStatus", args: [machine] }),
@@ -152,6 +155,25 @@ for (const [label, re] of [
   } catch (e) {
     check(`${label} exists on Coston2`, false, String(e.shortMessage ?? e.message).split("\n")[0]);
   }
+}
+
+// ---- and one thing the chain cannot answer ----------------------------------
+// An address stated with no link behind it is a claim a judge has to take on
+// trust, which is the one thing this submission is not asking anyone to do.
+{
+  const linked = new Set(
+    [...md.matchAll(/explorer\.flare\.network\/(?:address|tx)\/(0x[0-9a-fA-F]{40})/g)].map((m) =>
+      m[1].toLowerCase(),
+    ),
+  );
+  const bare = [...md.matchAll(/`(0x[0-9a-fA-F]{40})`/g)]
+    .map((m) => m[1])
+    .filter((a) => !linked.has(a.toLowerCase()));
+  check(
+    "every address the document states is one a reader can click through to",
+    bare.length === 0,
+    `no explorer link for ${[...new Set(bare)].join(", ")}`,
+  );
 }
 
 console.log(`\n${checks} claims checked, ${failures.length} failed`);
