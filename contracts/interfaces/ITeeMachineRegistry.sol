@@ -7,4 +7,7 @@ pragma solidity >=0.7.6 <0.9;
 interface ITeeMachineRegistry {
     function getRandomTeeIds(uint256 _extensionId, uint256 _count)
         external view returns (address[] memory);
+
+    /// @dev 1 = INITIALIZED, 2 = PRODUCTION, 4 = PAUSED.
+    function getTeeMachineStatus(address _teeId) external view returns (uint8);
 }

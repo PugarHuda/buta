@@ -43,6 +43,10 @@ contract ButaInstructionSender {
     // forge-lint: disable-next-line(unsafe-typecast)
     bytes32 public constant TEE_ACTION_RESULT = bytes32("TEE_ACTION_RESULT");
 
+    /// @dev TeeMachineStatus.PRODUCTION in the FCC diamond. 1 = INITIALIZED,
+    ///      2 = PRODUCTION, 4 = PAUSED.
+    uint8 public constant TEE_PRODUCTION = 2;
+
     ITeeExtensionRegistry public immutable TEE_EXTENSION_REGISTRY;
     ITeeMachineRegistry public immutable TEE_MACHINE_REGISTRY;
 
@@ -80,9 +84,10 @@ contract ButaInstructionSender {
     event BidCommitted(uint256 indexed rfqId, address indexed bidder, bytes32 commitment, uint256 index);
     event AuctionCleared(uint256 indexed rfqId, address indexed winner, uint256 clearingPrice, bytes32 setDigest);
     event LotReclaimed(uint256 indexed rfqId, address indexed maker, uint256 lot);
+    event TeeAddressSet(address indexed previous, address indexed current);
 
     error NotAdmin();
-    error TeeAlreadySet();
+    error MachineNotInProduction();
     error ZeroAddress();
     error DeadlinePassed();
     error DeadlineNotReached();
@@ -132,9 +137,28 @@ contract ButaInstructionSender {
         revert("Extension ID not found.");
     }
 
+    /// @notice Point the contract at the enclave whose clearings it will accept.
+    ///
+    /// A TEE identity is ephemeral on purpose: `tee-node` mints a signing key at
+    /// startup and never persists it, so every restart is a new machine that has
+    /// to be re-attested. An address pinned once at deployment therefore names a
+    /// machine that is guaranteed to stop existing, and settlement dies with it —
+    /// permanently, if the setter can only ever run once.
+    ///
+    /// So it rotates. The registry is what makes that safe to allow: the argument
+    /// has to be a machine the diamond currently reports as PRODUCTION, which is
+    /// a claim only the availability check and the data providers can produce.
+    ///
+    /// Deliberately NOT "accept any machine in PRODUCTION" at settle time. That
+    /// reads like the trustless version and is the opposite: every extension on
+    /// the network registers into the same registry, so it would let any other
+    /// team's enclave sign a clearing that moves this desk's money.
     function setTeeAddress(address _teeAddress) external onlyAdmin {
-        if (teeAddressSet) revert TeeAlreadySet();
         if (_teeAddress == address(0)) revert ZeroAddress();
+        if (TEE_MACHINE_REGISTRY.getTeeMachineStatus(_teeAddress) != TEE_PRODUCTION) {
+            revert MachineNotInProduction();
+        }
+        emit TeeAddressSet(teeAddress, _teeAddress);
         teeAddress = _teeAddress;
         teeAddressSet = true;
     }

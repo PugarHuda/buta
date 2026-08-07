@@ -55,9 +55,20 @@ contract MockExtensionRegistry is ITeeExtensionRegistry {
 }
 
 contract MockMachineRegistry is ITeeMachineRegistry {
+    /// Machines are PRODUCTION here unless a test says otherwise, so the status
+    /// gate stays invisible to every test that is not about it.
+    mapping(address => uint8) private _status;
+    mapping(address => bool) private _set;
+
+    function setStatus(address teeId, uint8 s) external { _status[teeId] = s; _set[teeId] = true; }
+
     function getRandomTeeIds(uint256, uint256) external pure returns (address[] memory ids) {
         ids = new address[](1);
         ids[0] = address(0xBEEF);
+    }
+
+    function getTeeMachineStatus(address teeId) external view returns (uint8) {
+        return _set[teeId] ? _status[teeId] : 2;
     }
 }
 
@@ -263,6 +274,57 @@ contract ButaClearingTest is Test {
         bytes memory sig = _sign(0xBADBAD, rfqId, bob, 5218e4, digest, bytes32("a3"), "tag", 1);
         vm.expectRevert(ButaInstructionSender.BadTeeSignature.selector);
         buta.relayClearing(rfqId, bob, 5218e4, digest, bytes32("a3"), "tag", 1, sig);
+    }
+
+    // ── the enclave the desk trusts is allowed to change ─────────────────────
+
+    /// The reason this test exists: `tee-node` mints a new signing key on every
+    /// start and never persists it, so the enclave a deployment was pinned to is
+    /// gone the first time the container restarts. When the setter could only run
+    /// once, that made settlement permanently impossible — a live contract with
+    /// three settled auctions behind it and no fourth one available, ever.
+    function test_TeeAddressRotatesAndTheOldEnclaveStopsSettling() public {
+        uint256 newPk = 0xB0B5EC;
+        address newTee = vm.addr(newPk);
+        machReg.setStatus(newTee, 2); // the diamond attested it
+
+        buta.setTeeAddress(newTee);
+        assertEq(buta.teeAddress(), newTee, "the desk follows the live machine");
+
+        bytes32 digest = buta.commitmentDigest(rfqId);
+
+        // The key that used to be trusted is now just a key.
+        bytes memory stale = _sign(TEE_PK, rfqId, bob, 5218e4, digest, bytes32("r1"), "tag", 1);
+        vm.expectRevert(ButaInstructionSender.BadTeeSignature.selector);
+        buta.relayClearing(rfqId, bob, 5218e4, digest, bytes32("r1"), "tag", 1, stale);
+
+        bytes memory fresh = _sign(newPk, rfqId, bob, 5218e4, digest, bytes32("r2"), "tag", 1);
+        buta.relayClearing(rfqId, bob, 5218e4, digest, bytes32("r2"), "tag", 1, fresh);
+        assertEq(lot.balanceOf(bob), LOT, "the auction settles under the new enclave");
+    }
+
+    /// Rotation is only safe because the argument has to be a machine the diamond
+    /// says is PRODUCTION. Without this, an admin key could point the desk at any
+    /// address at all and sign its own clearings.
+    function test_TeeAddressRejectsAMachineTheDiamondHasNotAttested() public {
+        address notAMachine = address(0xDEAD);
+        machReg.setStatus(notAMachine, 1); // INITIALIZED, never reached production
+        vm.expectRevert(ButaInstructionSender.MachineNotInProduction.selector);
+        buta.setTeeAddress(notAMachine);
+
+        machReg.setStatus(notAMachine, 4); // and a paused one is not a live one
+        vm.expectRevert(ButaInstructionSender.MachineNotInProduction.selector);
+        buta.setTeeAddress(notAMachine);
+
+        assertEq(buta.teeAddress(), tee, "a refused rotation leaves the desk where it was");
+    }
+
+    function test_TeeAddressIsAdminOnly() public {
+        address newTee = vm.addr(0xB0B5EC);
+        machReg.setStatus(newTee, 2);
+        vm.prank(alice);
+        vm.expectRevert(ButaInstructionSender.NotAdmin.selector);
+        buta.setTeeAddress(newTee);
     }
 
     /// A valid signature over one outcome must not be reusable for a different
