@@ -52,6 +52,21 @@ step "1/5 authtoken"
     '$NGROK' config add-authtoken <token>"
 log "authtoken present"
 
+step "1b/5 nothing else may be publishing a hostname"
+# tunnel-keeper.sh republishes a cloudflare quick-tunnel URL whenever the chain
+# disagrees with what it is serving — every 60 seconds, forever. Left running,
+# it would overwrite the static domain minutes after this script wrote it, and
+# the only symptom would be the machine going unreachable again later, for no
+# visible reason. Stop it first; that is the whole point of moving off it.
+if pgrep -f "tunnel-keeper.sh" >/dev/null 2>&1; then
+    die "scripts/tunnel-keeper.sh is still running. It republishes a quick-tunnel
+  hostname on a timer and would overwrite ${DOMAIN} within a minute. Stop it:
+    pkill -f tunnel-keeper.sh
+  and stop the cloudflared it started:
+    pkill -f cloudflared"
+fi
+log "no keeper running"
+
 step "2/5 the proxy has to be serving before anything is published"
 curl -fsS -m 10 "http://localhost:${LOCAL_PORT}/info" >/dev/null \
   || die "http://localhost:${LOCAL_PORT}/info is not answering. Bring the stack up:
