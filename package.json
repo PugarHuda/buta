@@ -10,7 +10,8 @@
     "health:watch": "node scripts/health.mjs --watch",
     "verify:submission": "node scripts/verify-submission.mjs",
     "sync:machine": "node scripts/sync-machine-address.mjs",
-    "sync:machine:check": "node scripts/sync-machine-address.mjs --check"
+    "sync:machine:check": "node scripts/sync-machine-address.mjs --check",
+    "rotate": "node scripts/rotate.mjs"
   },
   "dependencies": {
     "ecies-geth": "^1.8.0",

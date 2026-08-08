@@ -373,8 +373,32 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 	if !ok {
 		return buildResult(action, df, nil, 0, errRfqNotFound)
 	}
+	// Clearing again returns the same outcome rather than an error, and that is
+	// not politeness — it is what makes the rail work at all.
+	//
+	// One requestClearing produces SEVERAL deliveries of the same instruction:
+	// the data providers push it under a `threshold` tag and an `end` tag, and
+	// the main and backup queues can both carry it. Only the `threshold` result
+	// carries the four-word ABI outcome relayClearing can settle; `end` carries
+	// a 1887-byte consensus envelope that is signed, valid, and useless here.
+	//
+	// While this returned ErrAlreadyClosed, whichever delivery arrived FIRST won
+	// and any later one failed with status 0. When `end` arrived first, the
+	// threshold result came back as an error and the auction could never be
+	// settled — the run died at "no signed outcome came back", which reads like
+	// a slow network. Three runs were lost to that before the proxy log named
+	// it: `received failed result … tag threshold … log: error: auction:
+	// already cleared`.
+	//
+	// Nothing is leaked by answering twice: after a clearing the winner and the
+	// price are public by construction, and the losing amounts have already been
+	// zeroed by the run that did the work.
 	if r.Cleared {
-		return buildResult(action, df, nil, 0, auction.ErrAlreadyClosed)
+		same, err := clearingResultData(r.ID, r.Outcome.Winner, r.Outcome.ClearingPrice, r.Outcome.SetDigest)
+		if err != nil {
+			return buildResult(action, df, nil, 0, err)
+		}
+		return buildResult(action, df, same, 1, nil)
 	}
 
 	// Screened when a chain reader is wired, plain Vickrey when it is not — an

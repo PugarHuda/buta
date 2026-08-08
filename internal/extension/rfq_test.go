@@ -195,18 +195,41 @@ func TestCommitBidRejectsReplayedSigAcrossRfqs(t *testing.T) {
 	}
 }
 
-func TestClearTwiceRejected(t *testing.T) {
+func TestClearTwiceReturnsTheSameOutcome(t *testing.T) {
 	e := newAuctionExtension()
 	a := newBidder(t, 1)
 	id := post(t, e, postRfqRequest{Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
 	commit(t, e, id, a, 1, 10)
 
 	body, _ := json.Marshal(clearAuctionRequest{RfqID: id})
-	if ar := e.processClearAuction(teetypes.Action{}, &instruction.DataFixed{}, body); ar.Status != 1 {
-		t.Fatalf("first clear failed: %s", ar.Log)
+	first := e.processClearAuction(teetypes.Action{}, &instruction.DataFixed{}, body)
+	if first.Status != 1 {
+		t.Fatalf("first clear failed: %s", first.Log)
 	}
-	if ar := e.processClearAuction(teetypes.Action{}, &instruction.DataFixed{}, body); ar.Status != 0 {
-		t.Fatal("second clear should have failed")
+
+	// This used to be "the second clear must fail", which was wrong in the one
+	// way that mattered. A single requestClearing is delivered more than once —
+	// under a `threshold` tag and an `end` tag, over the main and backup queues
+	// — and only the threshold result carries the ABI outcome relayClearing can
+	// settle. Failing every delivery after the first meant that whenever `end`
+	// arrived first, the settleable result came back as an error and the auction
+	// could not be settled at all.
+	second := e.processClearAuction(teetypes.Action{}, &instruction.DataFixed{}, body)
+	if second.Status != 1 {
+		t.Fatalf("second clear must return the outcome, not an error: %s", second.Log)
+	}
+	if !bytes.Equal(first.Data, second.Data) {
+		t.Fatalf("second clear returned a different outcome: first %x, second %x", first.Data, second.Data)
+	}
+
+	// And it must be an answer, not a re-run: the openings are zeroed by the
+	// first clear, so a second pass through the engine could not reproduce them.
+	rfqID, winner, price, _, err := decodeClearingResultData(second.Data)
+	if err != nil {
+		t.Fatalf("decoding the repeated outcome: %v", err)
+	}
+	if rfqID != id || winner != e.rfqs.rfqs[id].Outcome.Winner || price != e.rfqs.rfqs[id].Outcome.ClearingPrice {
+		t.Fatalf("repeated outcome does not match the stored one: rfq %d winner %s price %d", rfqID, winner, price)
 	}
 }
 
