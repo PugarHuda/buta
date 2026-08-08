@@ -32,37 +32,39 @@ but it signs nothing, so beat 5 cannot happen. Record the on-chain rail.
 cd buta
 docker compose -f docker-compose.yaml -f docker-compose.coston2.yaml up -d
 
-# 2. a public hostname for the machine, republished on-chain when it moves
-./scripts/tunnel-keeper.sh          # leave this running in its own terminal
+# 2. the tunnel, on the reserved domain that is already published on-chain
+ngrok http --domain=nonmultiplicative-florida-macromolecular.ngrok-free.dev 6674
+#    leave this running in its own terminal
+#
+#    Do NOT run scripts/tunnel-keeper.sh. It is for the quick tunnel this used
+#    to run on, and it republishes a cloudflare hostname on a 60-second timer —
+#    it would overwrite the reserved domain minutes before you press record,
+#    with no error anywhere.
 
-# 3. register the machine, then point the contract at it
-EXT_PROXY_HOST_URL=https://<the host the keeper printed> ./scripts/post-build.sh
-source config/extension.env                    # INSTRUCTION_SENDER, EXTENSION_ID
-source .env                                    # DEPLOYMENT_PRIVATE_KEY
-cast send --chain 114 "$INSTRUCTION_SENDER" "setTeeAddress(address)" <the new machine> \
-  --rpc-url https://coston2-api.flare.network/ext/C/rpc --private-key "$DEPLOYMENT_PRIVATE_KEY"
-# --chain 114 is not optional: .env sets CHAIN=coston2, which cast rejects as a chain name.
+# 3. everything a replaced enclave needs, in one command
+npm run rotate
+#    registers the machine, points the contract at it, retires the one it
+#    replaced, updates the documents, then checks all of it from the chain.
+#    Skips whatever the chain already says is done, so running it when nothing
+#    changed costs nothing.
 
-# 4. prove all three agree before you waste a take
-node scripts/health.mjs             # must say healthy
-npm run verify:submission           # must say 0 failed
-
-# 5. the desk
+# 4. the desk
 cd frontend && npm run dev          # http://localhost:5173
 ```
 
-**Step 3 is two commands and both are needed.** Registering the machine makes it
-PRODUCTION; it does **not** tell the contract to trust it. Skip `setTeeAddress`
-and everything still reads healthy — machine PRODUCTION, alone in the active
-set, published URL answering — and only the settle beat fails, with
-`BadTeeSignature()`, on camera. `verify:submission` checks this now; that is why
-it is in the list.
+**`npm run rotate` exists because two of its steps fail silently.** Registering a
+machine makes it PRODUCTION; it does **not** tell the contract to trust it, and
+in that gap everything reads healthy — machine PRODUCTION, alone in the active
+set, published URL answering — while only the settle beat fails, with
+`BadTeeSignature()`, on camera. And a previous machine left active means
+`getRandomTeeIds` hands out either, so half the instructions go to an address
+nobody is listening on and nothing reverts to say so. The command does both and
+then checks the result from the chain.
 
-**If a previous machine is still active, retire it first.** Two in the set means
-`getRandomTeeIds` hands out either, so roughly half the instructions go to an
-address nobody is listening on and nothing reverts to say so — the desk simply
-never gets its clearing back. `health.mjs` names the stray;
-`node scripts/retire-machine.mjs <address>` pauses it.
+**If beat 4 does not produce a signed outcome, press the button again.** The
+first delivery is the unreliable one; a repeat is answered from the enclave's
+memory in seconds. Leave that in the take if it happens — it is a truthful
+picture of a testnet, and the desk says so on screen.
 
 Have MetaMask on Coston2 with **two funded accounts**: a maker holding FXRP for
 the lot, and a bidder holding the quote token. FXRP reverts

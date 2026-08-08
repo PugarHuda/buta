@@ -80,6 +80,21 @@ republish() {
 cleanup() { [[ -n "${TUNNEL_PID:-}" ]] && kill "$TUNNEL_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
+# Refuse to clobber a reserved domain.
+#
+# This keeper exists for the quick tunnel, and its whole job is to overwrite the
+# hostname on-chain whenever it disagrees with what it is serving. Point it at a
+# machine that has since moved to a domain we own and it does exactly that —
+# within 60 seconds, with no error, and the only symptom arrives much later as a
+# machine nobody can reach. Since 8 August this project is on a reserved domain,
+# so running this is now almost always a mistake.
+CURRENT_URL=$(node "$SCRIPT_DIR/health.mjs" 2>&1 | grep -oE "on-chain url https://[^ ;]+" | head -1 | cut -d' ' -f3 || true)
+if [[ "${KEEPER_FORCE:-}" != "1" && -n "$CURRENT_URL" && "$CURRENT_URL" != *"trycloudflare.com"* ]]; then
+    die "the machine is published on $CURRENT_URL, which is not a quick tunnel.
+  This keeper would overwrite it with a cloudflare hostname within a minute.
+  If you really mean to go back to quick tunnels, pass KEEPER_FORCE=1."
+fi
+
 start_tunnel
 republish || true
 

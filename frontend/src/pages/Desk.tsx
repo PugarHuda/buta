@@ -647,9 +647,20 @@ export function Desk() {
 
         const signed = await awaitSignedClearing(env.teeProxyUrl, id);
         if (!signed) {
+          // Press it again — that is not a shrug, it is the fix.
+          //
+          // The FIRST delivery is the unreliable one: the instruction travels
+          // through the data providers, and when Coston2 is between signing
+          // policies that round can produce nothing for the id we asked about.
+          // A second request is answered from the enclave's memory in seconds,
+          // because the auction is already cleared and a repeat returns the
+          // stored outcome rather than an error. Saying so beats leaving
+          // somebody staring at a dead panel deciding the product is broken.
           return say(
-            "No signed outcome came back. The clearing may still have happened — but relayClearing " +
-              "cannot settle without a signature, and the dev facade produces none.",
+            "No signed outcome came back for that request. The clearing itself may well have happened — " +
+              "press Request clearing again. A repeat is answered from the enclave's memory, usually in seconds, " +
+              "because it returns the outcome it already computed. (On the dev facade there is no signature at all, " +
+              "and no number of retries will produce one.)",
           );
         }
         const [oRfq, winner, price, digest] = decodeAbiParameters(
