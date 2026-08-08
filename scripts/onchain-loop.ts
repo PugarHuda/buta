@@ -238,7 +238,36 @@ async function signedResult(id: Hex) {
 }
 
 step(6, "collect the enclave's signature");
-const signed = instructionId ? await signedResult(instructionId) : null;
+let signed = instructionId ? await signedResult(instructionId) : null;
+
+// Ask again rather than give up.
+//
+// The first delivery is the unreliable one: the instruction has to reach the
+// enclave through the data providers, and when Coston2 is between signing
+// policies that round can produce nothing at all — the proxy sits on
+// `signing policy NNNN not yet on chain; waiting` and no signed result appears
+// for the id we asked about. A SECOND requestClearing is answered from the
+// enclave's memory in seconds, because the auction is already cleared and a
+// repeat now returns the stored outcome instead of an error.
+//
+// Verified on RFQ 17: the loop timed out, a fresh request for the same auction
+// returned status 1 with a 132-character signature and the four-word outcome
+// immediately. Costs one more instruction fee, which is worth not losing the
+// settlement it already paid for.
+if (!signed) {
+  console.log("    no result for that instruction — asking the enclave again");
+  const again = await wc.writeContract({
+    address: SENDER, abi: senderAbi, functionName: "requestClearing", args: [rfqId], value: FEE,
+  });
+  const againRcpt = await wait(again);
+  const againId = againRcpt.logs.find(
+    (l) => l.address.toLowerCase() === DIAMOND.toLowerCase(),
+  )?.topics[2] as Hex | undefined;
+  console.log(`    ${again}`);
+  console.log(`    instruction ${againId?.slice(0, 18) ?? "(not found in logs)"}…`);
+  if (againId) signed = await signedResult(againId);
+}
+
 if (!signed) {
   console.error(`
     No signed outcome came back in time.

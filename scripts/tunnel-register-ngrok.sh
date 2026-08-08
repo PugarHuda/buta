@@ -3,7 +3,7 @@
 # domain and register the TEE machine against it.
 #
 # Same job as tunnel-register.sh, for people without a domain on Cloudflare.
-# ngrok's free tier includes ONE static domain (something.ngrok-free.app) that
+# Every ngrok account gets ONE free reserved domain (a .ngrok-free.dev name) that
 # survives restarts, which is the property that matters: data providers push to
 # the URL written on-chain, so a hostname that changes leaves the machine
 # unreachable and stuck at INITIALIZED.
@@ -97,6 +97,16 @@ $(tail -20 "$LOG")"
 $(tail -20 "$LOG")"
     sleep 3
 done
+
+step "4b/5 publish the hostname on-chain BEFORE asking anyone to check it"
+# post-build.sh does not update the URL of a machine that is already registered
+# — it re-attests the one already on record. So on a machine that exists, the
+# availability check below gets pushed to whatever hostname was published last,
+# which after a switch is a tunnel that no longer exists. The symptom is a 404
+# on the action result and a registration that "failed" while everything local
+# is perfectly healthy. Publishing first costs one transaction and removes the
+# whole failure mode.
+node "$SCRIPT_DIR/update-machine-url.mjs" "https://${DOMAIN}" \n  || die "could not publish the hostname on-chain — nothing below would reach this machine"
 
 step "5/5 register the machine against the public URL"
 # EXT_PROXY_URL stays local — that is how the tools reach the proxy.
