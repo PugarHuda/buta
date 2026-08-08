@@ -52,7 +52,9 @@ losing amounts; the keccak commitment scheme bound at ingest and at clear;
 on-chain commitment recording + set-digest binding (Go/Solidity byte-parity);
 ECIES-sealed bids; wallet-signature-bound bids (closing the "sender at face
 value" hole the reference orderbook documents in its own threat model);
-selective disclosure; two-sided settlement with `reclaimLot`; the desk UI.
+selective disclosure; two-sided settlement with `reclaimLot`; a solvency
+screen that drops a bidder who could not settle without revealing what anyone
+bid; the desk UI.
 Also removed: the fork's order book and deposit/withdraw vault, ~11,000 lines
 that this contract's direct settlement had made unreachable.
 Improved on Flare's reference specifically: bids arrive as ciphertext (the
