@@ -103,8 +103,8 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
           <div className="mt-2 flex flex-col gap-px bg-line border border-line">
             {bids.map((b, i) => (
               <div key={i} className="bg-bg px-3 py-2 grid grid-cols-[3rem_1fr_5rem] gap-2 items-center">
-                <span className="text-fg-mute">{String(b.rfqId).padStart(3, "0")}</span>
-                <span className="text-[11.5px] break-all text-fg-dim">{b.commitment.slice(0, 22)}…</span>
+                <span className="text-fg-mute font-mono">{String(b.rfqId).padStart(3, "0")}</span>
+                <span className="text-[11.5px] break-all text-fg-dim font-mono">{b.commitment.slice(0, 22)}…</span>
                 <span className="text-right">
                   {!b.cleared ? (
                     <span className="text-fg-mute">SEALED</span>
@@ -147,8 +147,8 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
                   }}
                   className="bg-bg px-3 py-2 grid grid-cols-[4rem_1fr_6rem] gap-2 items-center text-left hover:bg-bg-1"
                 >
-                  <span className="text-fg-mute">RFQ-{String(s.rfqId).padStart(3, "0")}</span>
-                  <span className="text-[11.5px] text-fg-dim break-all">{s.commitment.slice(0, 22)}…</span>
+                  <span className="text-fg-mute font-mono">RFQ-{String(s.rfqId).padStart(3, "0")}</span>
+                  <span className="text-[11.5px] text-fg-dim break-all font-mono">{s.commitment.slice(0, 22)}…</span>
                   <span className="text-right text-[11.5px] tracking-[0.1em] uppercase text-accent">Use this</span>
                 </button>
               ))}

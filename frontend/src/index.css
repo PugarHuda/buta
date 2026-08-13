@@ -40,8 +40,11 @@
   --flash: rgba(206,20,20,0.12);
   --f-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
   /* Prose, labels and buttons. Mono is kept for what mono is for: figures,
-     hashes and ids, which is why the book still lines up in columns. */
-  --f-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+     hashes and ids, which is why the book still lines up in columns.
+     No Inter: this page ships no webfont, and naming one it does not load
+     means tuning against a face that never renders. The system stack is what
+     actually appears, so it is what is written down. */
+  --f-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
   --f-serif: 'Playfair Display', 'Times New Roman', serif;
   --f-macro: 'Archivo Black', 'Arial Black', Haettenschweiler, Impact, sans-serif;
 }
@@ -63,8 +66,12 @@ html, body {
 
 ::selection { background: var(--accent); color: var(--bg); }
 
-/* Figures, ids, hashes and addresses. */
-.tnum, code, kbd, samp { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+/* Figures, ids, hashes and addresses.
+   `font-variant-numeric: tabular-nums` on the body rescues a column of digits,
+   and does nothing at all for the letters a–f — so a hash or an address in a
+   proportional face goes ragged no matter what. Those surfaces say font-mono
+   for themselves; this covers the markup ones. */
+code, kbd, samp { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 
 button { font-family: var(--f-ui); cursor: pointer; background: none; border: none; color: inherit; padding: 0; }
 button:disabled { cursor: not-allowed; }

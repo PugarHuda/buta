@@ -63,7 +63,11 @@ if (!fs.existsSync(path.join(dist, "index.html"))) {
  * This looks for the values themselves rather than the variable names, because
  * what ends up in the bundle is the value.
  */
-const secrets = ["VITE_DIRECT_API_KEY"];
+// BUTA_DIRECT_API_KEY is the same key under a name vite will not inline — it
+// belongs to the serverless proxy in api/, and it is present in the build
+// environment on Vercel, so this check can actually see it there. A rename is
+// exactly the kind of thing that would quietly turn the guard off.
+const secrets = ["VITE_DIRECT_API_KEY", "BUTA_DIRECT_API_KEY"];
 const bundle = [];
 (function walk(dir) {
   for (const name of fs.readdirSync(dir)) {

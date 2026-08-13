@@ -956,7 +956,9 @@ export function Desk() {
                   {activity.map((a, i) => (
                     <div key={`${a.at}-${i}`} className="flex gap-3 px-3 py-2">
                       <span className="text-fg-mute shrink-0">{a.at}</span>
-                      <span className="text-fg-dim break-all leading-relaxed">{a.text}</span>
+                      {/* Receipts carry addresses and digests inline, so this
+                          reads as data even though it is written as prose. */}
+                      <span className="text-fg-dim break-all leading-relaxed font-mono text-[12.5px]">{a.text}</span>
                     </div>
                   ))}
                 </div>
@@ -1124,7 +1126,7 @@ export function Desk() {
                       <div className="grid sm:grid-cols-3 gap-px bg-line border border-line">
                         <div className="bg-bg px-3 py-2.5">
                           <Lbl>Winner</Lbl>
-                          <div className="mt-1 break-all">{r.winner}</div>
+                          <div className="mt-1 break-all font-mono text-[12.5px]">{r.winner}</div>
                         </div>
                         <div className="bg-bg px-3 py-2.5">
                           <Lbl>Clearing price</Lbl>
@@ -1155,7 +1157,10 @@ export function Desk() {
                               {r.commitments.map((c, i) => (
                                 <div key={c} className="flex items-baseline gap-2 text-[11.5px]">
                                   <span className="text-fg-mute">bid {i + 1}</span>
-                                  <span className="text-fg-dim">{c.slice(2, 16)}…</span>
+                                  {/* A column of commitments only reads as a column
+                                      if every line is the same width — and
+                                      tabular-nums does nothing for a–f. */}
+                                  <span className="text-fg-dim font-mono">{c.slice(2, 16)}…</span>
                                   <span className="inline-block w-8 h-[9px] bg-fg align-middle" title="amount sealed" />
                                 </div>
                               ))}
@@ -1354,7 +1359,7 @@ function Audit({ tee, sender }: { tee: TeeStatus; sender: string }) {
   const rows: [string, React.ReactNode, string][] = [
     [
       "Instruction sender",
-      <a className="hover:text-accent break-all" href={`${EXPLORER}${sender}`} target="_blank" rel="noopener">{sender}</a>,
+      <a className="hover:text-accent break-all font-mono" href={`${EXPLORER}${sender}`} target="_blank" rel="noopener">{sender}</a>,
       "Read from the diamond, not written down here — this is whatever contract is bound to the desk's extension right now. It records every commitment, checks the enclave's signature, and rejects a clearing whose set digest is not the set it recorded.",
     ],
     [
@@ -1365,13 +1370,13 @@ function Audit({ tee, sender }: { tee: TeeStatus; sender: string }) {
     [
       "TEE machine",
       tee.state === "production"
-        ? <a className="hover:text-accent break-all" href={`${EXPLORER}${tee.machine}`} target="_blank" rel="noopener">{tee.machine}</a>
+        ? <a className="hover:text-accent break-all font-mono" href={`${EXPLORER}${tee.machine}`} target="_blank" rel="noopener">{tee.machine}</a>
         : <span className="text-fg-mute">{tee.state === "none" ? "none active" : "could not read"}</span>,
       "Read from the diamond by this browser on load, not written down here. getRandomTeeIds(extensionId, 1) returns it instead of reverting TooMany().",
     ],
     [
       "Settles in",
-      <a className="hover:text-accent break-all" href={`${EXPLORER}${TOKENS.FXRP.address}`} target="_blank" rel="noopener">{TOKENS.FXRP.address}</a>,
+      <a className="hover:text-accent break-all font-mono" href={`${EXPLORER}${TOKENS.FXRP.address}`} target="_blank" rel="noopener">{TOKENS.FXRP.address}</a>,
       "FXRP on Coston2. The winner pays the second price and receives the lot in the same transaction.",
     ],
   ];
@@ -1499,7 +1504,37 @@ function BidForm(props: {
           </span>
         </div>
       ) : (
+        <>
+        {/* The transaction first, because it is the one that counts.
+            A bid sealed over the direct channel lives in the enclave's memory
+            and nowhere else, so it can demonstrate the mechanism but can never
+            be part of a settlement — relayClearing checks a clearing against
+            the set the CONTRACT recorded. Leading with the demo rail was
+            defensible while the only desk that could reach an enclave was a
+            local one. On the deployed desk the direct channel is closed on
+            purpose (nothing unauthenticated over plain HTTP may write to an
+            auction), so leading with it meant the most prominent button on the
+            form answered 403. */}
+        <div className="flex flex-col items-start gap-2">
+          <Btn
+            busy={props.busyChain}
+            onClick={() => {
+              if (!/^\d+$/.test(amount.trim()) || BigInt(amount.trim()) <= 0n) {
+                return props.onDone("Bid must be a positive whole number.");
+              }
+              props.onChain(BigInt(amount.trim()));
+            }}
+          >
+            Seal bid on-chain
+          </Btn>
+          <p className="text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
+            A transaction, so the commitment lands in the set the clearing has to match.
+            One bid per address, enforced by the contract as well as the enclave.
+          </p>
+        </div>
+        <div className="pt-3 border-t border-line">
         <Btn
+          quiet
           busy={busy}
           onClick={async () => {
             // BigInt throws on anything that is not a whole number — "1.5",
@@ -1538,44 +1573,29 @@ function BidForm(props: {
             }
           }}
         >
-          Seal bid
+          Seal over the direct rail
         </Btn>
-      )}
-
-      {/* The same sealed envelope, in a transaction.
-          The direct rail records the commitment in enclave memory; only this
-          puts it in the set the contract keeps, and that set is what
-          relayClearing checks a clearing against. A commitment that never
-          reached the chain can demonstrate the mechanism but can never be part
-          of a settlement. */}
-      {!!bidder && (
-        <div className="pt-3 border-t border-line">
-          <Btn
-            quiet
-            busy={props.busyChain}
-            onClick={() => {
-              if (!/^\d+$/.test(amount.trim()) || BigInt(amount.trim()) <= 0n) {
-                return props.onDone("Bid must be a positive whole number.");
-              }
-              props.onChain(BigInt(amount.trim()));
-            }}
-          >
-            Seal on-chain instead
-          </Btn>
-          <p className="mt-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
-            A transaction, so the commitment lands in the set the clearing has to match.
-            One bid per address, enforced by the contract as well as the enclave.
-          </p>
+        <p className="mt-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
+          The same sealed envelope, handed straight to the enclave instead of to the chain.
+          It proves the mechanism — the amount is encrypted here and the enclave recovers your
+          signature — but the commitment lives only in the enclave's memory, so a clearing can
+          never settle against it. The deployed desk refuses this rail outright: nothing
+          unauthenticated may write to an auction.
+        </p>
         </div>
+        </>
       )}
 
       {receipt && (
         <div className="border border-line bg-bg-1 p-3 flex flex-col gap-2">
           <Lbl>Your seal — keep the nonce</Lbl>
-          <div className="text-[11.5px] break-all">
+          {/* The nonce is 32 bytes somebody has to copy correctly or lose the
+              only proof of what they bid. Rendering it in a proportional face,
+              where 0/O and 1/l are the same glyph shape, is a way to lose it. */}
+          <div className="text-[11.5px] break-all font-mono">
             <span className="text-fg-mute">commitment </span>{receipt.commitment}
           </div>
-          <div className="text-[11.5px] break-all">
+          <div className="text-[11.5px] break-all font-mono">
             <span className="text-fg-mute">nonce </span>{receipt.nonce}
           </div>
           <p className="text-[11.5px] text-fg-mute leading-relaxed">

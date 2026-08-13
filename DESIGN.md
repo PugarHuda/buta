@@ -71,12 +71,20 @@ TeePayments_F_XRP            0xD02384dcbA8bBb42E4E8b417b8542410AE0CF484
 TeePaymentsRegistry          0xBEc5C38D5354CEd864b7B736159FaAF722CFAcA7
 WalletManagerFacet           0xCf77a93ade70c1D519D19CF9BAd9ec7dfc0765aA
 WalletKeyManagerFacet        0xe036B7d737f8ADfAB20D491e676649710EF26806
-FlareTeeManager              0x004224fa1BF1Acd3D233f011FB03b8dd5fA5d41F
+FlareTeeManager              0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE
 Fdc2Verification             0x5dB65be44b4473A06d3D1D70d72D871B09bff965
 VrfFacet / VrfVerifier       0xB78215f1587f9F96Ee51532a879246621e55aC35 / 0x3AA6968CBF63A7f3d6A2bD561B8C0F20e76bce9F
 ```
 
 `TeePayments_F_XRP` and the four Wallet facets are Protocol Managed Wallets, live on Coston2 now. Investigate before building a delivery leg by hand.
+
+The `FlareTeeManager` line above said `0x004224fa…` until 13 August. That is the
+retired diamond, and it is the one address here worth being pedantic about:
+`docs/DEPLOY.md` calls pointing at it *the single most common failure*, because
+it predates the `ExtensionGovernance` facet and registration reverts with
+`FunctionNotFound` — a name that tells you nothing about the address being the
+cause. Every other address in this block matched `deployed-addresses.json`; only
+this one had rotted, in the document a reader consults first.
 
 ## Open questions to settle before writing code
 
