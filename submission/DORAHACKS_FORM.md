@@ -28,6 +28,7 @@ unacceptable.
 
 **Demo link / video / working app**
 - Live: https://buta-desk.vercel.app — landing at /, working desk at /dashboard
+- The deployed desk talks to the enclave. Connect a Coston2 wallet and you can post a block, seal a bid and settle it yourself — every one of those is a contract call signed by your wallet. A read-only serverless proxy carries the book and the enclave's public key, because the extension proxy sends no CORS header and its API key cannot ship in a bundle. If the machine is down the desk falls back to a demo book and says so on the page.
 - Demo video: _[paste your recorded link — script in DEMO_SCRIPT.md]_
 - Run locally: `BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev` then `npm run dev`
   in `frontend/`. A TEE machine is registered and PRODUCTION for extension 66009, so instructions reach the diamond; the enclave itself runs the simulated-TEE path Flare accepts for this hackathon.
