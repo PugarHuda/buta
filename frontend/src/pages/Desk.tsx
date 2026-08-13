@@ -46,9 +46,9 @@ const POLL_MS = 3000;
  *  work out where they are from the contents. */
 function Head({ eyebrow, children }: { eyebrow: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="px-4 pt-4 pb-3">
-      <div className="text-[10px] tracking-[0.14em] uppercase text-fg-mute">{eyebrow}</div>
-      <h1 className="mt-1 text-[22px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
+    <div className="px-4 pt-5 pb-3">
+      <div className="text-[11px] font-medium tracking-[0.12em] uppercase text-fg-mute">{eyebrow}</div>
+      <h1 className="mt-1.5 text-[26px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
         {children}
       </h1>
     </div>
@@ -57,7 +57,7 @@ function Head({ eyebrow, children }: { eyebrow: React.ReactNode; children: React
 
 function Lbl({ children }: { children: React.ReactNode }) {
   return (
-    <span className="text-[10px] tracking-[0.12em] uppercase text-fg-mute">{children}</span>
+    <span className="text-[11px] font-medium tracking-[0.1em] uppercase text-fg-mute">{children}</span>
   );
 }
 
@@ -65,6 +65,9 @@ function Red({ children }: { children: React.ReactNode }) {
   return <span className="text-accent">{children}</span>;
 }
 
+/** An input a reader can see is an input: white ground against the paper, a
+ *  border dark enough to read as an edge, and a focus state that is not a
+ *  one-pixel colour change. */
 function Field(props: {
   label: string;
   value: string;
@@ -73,20 +76,30 @@ function Field(props: {
   hint?: string;
 }) {
   return (
-    <label className="flex flex-col gap-1">
+    <label className="flex flex-col gap-1.5">
       <Lbl>{props.label}</Lbl>
       <input
-        className="bg-bg-1 border border-line px-2.5 py-2 font-mono text-[12px] text-fg outline-none focus:border-accent"
+        className="bg-white border border-line-2 px-3 py-2.5 font-mono text-[13px] text-fg outline-none
+                   placeholder:text-fg-mute/60 focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors"
         value={props.value}
         placeholder={props.placeholder}
         onChange={(e) => props.onChange(e.target.value)}
         spellCheck={false}
       />
-      {props.hint && <span className="text-[10px] text-fg-mute">{props.hint}</span>}
+      {props.hint && <span className="text-[11.5px] leading-snug text-fg-mute">{props.hint}</span>}
     </label>
   );
 }
 
+/**
+ * Buttons that look like buttons.
+ *
+ * These used to be 11px uppercase mono with a hairline border and no fill on
+ * the secondary — the same weight as the labels beside them, so the desk gave
+ * a reader no way to tell what was a control and what was a caption. One
+ * filled red primary per panel, a real outlined secondary, both with a hover
+ * and a pressed state so a click is felt as well as taken.
+ */
 function Btn(props: {
   children: React.ReactNode;
   onClick: () => void;
@@ -98,12 +111,16 @@ function Btn(props: {
       onClick={props.onClick}
       disabled={props.busy}
       className={
-        "px-4 py-2 text-[11px] tracking-[0.12em] uppercase font-mono border transition-colors " +
+        "inline-flex items-center gap-2 px-4 py-2.5 text-[12.5px] font-semibold tracking-[0.02em] border " +
+        "transition-all active:translate-y-px disabled:opacity-50 disabled:active:translate-y-0 " +
         (props.quiet
-          ? "bg-bg text-fg-dim border-line hover:border-accent hover:text-fg"
-          : "bg-accent text-bg border-accent hover:bg-fg hover:border-fg disabled:opacity-40")
+          ? "bg-white text-fg border-line-2 hover:border-fg hover:bg-bg-1"
+          : "bg-accent text-white border-accent shadow-[0_1px_0_var(--accent-deep)] hover:bg-[var(--accent-deep)] hover:border-[var(--accent-deep)]")
       }
     >
+      {props.busy && (
+        <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+      )}
       {props.busy ? "Working…" : props.children}
     </button>
   );
@@ -143,24 +160,24 @@ function Btn(props: {
 function RequestClearingBlock(props: { busy: boolean; onRequest: () => void; signedAlready: boolean }) {
   return (
     <div className="mt-3">
-      {props.signedAlready ? (
-        <p className="text-[10px] text-fg-mute leading-relaxed max-w-[30ch]">
-          The enclave opened this one already, and it will not do it twice — asking again returns
-          <span className="text-fg-dim"> auction: already cleared</span>. The signature it produced is
-          kept in the browser that asked for it; settle from there. The lot stays escrowed until
-          somebody does.
-        </p>
-      ) : (
-        <>
-          <Btn quiet busy={props.busy} onClick={props.onRequest}>
-            Request clearing on-chain
-          </Btn>
-          <p className="mt-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+      <Btn quiet busy={props.busy} onClick={props.onRequest}>
+        {props.signedAlready ? "Ask again for the signed outcome" : "Request clearing on-chain"}
+      </Btn>
+      <p className="mt-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[34ch]">
+        {props.signedAlready ? (
+          <>
+            The enclave opened this one already and will not open it twice — but it kept the outcome
+            it produced, and a repeat request is answered from that memory, usually in seconds. This
+            is the button to press when the first dispatch came back with nothing. The lot stays
+            escrowed until a signed outcome is settled.
+          </>
+        ) : (
+          <>
             A transaction. The enclave opens the bids and signs the outcome, and only a signed one can
             be settled.
-          </p>
-        </>
-      )}
+          </>
+        )}
+      </p>
     </div>
   );
 }
@@ -173,7 +190,7 @@ function SettleBlock(props: {
   return (
     <div className="mt-4 pt-4 border-t border-line">
       <Lbl>Settle it</Lbl>
-      <p className="mt-1 mb-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+      <p className="mt-1 mb-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[26ch]">
         {props.outcome.signature
           ? "Signed by the enclave. relayClearing pays the maker and moves the lot in one transaction."
           : "This rail returned no signature, and relayClearing will not settle without one."}
@@ -636,6 +653,21 @@ export function Desk() {
       setRequesting(rfqId);
       try {
         const pc = createPublicClient({ chain: coston2, transport: http() });
+        // Asking again is the documented recovery when the first dispatch comes
+        // back empty, and the enclave answers a repeat from its own memory. The
+        // CONTRACT is the one that stops: requestClearing reverts AlreadyCleared
+        // once relayClearing has settled the row. That is a paid transaction
+        // that can only fail, so it is refused here rather than sent — and the
+        // guard lives in the one function every caller routes through.
+        const onChain = await pc.readContract({
+          address: sender, abi: senderAbi, functionName: "rfqs", args: [BigInt(rfqId)],
+        });
+        if (onChain[6]) {
+          return say(
+            `RFQ ${rfqId} is already settled on-chain — requestClearing would revert AlreadyCleared. ` +
+              "The outcome moved the money; there is nothing left to ask the enclave for.",
+          );
+        }
         const hash = await send({
           address: sender, abi: senderAbi, functionName: "requestClearing",
           args: [BigInt(rfqId)], value: INSTRUCTION_FEE,
@@ -682,10 +714,13 @@ export function Desk() {
           rfqId, winner, clearingPrice: Number(price), bidCount: 0, setDigest: digest,
           actionId: signed.actionId, submissionTag: signed.submissionTag, signature: signed.signature,
         });
-        // Written down before anything else can go wrong. The enclave produces
-        // this exactly once — ask a second time and it answers
-        // "auction: already cleared" and returns nothing — so a reload between
-        // here and the settlement used to strand the lot for good.
+        // Written down before anything else can go wrong. The enclave computes
+        // this exactly once and then keeps it: a repeat request returns the
+        // stored outcome rather than recomputing, which is what makes asking
+        // again the fix rather than a shrug. Storing it here is still what
+        // stops a reload between this line and the settlement from stranding
+        // the lot, since the signature only ever lives in the browser that
+        // asked for it.
         rememberClearing({
           rfqId, instructionId: id, data: signed.data, actionId: signed.actionId,
           submissionTag: signed.submissionTag, signature: signed.signature,
@@ -723,7 +758,10 @@ export function Desk() {
   );
 
   return (
-    <div className="min-h-screen bg-bg text-fg font-mono text-[12px] md:flex">
+    // Sans for everything a person reads, mono kept where it earns its keep:
+    // the book's columns, ids, hashes and addresses. Setting mono on the whole
+    // desk made prose harder to read to buy alignment that only the table needs.
+    <div className="min-h-screen bg-bg text-fg text-[13.5px] md:flex">
       {/* ── sidebar ──
           Identity, the three places you can be, and the state of the desk —
           all of it permanent, so the reader is never asked to remember which
@@ -734,7 +772,7 @@ export function Desk() {
           <div className="font-macro text-[17px] tracking-tight uppercase leading-none" style={{ fontFamily: "var(--f-macro)" }}>
             BUTA<Red>®</Red>
           </div>
-          <div className="mt-1 text-[10px] tracking-[0.12em] uppercase text-fg-mute">
+          <div className="mt-1 text-[11.5px] tracking-[0.12em] uppercase text-fg-mute">
             [ SEALED-BID OTC DESK ]
           </div>
         </div>
@@ -743,7 +781,7 @@ export function Desk() {
         {/* items-start and a shrink-0 dot: with items-center the label had no
             room to wrap, so "TEE PRODUCTION" ran straight out through the right
             border of its own box. */}
-        <div className="hidden md:flex items-start gap-2 mx-4 my-3 px-2.5 py-1.5 border border-line bg-bg-1 text-[10px] tracking-[0.1em] uppercase text-fg-mute leading-snug">
+        <div className="hidden md:flex items-start gap-2 mx-4 my-3 px-2.5 py-1.5 border border-line bg-bg-1 text-[11.5px] tracking-[0.1em] uppercase text-fg-mute leading-snug">
           <span className={"mt-1 w-1.5 h-1.5 shrink-0 " + (tee.state === "production" ? "bg-accent" : "bg-fg-mute")} />
           <span className="min-w-0">
             {tee.state === "production" ? <>Coston2 <Red>///</Red> TEE production</>
@@ -775,7 +813,7 @@ export function Desk() {
               key={id}
               onClick={() => setPanel(id)}
               className={
-                "flex-1 md:flex-none text-left px-4 py-2.5 text-[10px] tracking-[0.12em] uppercase border-r md:border-r-0 md:border-b border-line " +
+                "flex-1 md:flex-none text-left px-4 py-2.5 text-[11.5px] tracking-[0.12em] uppercase border-r md:border-r-0 md:border-b border-line " +
                 (panel === id ? "bg-fg text-bg" : "text-fg-mute hover:text-fg hover:bg-bg-1")
               }
             >
@@ -795,11 +833,11 @@ export function Desk() {
               ["Cleared", rfqs.length - openCount, "settled, second price"],
             ].map(([label, value, hint]) => (
               <div key={String(label)}>
-                <dt className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">{label}</dt>
+                <dt className="text-[11.5px] tracking-[0.1em] uppercase text-fg-mute">{label}</dt>
                 <dd className="text-[17px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
                   {String(value)}
                 </dd>
-                <div className="text-[10px] text-fg-mute leading-tight">{hint}</div>
+                <div className="text-[11.5px] text-fg-mute leading-tight">{hint}</div>
               </div>
             ))}
           </dl>
@@ -814,7 +852,7 @@ export function Desk() {
           <a
             href={`https://coston2-explorer.flare.network/address/${TOKENS.FXRP.address}`}
             target="_blank" rel="noopener"
-            className="block mb-3 text-[10px] tracking-[0.1em] uppercase text-fg-mute hover:text-accent"
+            className="block mb-3 text-[11.5px] tracking-[0.1em] uppercase text-fg-mute hover:text-accent"
             title="FXRP on Coston2"
           >
             SETTLES IN FXRP <Red>///</Red> {TOKENS.FXRP.address.slice(0, 6)}…
@@ -827,7 +865,7 @@ export function Desk() {
       <div className="flex-1 min-w-0">
       <header className="md:hidden sticky top-0 z-40 bg-bg">
         <div className="flex items-center gap-4 px-4 py-2 justify-end">
-          <span className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">
+          <span className="text-[11.5px] tracking-[0.1em] uppercase text-fg-mute">
             {tee.state === "production" ? (
               <>TEE <Red>PRODUCTION</Red></>
             ) : offline ? (
@@ -846,7 +884,7 @@ export function Desk() {
         // paragraph that was the longest thing on the page. The book below is
         // demo data; the machine is real. Say the first here and leave the
         // second to the Audit panel, which links it to the explorer.
-        <div className="px-4 py-1.5 bg-accent text-bg text-[10px] tracking-[0.12em] uppercase">
+        <div className="px-4 py-1.5 bg-accent text-bg text-[11.5px] tracking-[0.12em] uppercase">
           Demo book <span className="opacity-70">— no enclave reachable from this browser.</span>{" "}
           <span className="opacity-70">Start it with <span className="opacity-100">go run ./cmd/dev</span> for the live flow;{" "}
           the machine itself is registered — see Audit.</span>
@@ -943,7 +981,7 @@ export function Desk() {
                     key={f}
                     onClick={() => setFilter(f)}
                     className={
-                      "px-3 py-1 text-[10px] tracking-[0.12em] uppercase border border-line -ml-px first:ml-0 " +
+                      "px-3 py-1 text-[11.5px] tracking-[0.12em] uppercase border border-line -ml-px first:ml-0 " +
                       (filter === f ? "bg-fg text-bg border-fg" : "text-fg-mute hover:text-fg")
                     }
                   >
@@ -951,7 +989,7 @@ export function Desk() {
                   </button>
                 ))}
               </div>
-              <span className="text-[10px] tracking-[0.1em] uppercase text-fg-mute">
+              <span className="text-[11.5px] tracking-[0.1em] uppercase text-fg-mute">
                 {shown.length} shown
                 {/* A desk that quietly renders fewer rows than the enclave sent
                     is hiding a disagreement between the two. */}
@@ -967,7 +1005,7 @@ export function Desk() {
               </div>
             </div>
 
-            <div className="grid grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem_5rem] gap-3 px-4 py-1.5 border-y border-line text-[10px] tracking-[0.12em] uppercase text-fg-mute">
+            <div className="grid grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem_5.5rem] gap-3 px-4 py-2 border-y border-line bg-bg-1 text-[11px] font-medium tracking-[0.1em] uppercase text-fg-mute">
               <span>RFQ</span><span>Pair</span><span>Lot</span><span>Reserve</span>
               <span>Bids</span><span>Deadline</span><span>Status</span><span />
             </div>
@@ -986,12 +1024,23 @@ export function Desk() {
 
             {shown.map((r) => (
               <div key={r.rfqId} className="border-b border-line-2/40">
-                <div className={"flex items-stretch " + (selected === r.rfqId ? "bg-bg-2" : "hover:bg-bg-1")}>
+                {/* A row is clickable, and nothing said so: same paper, same
+                    ink, no cursor, no edge. Selected now carries a red rule on
+                    the left so the open panel below is visibly attached to the
+                    row it belongs to. */}
+                <div
+                  className={
+                    "flex items-stretch cursor-pointer border-l-[3px] transition-colors " +
+                    (selected === r.rfqId
+                      ? "bg-bg-2 border-l-accent"
+                      : "border-l-transparent hover:bg-bg-1 hover:border-l-line-2")
+                  }
+                >
                   {/* The row and its action are siblings, not nested — a button
                       inside a button is invalid and the inner one stops working. */}
                   <button
                     onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
-                    className="flex-1 min-w-0 text-left grid grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem] gap-3 px-4 py-2.5 items-center"
+                    className="flex-1 min-w-0 text-left grid grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem] gap-3 px-4 py-3 items-center font-mono text-[13px]"
                   >
                     <span className="text-fg-mute">RFQ-{String(r.rfqId).padStart(3, "0")}</span>
                     <span>
@@ -1000,13 +1049,13 @@ export function Desk() {
                           filter. A maker scanning the book should not have to
                           switch views to see which ones are theirs. */}
                       {!!address && r.maker.toLowerCase() === address.toLowerCase() && (
-                        <span className="ml-2 px-1 border border-accent text-accent text-[9px] tracking-[0.1em] align-middle">
+                        <span className="ml-2 px-1 border border-accent text-accent text-[10.5px] tracking-[0.1em] align-middle">
                           YOURS
                         </span>
                       )}
                       {myRfqs.has(r.rfqId) && (
                         <span
-                          className="ml-2 px-1 border border-line text-fg-dim text-[9px] tracking-[0.1em] align-middle"
+                          className="ml-2 px-1 border border-line text-fg-dim text-[10.5px] tracking-[0.1em] align-middle"
                           title="You have a sealed bid on this auction. The enclave accepts one per address."
                         >
                           BID SEALED
@@ -1030,7 +1079,7 @@ export function Desk() {
                       {!r.cleared && countdown(r.deadline, block).text && (
                         <span
                           data-volatile
-                          className={"block text-[10px] " + (countdown(r.deadline, block).passed ? "text-accent" : "")}
+                          className={"block text-[11.5px] " + (countdown(r.deadline, block).passed ? "text-accent" : "")}
                         >
                           {countdown(r.deadline, block).text}
                         </span>
@@ -1039,7 +1088,7 @@ export function Desk() {
                     <span>
                       <span
                         className={
-                          "px-1.5 py-0.5 border text-[10px] tracking-[0.1em] uppercase " +
+                          "px-1.5 py-0.5 border text-[11.5px] tracking-[0.1em] uppercase " +
                           (r.cleared ? "border-accent text-accent" : "border-line text-fg-mute")
                         }
                       >
@@ -1050,16 +1099,19 @@ export function Desk() {
                   {/* The action is on the row it acts on. It used to be a panel
                       on the other side of the screen that you had to look at
                       after clicking, which is why the desk read as two things. */}
+                  {/* The action on the row, at the weight of an action. An
+                      outlined 10px label in the same ink as the figures beside
+                      it is the reason a reader has to guess where to click. */}
                   <button
                     onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
                     className={
-                      "w-[5rem] shrink-0 my-2 mr-4 text-[10px] tracking-[0.12em] uppercase border " +
+                      "w-[5.5rem] shrink-0 my-2 mr-4 py-1.5 text-[12px] font-semibold border transition-all active:translate-y-px " +
                       (r.cleared
-                        ? "border-line text-fg-dim hover:border-fg hover:text-fg"
-                        : "border-accent text-accent hover:bg-accent hover:text-bg")
+                        ? "bg-white text-fg border-line-2 hover:border-fg hover:bg-bg-1"
+                        : "bg-accent text-white border-accent hover:bg-[var(--accent-deep)] hover:border-[var(--accent-deep)]")
                     }
                   >
-                    {r.cleared ? "View" : "Bid"}
+                    {r.cleared ? "View" : "Bid →"}
                   </button>
                 </div>
 
@@ -1081,7 +1133,7 @@ export function Desk() {
                               facade signs nothing at all, so a receipt from it
                               is the operator's word and should read that way
                               rather than looking identical to a proven one. */}
-                          <div className="mt-1 text-[10px] text-fg-mute leading-relaxed">
+                          <div className="mt-1 text-[11.5px] text-fg-mute leading-relaxed">
                             {demo || offline
                               ? "Demo book — nothing here was signed."
                               : "Relayed without a signature on this rail: the enclave's signature is checked on-chain by relayClearing, not here."}
@@ -1089,7 +1141,7 @@ export function Desk() {
                           <div className="mt-1 text-[15px]" style={{ fontFamily: "var(--f-macro)" }}>
                             {r.clearingPrice?.toLocaleString()}
                           </div>
-                          <div className="text-[10px] text-fg-mute">Vickrey second price</div>
+                          <div className="text-[11.5px] text-fg-mute">Vickrey second price</div>
                         </div>
                         <div className="bg-bg px-3 py-2.5">
                           <Lbl>Sealed forever</Lbl>
@@ -1101,7 +1153,7 @@ export function Desk() {
                           {!!r.commitments?.length && (
                             <div className="mt-1 mb-2 flex flex-col gap-0.5">
                               {r.commitments.map((c, i) => (
-                                <div key={c} className="flex items-baseline gap-2 text-[10px]">
+                                <div key={c} className="flex items-baseline gap-2 text-[11.5px]">
                                   <span className="text-fg-mute">bid {i + 1}</span>
                                   <span className="text-fg-dim">{c.slice(2, 16)}…</span>
                                   <span className="inline-block w-8 h-[9px] bg-fg align-middle" title="amount sealed" />
@@ -1163,7 +1215,7 @@ export function Desk() {
                               it offered the same button on an auction with two
                               hours left as on one that closed yesterday. */}
                           <Lbl>Clearing</Lbl>
-                          <p className="mt-1 mb-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+                          <p className="mt-1 mb-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[26ch]">
                             {block === null
                               ? "Cannot read the chain's head, so whether the deadline has passed is unknown."
                               : countdown(r.deadline, block).passed
@@ -1188,7 +1240,7 @@ export function Desk() {
                             >
                               Clear RFQ {String(r.rfqId).padStart(3, "0")}
                             </Btn>
-                            <span className="text-[10px] text-fg-mute max-w-[26ch] leading-relaxed">
+                            <span className="text-[11.5px] text-fg-mute max-w-[26ch] leading-relaxed">
                               Anyone may clear once it is past. Liveness never depends on the maker.
                             </span>
                           </div>
@@ -1228,7 +1280,7 @@ export function Desk() {
                             countdown(r.deadline, block).passed && (
                               <div className="mt-4 pt-4 border-t border-line">
                                 <Lbl>Your lot</Lbl>
-                                <p className="mt-1 mb-2 text-[10px] text-fg-mute leading-relaxed max-w-[26ch]">
+                                <p className="mt-1 mb-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[26ch]">
                                   {r.bidCount === 0
                                     ? "Nobody bid. Take the lot back — this closes the auction with no winner."
                                     : `${r.bidCount} sealed ${r.bidCount === 1 ? "bid" : "bids"} are on this. Reclaiming closes it without clearing them.`}
@@ -1260,7 +1312,7 @@ export function Desk() {
             {activity.length > 1 && (
               <button
                 onClick={() => setPanel("activity")}
-                className="ml-3 text-[10px] tracking-[0.1em] uppercase text-fg-mute hover:text-accent"
+                className="ml-3 text-[11.5px] tracking-[0.1em] uppercase text-fg-mute hover:text-accent"
               >
                 {activity.length - 1} more <Red>▸</Red>
               </button>
@@ -1269,7 +1321,7 @@ export function Desk() {
         )}
       </main>
 
-      <footer className="border-t-2 border-fg px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-[10px] tracking-[0.08em] uppercase text-fg-mute">
+      <footer className="border-t-2 border-fg px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-[11.5px] tracking-[0.08em] uppercase text-fg-mute">
         <span>BUTA<Red>®</Red> — sealed-bid OTC on Flare Confidential Compute</span>
         {/* "not deployed" sat three lines under a chip reading TEE PRODUCTION,
             which is a contradiction to anyone reading top to bottom. Both were
@@ -1326,7 +1378,7 @@ function Audit({ tee, sender }: { tee: TeeStatus; sender: string }) {
 
   return (
     <div className="p-4">
-      <div className="text-[10px] tracking-[0.14em] uppercase text-fg-mute">
+      <div className="text-[11.5px] tracking-[0.14em] uppercase text-fg-mute">
         Nothing here is a claim <Red>·</Red> every line is a public read
       </div>
       <h1 className="mt-1 mb-4 text-[22px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
@@ -1338,7 +1390,7 @@ function Audit({ tee, sender }: { tee: TeeStatus; sender: string }) {
             <Lbl>{label}</Lbl>
             <div>
               <div>{value}</div>
-              <div className="mt-1 text-[10px] text-fg-mute leading-relaxed max-w-[70ch]">{note}</div>
+              <div className="mt-1 text-[11.5px] text-fg-mute leading-relaxed max-w-[70ch]">{note}</div>
             </div>
           </div>
         ))}
@@ -1422,7 +1474,7 @@ function BidForm(props: {
           [true, "keccak256(amount ‖ nonce ‖ your address) computed here, not sent"],
           [true, "The amount is ECIES-encrypted to the enclave key; the operator relays ciphertext"],
         ].map(([ok, text]) => (
-          <div key={String(text)} className="flex items-baseline gap-2 text-[10px] leading-relaxed">
+          <div key={String(text)} className="flex items-baseline gap-2 text-[11.5px] leading-relaxed">
             <span className={ok ? "text-accent" : "text-fg-mute"}>{ok ? "✓" : "○"}</span>
             <span className={ok ? "text-fg-dim" : "text-fg-mute"}>{text}</span>
           </div>
@@ -1431,7 +1483,21 @@ function BidForm(props: {
 
 
       {!bidder ? (
-        <p className="text-[11px] text-fg-mute">Connect a wallet to seal a bid.</p>
+        // The most common first click on this desk, and it used to be a
+        // sentence. Telling a reader to connect a wallet beside a form they
+        // have already filled in, with no control that does it, is a dead end
+        // at exactly the point they decided to take part.
+        <div className="flex flex-col items-start gap-2">
+          <ConnectButton.Custom>
+            {({ openConnectModal }) => (
+              <Btn onClick={openConnectModal}>Connect a wallet to seal this bid</Btn>
+            )}
+          </ConnectButton.Custom>
+          <span className="text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
+            The bid is sealed in this browser and signed by your wallet — the enclave recovers the
+            signer, so a bid cannot be made in somebody else's name.
+          </span>
+        </div>
       ) : (
         <Btn
           busy={busy}
@@ -1496,7 +1562,7 @@ function BidForm(props: {
           >
             Seal on-chain instead
           </Btn>
-          <p className="mt-2 text-[10px] text-fg-mute leading-relaxed max-w-[44ch]">
+          <p className="mt-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
             A transaction, so the commitment lands in the set the clearing has to match.
             One bid per address, enforced by the contract as well as the enclave.
           </p>
@@ -1506,13 +1572,13 @@ function BidForm(props: {
       {receipt && (
         <div className="border border-line bg-bg-1 p-3 flex flex-col gap-2">
           <Lbl>Your seal — keep the nonce</Lbl>
-          <div className="text-[10px] break-all">
+          <div className="text-[11.5px] break-all">
             <span className="text-fg-mute">commitment </span>{receipt.commitment}
           </div>
-          <div className="text-[10px] break-all">
+          <div className="text-[11.5px] break-all">
             <span className="text-fg-mute">nonce </span>{receipt.nonce}
           </div>
-          <p className="text-[10px] text-fg-mute leading-relaxed">
+          <p className="text-[11.5px] text-fg-mute leading-relaxed">
             The chain records only the commitment. With the nonce you — and only you — can
             later prove to anyone what you bid, without it ever becoming public.
           </p>
@@ -1576,7 +1642,7 @@ function PostForm(props: {
               <div className="text-[11px] tracking-[0.1em] uppercase">
                 {bilateral === mode ? <>▸ {title}</> : <span className="text-fg-dim">{title}</span>}
               </div>
-              <div className={"mt-1 text-[10px] leading-relaxed " + (bilateral === mode ? "opacity-80" : "text-fg-mute")}>
+              <div className={"mt-1 text-[11.5px] leading-relaxed " + (bilateral === mode ? "opacity-80" : "text-fg-mute")}>
                 {why}
               </div>
             </button>
@@ -1626,7 +1692,7 @@ function PostForm(props: {
               key={r}
               onClick={() => setRail(r)}
               className={
-                "px-3 py-1.5 text-[10px] tracking-[0.12em] uppercase border border-line -ml-px first:ml-0 " +
+                "px-3 py-1.5 text-[11.5px] tracking-[0.12em] uppercase border border-line -ml-px first:ml-0 " +
                 (rail === r ? "bg-fg text-bg border-fg" : "text-fg-mute hover:text-fg")
               }
             >
@@ -1634,7 +1700,7 @@ function PostForm(props: {
             </button>
           ))}
         </div>
-        <p className="mt-1 text-[10px] text-fg-mute leading-relaxed max-w-[52ch]">
+        <p className="mt-1 text-[11.5px] text-fg-mute leading-relaxed max-w-[52ch]">
           {rail === "direct"
             ? "Straight to the enclave. Nothing is escrowed and nothing is recorded on-chain — fine for a demo, not a trade."
             : `A transaction: ${TOKENS.FXRP.symbol} is escrowed in the contract and the instruction goes through the diamond, so the commitment set exists on-chain before the enclave has heard of it. Needs an approval first.`}

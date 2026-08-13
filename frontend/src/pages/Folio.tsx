@@ -15,7 +15,7 @@ import { getMyBids, makeDisclosure, verifyDisclosure, type MyBid } from "../lib/
 import { seals, forget, type Seal } from "../lib/seals";
 
 function Lbl({ children }: { children: React.ReactNode }) {
-  return <span className="text-[10px] tracking-[0.12em] uppercase text-fg-mute">{children}</span>;
+  return <span className="text-[11.5px] tracking-[0.12em] uppercase text-fg-mute">{children}</span>;
 }
 function Red({ children }: { children: React.ReactNode }) {
   return <span className="text-accent">{children}</span>;
@@ -90,7 +90,7 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
             <div className="text-[19px] leading-tight" style={{ fontFamily: "var(--f-macro)" }}>
               {String(value)}
             </div>
-            <div className="text-[10px] text-fg-mute leading-tight">{hint}</div>
+            <div className="text-[11.5px] text-fg-mute leading-tight">{hint}</div>
           </div>
         ))}
       </div>
@@ -104,7 +104,7 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
             {bids.map((b, i) => (
               <div key={i} className="bg-bg px-3 py-2 grid grid-cols-[3rem_1fr_5rem] gap-2 items-center">
                 <span className="text-fg-mute">{String(b.rfqId).padStart(3, "0")}</span>
-                <span className="text-[10px] break-all text-fg-dim">{b.commitment.slice(0, 22)}…</span>
+                <span className="text-[11.5px] break-all text-fg-dim">{b.commitment.slice(0, 22)}…</span>
                 <span className="text-right">
                   {!b.cleared ? (
                     <span className="text-fg-mute">SEALED</span>
@@ -122,7 +122,7 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
 
       <div className="pt-4 border-t border-line">
         <Lbl>Disclose a bid to an auditor</Lbl>
-        <p className="mt-1 text-[10px] text-fg-mute leading-relaxed max-w-[46ch]">
+        <p className="mt-1 text-[11.5px] text-fg-mute leading-relaxed max-w-[46ch]">
           Reveal exactly what you bid to one party, provably, without it becoming public. Pick one
           of your seals below, or paste the amount and nonce from a receipt yourself.
         </p>
@@ -148,12 +148,12 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
                   className="bg-bg px-3 py-2 grid grid-cols-[4rem_1fr_6rem] gap-2 items-center text-left hover:bg-bg-1"
                 >
                   <span className="text-fg-mute">RFQ-{String(s.rfqId).padStart(3, "0")}</span>
-                  <span className="text-[10px] text-fg-dim break-all">{s.commitment.slice(0, 22)}…</span>
-                  <span className="text-right text-[10px] tracking-[0.1em] uppercase text-accent">Use this</span>
+                  <span className="text-[11.5px] text-fg-dim break-all">{s.commitment.slice(0, 22)}…</span>
+                  <span className="text-right text-[11.5px] tracking-[0.1em] uppercase text-accent">Use this</span>
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-[10px] text-fg-mute leading-relaxed max-w-[52ch]">
+            <p className="mt-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[52ch]">
               Anyone with this browser can read these, so they are yours to remove.{" "}
               <button
                 onClick={() => { forget(); setMine([]); props.onLog("Seals forgotten. You can no longer prove those bids from this browser."); }}
@@ -193,7 +193,7 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
 
       <div className="pt-4 border-t border-line">
         <Lbl>Verify a disclosure</Lbl>
-        <p className="mt-1 text-[10px] text-fg-mute leading-relaxed max-w-[46ch]">
+        <p className="mt-1 text-[11.5px] text-fg-mute leading-relaxed max-w-[46ch]">
           Paste a disclosure a bidder gave you. This recomputes the commitment and checks it against
           the one the desk recorded — the bidder cannot lie about their number.
         </p>
@@ -201,7 +201,7 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
           value={proof}
           onChange={(e) => setProof(e.target.value)}
           placeholder={EXAMPLE}
-          className="mt-3 w-full bg-bg-1 border border-line px-2.5 py-2 font-mono text-[10px] text-fg break-all h-20 outline-none focus:border-accent"
+          className="mt-3 w-full bg-bg-1 border border-line px-2.5 py-2 font-mono text-[11.5px] text-fg break-all h-20 outline-none focus:border-accent"
         />
         <div className="mt-3 flex items-center gap-3">
           <Btn

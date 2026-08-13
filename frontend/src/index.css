@@ -1,7 +1,23 @@
-@import "./styles/terminal.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/**
+ * The desk is not the landing page.
+ *
+ * The landing is a poster: one screen, print language, read once. The desk is
+ * a tool somebody works in, and it had inherited the poster's rules — 10px
+ * type, hairlines for everything, controls that look exactly like labels, and
+ * `overflow: hidden` on the body, left over from the CLOB kit's fixed-height
+ * terminal layout. That last one meant the page could not scroll AT ALL:
+ * measured on the deployed desk, scrollHeight and clientHeight were both 900
+ * while the content was 990 tall, so the bottom of every screen was simply
+ * unreachable. With a full book most of the rows were.
+ *
+ * So this file keeps the substrate — same paper, same ink, same one red — and
+ * changes what a working surface needs: it scrolls, text is big enough to
+ * read, and anything you can click looks like it.
+ */
 
 :root {
   /* Swiss Industrial Print — same substrate as the landing page.
@@ -16,12 +32,16 @@
   --fg-dim: #3B3B38;
   --fg-mute: #6E6E68;
   --accent: #CE1414;         /* aviation red, 5.1:1 on the paper */
+  --accent-deep: #A50F0F;    /* the pressed state of the same red */
   --bid: #1F5C4D;
   --ask: #CE1414;
   --bid-soft: rgba(31,92,77,0.10);
   --ask-soft: rgba(206,20,20,0.08);
   --flash: rgba(206,20,20,0.12);
   --f-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, ui-monospace, monospace;
+  /* Prose, labels and buttons. Mono is kept for what mono is for: figures,
+     hashes and ids, which is why the book still lines up in columns. */
+  --f-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
   --f-serif: 'Playfair Display', 'Times New Roman', serif;
   --f-macro: 'Archivo Black', 'Arial Black', Haettenschweiler, Impact, sans-serif;
 }
@@ -32,33 +52,35 @@ html, body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--f-mono);
-  font-size: 12px;
-  line-height: 1.4;
+  font-family: var(--f-ui);
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   font-variant-numeric: tabular-nums;
-  height: 100%;
-  overflow: hidden;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: repeating-linear-gradient(0deg, rgba(10,10,10,0.02) 0, rgba(10,10,10,0.02) 1px, transparent 1px, transparent 3px);
-  z-index: 9999;
-  mix-blend-mode: multiply;
+  /* No height:100% and no overflow:hidden. A dashboard is taller than a
+     viewport by design; clipping it hides controls rather than tidying them. */
 }
 
 ::selection { background: var(--accent); color: var(--bg); }
 
-button { font-family: var(--f-mono); cursor: pointer; background: none; border: none; color: inherit; padding: 0; }
+/* Figures, ids, hashes and addresses. */
+.tnum, code, kbd, samp { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+button { font-family: var(--f-ui); cursor: pointer; background: none; border: none; color: inherit; padding: 0; }
+button:disabled { cursor: not-allowed; }
 input, textarea, select { font-family: var(--f-mono); }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
+/* Every control says where the keyboard is. The print language had no focus
+   state at all, so tabbing through the desk was invisible. */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Scrollbars wide enough to grab, now that there is something to scroll. */
+::-webkit-scrollbar { width: 12px; height: 12px; }
 ::-webkit-scrollbar-track { background: var(--bg-2); }
-::-webkit-scrollbar-thumb { background: var(--line-2); }
+::-webkit-scrollbar-thumb { background: var(--line-2); border: 3px solid var(--bg-2); }
 ::-webkit-scrollbar-thumb:hover { background: var(--fg-mute); }
 
 @keyframes flash-row {

@@ -86,19 +86,49 @@ try {
   status = Number(await pc.readContract({ address: DIAMOND, abi: ABI, functionName: "getTeeMachineStatus", args: [serving] }));
 } catch { status = 0; }
 
+// --reattest re-runs the attestation for a machine that is ALREADY production.
+//
+// Flare's own guidance is that a machine needs an availability check newer than
+// about six hours before data providers will deliver to it. Nothing on-chain
+// that we read says how old ours is: status stays 2, the active set stays
+// correct, the published URL keeps answering — and delivery stops anyway, with
+// no revert and nothing to look at. Skipping the step because "the chain
+// already says PRODUCTION" is right for a rotation and wrong before a demo.
+// --reattest was meant to refresh that check in place. It cannot, and finding
+// out cost an on-chain attestation: register-tee happily requests a fresh
+// attestation, reaches "availability check proof obtained" — and then reverts,
+// because ToProduction is the ONLY call that submits the proof and it will not
+// run for a machine already in production. The proof is computed and thrown
+// away. So the flag now says that instead of pretending, and names the only
+// refresh that exists: a new identity.
+const reattest = process.argv.includes("--reattest");
 if (status === 2) {
   say("already PRODUCTION — nothing to register");
+  if (reattest) {
+    say("  --reattest cannot refresh this machine's availability check in place:");
+    say("  the proof is only accepted by toProduction(), which reverts once a machine is in production.");
+    say("  To get a fresh check, replace the identity and rotate onto it:");
+    say("    docker compose -f docker-compose.yaml -f docker-compose.coston2.yaml up -d --force-recreate extension-tee ext-proxy");
+    say("    npm run rotate");
+  }
 } else {
   // The public host the data providers will push to. Prefer what the chain
-  // already publishes for a machine we run; fall back to the keeper's log.
-  let host = process.argv[2];
+  // already publishes for a machine we run; the fallback used to read a
+  // cloudflare hostname out of the keeper's log, which is the one host this
+  // stack must NOT republish now that it runs on a reserved domain (the keeper
+  // overwrites it within a minute).
+  let host = process.argv.slice(2).find((a) => a.startsWith("http"));
   if (!host) {
-    const log = path.join(root, "tunnel.log");
-    if (fs.existsSync(log)) {
-      host = (fs.readFileSync(log, "utf8").match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/) ?? [])[0];
-    }
+    // What the chain already advertises for this machine. On a re-attest that
+    // is exactly right — the reserved domain has not moved — and it means the
+    // common case needs no argument at all.
+    host = await pc
+      .readContract({ address: DIAMOND, abi: ABI, functionName: "getTeeMachine", args: [serving] })
+      .then((m) => m[2])
+      .catch(() => undefined);
+    if (host) say(`no host given — using the one already published on-chain: ${host}`);
   }
-  if (!host) die("no public host: pass one as an argument, or start scripts/tunnel-keeper.sh");
+  if (!host) die("no public host: pass the https URL your tunnel serves as an argument");
   say(`registering against ${host}`);
   const ok = run("bash", ["scripts/post-build.sh"], {
     EXT_PROXY_URL: LOCAL,

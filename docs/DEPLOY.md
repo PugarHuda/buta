@@ -62,9 +62,16 @@ Requires tee-node ≥ v0.0.22 and tee-proxy ≥ v0.0.19 (both tagged on GitHub),
 and the indexer DB credentials (public, in the hackathon Telegram):
 
 ```
-username = hackathon_user_57
-password = q0El26Hs7Yq8qdN2lBdjGyc7
+username = hackathon_user_58
+password = sGKvCAM6gCU2IvsbEv6JDHRO
 ```
+
+`hackathon_user_57` / `q0El26Hs7Yq8qdN2lBdjGyc7` still works and is the older
+account, but it is shared by every team and reached `max_user_connections=100`
+on 12 August. That matters more than it sounds: `ext-proxy` **panics** on a
+database it cannot open rather than starting degraded, so a saturated account
+takes the whole stack down at the next restart — and the restart is usually the
+thing you were doing to fix something else.
 
 For the hackathon demo you do **not** need this step — Flare accepts the
 simulated-TEE path (`BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev`). Registration

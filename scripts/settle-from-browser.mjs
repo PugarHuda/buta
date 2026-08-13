@@ -355,9 +355,22 @@ await mp.waitForTimeout(1000);
 if (!skipClearing) {
   const reqBtn = mp.locator("button", { hasText: /request clearing on-chain/i }).first();
   check("the desk offers to request the clearing on-chain", (await reqBtn.count()) > 0);
-  if (await reqBtn.count()) await reqBtn.click();
-  // The enclave has to open the bids and sign; that is minutes, not seconds.
-  const signed = await until(mp, /signed by the enclave/i, 420);
+  // Ask again, because that is what the desk tells a person to do.
+  //
+  // The FIRST dispatch is the unreliable one — a round can pass producing
+  // nothing for the id asked about — and the desk says so in as many words. A
+  // repeat is answered from the enclave's memory in seconds. Pressing once and
+  // failing meant this check reported "the enclave never signed" for a rail
+  // that had signed perfectly well, minutes before somebody pressed record.
+  let signed = false;
+  for (let attempt = 1; attempt <= 3 && !signed; attempt++) {
+    const btn = mp.locator("button", { hasText: /request clearing on-chain|ask again for the signed outcome/i }).first();
+    if (!(await btn.count())) break;
+    if (attempt > 1) say(`nothing came back — asking again (attempt ${attempt} of 3)`);
+    await btn.click();
+    // The enclave has to open the bids and sign; that is minutes, not seconds.
+    signed = await until(mp, /signed by the enclave/i, attempt === 1 ? 420 : 150);
+  }
   check("the enclave signed an outcome and the desk shows it", signed, (await receipts(mp)).slice(-260));
 }
 
