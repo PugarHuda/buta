@@ -1,0 +1,4 @@
+# Shell scripts are checked out on Windows too, and `set -euo pipefail\r` is a
+# parse error in every bash there is. Committing them with CRLF made every
+# script in scripts/ unrunnable on a fresh clone, on any platform.
+*.sh text eol=lf

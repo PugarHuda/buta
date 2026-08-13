@@ -68,7 +68,7 @@ Bisik/Canton). Each left the same open problem — the settler still sees the bi
 Buta is the build where an attested enclave finally removes that reader.
 
 **Smart contract addresses / deployment details**
-- Network: Coston2 (chain 114). TEE machine `0x848b3D86…5Bb0` is registered and PRODUCTION for extension 66009 — `getRandomTeeIds` resolves instead of reverting `TooMany()`. Enclave on the simulated-TEE path.
+- Network: Coston2 (chain 114). TEE machine `0x2F59C4cc…E83a` is registered and PRODUCTION for extension 66009 — `getRandomTeeIds` resolves instead of reverting `TooMany()`. Enclave on the simulated-TEE path.
 - `ButaInstructionSender`: `0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D` — https://coston2-explorer.flare.network/address/0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D
 - Deploy runbook: `docs/DEPLOY.md`.
 
