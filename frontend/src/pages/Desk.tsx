@@ -807,17 +807,20 @@ export function Desk() {
           </button>
         </div>
 
-        <nav className="flex md:flex-col border-y border-line">
+        {/* Wraps on a phone. Four tabs side by side at px-4 come to 347px, so at
+            320px the nav alone pushed the page 27px wide — the last thing left
+            overflowing after the book's columns were made to drop. */}
+        <nav className="flex flex-wrap md:flex-col border-y border-line">
           {NAV.map(([id, label]) => (
             <button
               key={id}
               onClick={() => setPanel(id)}
               className={
-                "flex-1 md:flex-none text-left px-4 py-2.5 text-[11.5px] tracking-[0.12em] uppercase border-r md:border-r-0 md:border-b border-line " +
+                "flex-1 md:flex-none text-left px-3 md:px-4 py-2.5 text-[11.5px] tracking-[0.12em] uppercase border-r md:border-r-0 md:border-b border-line " +
                 (panel === id ? "bg-fg text-bg" : "text-fg-mute hover:text-fg hover:bg-bg-1")
               }
             >
-              {panel === id ? <><Red>▸</Red> {label}</> : <span className="pl-3">{label}</span>}
+              {panel === id ? <><Red>▸</Red> {label}</> : <span className="md:pl-3">{label}</span>}
             </button>
           ))}
         </nav>
@@ -896,6 +899,8 @@ export function Desk() {
         price. <b className="text-fg">Nobody can read a bid before it clears — not the maker,
         not the operator, not us.</b> Losing amounts are never revealed at all.
       </p>
+
+      <Claims />
 
       {/* On a phone the sidebar's counts are hidden, so they belong here. */}
       <div className="md:hidden flex flex-wrap items-stretch border-t border-line">
@@ -1007,9 +1012,21 @@ export function Desk() {
               </div>
             </div>
 
-            <div className="grid grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem_5.5rem] gap-3 px-4 py-2 border-y border-line bg-bg-1 text-[11px] font-medium tracking-[0.1em] uppercase text-fg-mute">
-              <span>RFQ</span><span>Pair</span><span>Lot</span><span>Reserve</span>
-              <span>Bids</span><span>Deadline</span><span>Status</span><span />
+            {/* The book is eight columns of fixed widths, which comes to about
+                700px — so on a phone it pushed the page 313px wider than the
+                viewport, and the repo's own rule is that the body must never
+                scroll sideways. It went unmeasured because the render checks
+                only ever loaded the landing page at narrow widths; the desk was
+                never looked at on a phone at all.
+                Columns drop instead of the page stretching. Lot, bids and the
+                deadline are all in the panel that opens under the row, so
+                nothing is lost — and the redaction bar survives to the smallest
+                layout that fits it, because that bar is the claim. */}
+            <div className="grid grid-cols-[4.5rem_1fr_4.5rem_5rem] sm:grid-cols-[4.5rem_1fr_4rem_4.5rem_5rem] md:grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem_5.5rem] gap-2 md:gap-3 px-4 py-2 border-y border-line bg-bg-1 text-[11px] font-medium tracking-[0.1em] uppercase text-fg-mute">
+              <span>RFQ</span><span>Pair</span><span className="hidden md:block">Lot</span>
+              <span className="hidden sm:block">Res</span>
+              <span className="hidden md:block">Bids</span><span className="hidden md:block">Deadline</span>
+              <span>Status</span><span />
             </div>
 
             {shown.length === 0 && (
@@ -1042,7 +1059,7 @@ export function Desk() {
                       inside a button is invalid and the inner one stops working. */}
                   <button
                     onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
-                    className="flex-1 min-w-0 text-left grid grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem] gap-3 px-4 py-3 items-center font-mono text-[13px]"
+                    className="flex-1 min-w-0 text-left grid grid-cols-[4.5rem_1fr_4.5rem] sm:grid-cols-[4.5rem_1fr_4rem_4.5rem] md:grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem] gap-2 md:gap-3 px-4 py-3 items-center font-mono text-[13px]"
                   >
                     <span className="text-fg-mute">RFQ-{String(r.rfqId).padStart(3, "0")}</span>
                     <span>
@@ -1064,16 +1081,18 @@ export function Desk() {
                         </span>
                       )}
                     </span>
-                    <span>{r.lot.toLocaleString()}</span>
+                    <span className="hidden md:block">{r.lot.toLocaleString()}</span>
                     {/* A redaction bar, not the word "hidden". The reserve is a
                         number that exists and cannot be read, and the desk should
                         look like that on every row. */}
-                    <span
-                      className="inline-block w-14 h-[11px] bg-fg align-middle"
-                      title="The maker's floor is ECIES-encrypted to the enclave key. Nobody else can read it — not the operator, not us."
-                    />
-                    <span>{r.bidCount}</span>
-                    <span className="text-fg-mute leading-tight">
+                    <span className="hidden sm:block">
+                      <span
+                        className="inline-block w-10 md:w-14 h-[11px] bg-fg align-middle"
+                        title="The maker's floor is ECIES-encrypted to the enclave key. Nobody else can read it — not the operator, not us."
+                      />
+                    </span>
+                    <span className="hidden md:block">{r.bidCount}</span>
+                    <span className="hidden md:block text-fg-mute leading-tight">
                       {/* data-volatile: both of these move with the chain, so
                           the pixel baseline overwrites them rather than failing
                           every run for the chain's reasons. */}
@@ -1107,7 +1126,7 @@ export function Desk() {
                   <button
                     onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
                     className={
-                      "w-[5.5rem] shrink-0 my-2 mr-4 py-1.5 text-[12px] font-semibold border transition-all active:translate-y-px " +
+                      "w-[4.5rem] md:w-[5.5rem] shrink-0 my-2 mr-2 md:mr-4 py-1.5 text-[12px] font-semibold border transition-all active:translate-y-px " +
                       (r.cleared
                         ? "bg-white text-fg border-line-2 hover:border-fg hover:bg-bg-1"
                         : "bg-accent text-white border-accent hover:bg-[var(--accent-deep)] hover:border-[var(--accent-deep)]")
@@ -1227,39 +1246,58 @@ export function Desk() {
                                 ? `Block ${r.deadline.toLocaleString()} is behind us — this can be cleared now.`
                                 : `Not until block ${r.deadline.toLocaleString()}, ${countdown(r.deadline, block).text}.`}
                           </p>
-                          <div className="mt-2 flex flex-col items-start gap-2">
-                            <Btn
-                              quiet
-                              onClick={async () => {
-                                try {
-                                  const out = await clearAuction(r.rfqId);
-                                  setLastOutcome(out);
-                                  say(
-                                    `Cleared RFQ ${out.rfqId}: winner ${out.winner} at ${out.clearingPrice.toLocaleString()} (second price, ${out.bidCount} bids). Set digest ${out.setDigest.slice(0, 10)}…`
-                                  );
-                                  refresh();
-                                } catch (e) {
-                                  say(String((e as Error).message));
-                                }
-                              }}
-                            >
-                              Clear RFQ {String(r.rfqId).padStart(3, "0")}
-                            </Btn>
-                            <span className="text-[11.5px] text-fg-mute max-w-[26ch] leading-relaxed">
-                              Anyone may clear once it is past. Liveness never depends on the maker.
-                            </span>
-                          </div>
+                          {/* Nothing to press before the deadline.
+                              requestClearing reverts DeadlineNotReached and the
+                              enclave refuses too, so an auction with two hours
+                              left was offering two paid transactions that could
+                              only fail — the same mistake as offering to bid on
+                              a cleared auction, which the desk already refuses
+                              to make. The countdown above says when, and this
+                              says what will appear. */}
+                          {block !== null && !countdown(r.deadline, block).passed ? (
+                            <p className="mt-2 text-[11.5px] text-fg-mute max-w-[30ch] leading-relaxed">
+                              Clearing opens at that block, for anyone — liveness never depends on the
+                              maker. Until then there is nothing to press: the contract refuses a
+                              clearing before the deadline, and so does the enclave.
+                            </p>
+                          ) : (
+                            <>
+                              {/* The rail that can actually be settled comes
+                                  first. The direct channel below reaches a
+                                  clearing relayClearing will never accept, and
+                                  the deployment refuses it outright. */}
+                              <RequestClearingBlock
+                                busy={requesting === r.rfqId}
+                                onRequest={() => requestClearingOnChain(r.rfqId)}
+                                signedAlready={false}
+                              />
 
-                          {/* The rail that can actually be settled. The button
-                              above goes down the direct channel, which a
-                              production stack refuses and whose facade signs
-                              nothing — so it reaches a clearing that
-                              relayClearing will never accept. */}
-                          <RequestClearingBlock
-                            busy={requesting === r.rfqId}
-                            onRequest={() => requestClearingOnChain(r.rfqId)}
-                            signedAlready={false}
-                          />
+                              <div className="mt-3 pt-3 border-t border-line flex flex-col items-start gap-2">
+                                <Btn
+                                  quiet
+                                  onClick={async () => {
+                                    try {
+                                      const out = await clearAuction(r.rfqId);
+                                      setLastOutcome(out);
+                                      say(
+                                        `Cleared RFQ ${out.rfqId}: winner ${out.winner} at ${out.clearingPrice.toLocaleString()} (second price, ${out.bidCount} bids). Set digest ${out.setDigest.slice(0, 10)}…`
+                                      );
+                                      refresh();
+                                    } catch (e) {
+                                      say(String((e as Error).message));
+                                    }
+                                  }}
+                                >
+                                  Clear over the direct rail
+                                </Btn>
+                                <span className="text-[11.5px] text-fg-mute max-w-[30ch] leading-relaxed">
+                                  Shows the mechanism without a transaction. The outcome it returns
+                                  carries no enclave signature on the dev facade, and the deployed
+                                  desk refuses this rail — only a signed outcome can settle.
+                                </span>
+                              </div>
+                            </>
+                          )}
 
                           {/* Settling is the step that makes the rest pay off.
                               The contract refuses a clearing whose signature
@@ -1333,6 +1371,68 @@ export function Desk() {
             true and neither said which sense it meant. */}
         <span>Coston2 testnet only <Red>///</Red> simulated-TEE path <Red>///</Red> not audited</span>
       </footer>
+      </div>
+    </div>
+  );
+}
+
+// ── what this is, and why it takes an enclave ────────────────────────────────
+
+/**
+ * The three claims, where a reader lands.
+ *
+ * The desk led with what it does and never said why it takes an enclave to do
+ * it — which is the first question anybody serious asks, and the one a sealed
+ * bid on a public chain usually cannot answer. "Encrypted bids" is a feature
+ * several things claim. The middle claim here is the one that is hard: the
+ * enclave signs over the set the CONTRACT recorded, so the party running the
+ * auction cannot quietly drop a bid it dislikes. Every mechanism named is
+ * enforced somewhere a reader can check, and the Audit tab is where they check
+ * it.
+ */
+function Claims() {
+  const claims: [string, React.ReactNode][] = [
+    [
+      "The auctioneer is blind",
+      <>
+        Your amount is encrypted in this browser to a key that exists only inside the enclave. The
+        operator relays ciphertext it cannot open, and the desk refuses to encrypt to any key the
+        chain has not published — a relay serving its own key is the attack this exists to stop.
+      </>,
+    ],
+    [
+      "The set cannot be trimmed",
+      <>
+        The enclave signs its outcome over the commitments <b className="text-fg">the contract
+        recorded</b>, not the ones it was handed. Drop an inconvenient bid and the digest stops
+        matching and the settlement reverts. Commit-reveal cannot do this: a loser who declines to
+        reveal stalls the auction, and revealing is the one thing that never happens here.
+      </>,
+    ],
+    [
+      "Solvency, without disclosure",
+      <>
+        The enclave already holds the decrypted amounts, so it drops a bidder who could not pay what
+        they would owe — without telling anyone what they bid. The only party that can read the bids
+        is the one party that never repeats them.
+      </>,
+    ],
+  ];
+
+  return (
+    <div className="border-t border-line bg-bg-1">
+      <div className="px-4 pt-3">
+        <Lbl>Why this takes an enclave and not just a contract</Lbl>
+      </div>
+      <div className="px-4 py-3 grid gap-x-6 gap-y-4 md:grid-cols-3 max-w-[76rem]">
+        {claims.map(([title, body]) => (
+          <div key={title}>
+            <div className="text-[13px] font-semibold leading-snug">
+              <Red>▸</Red> {title}
+            </div>
+            <p className="mt-1 text-[11.5px] leading-relaxed text-fg-dim">{body}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

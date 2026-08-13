@@ -312,7 +312,14 @@ await bp.waitForTimeout(1200);
 await bp.locator("button", { hasText: /seal a bid/i }).first().click().catch(() => {});
 await bp.waitForTimeout(600);
 check("the bid field is there", await fill(bp, /your bid/i, BID));
-await bp.locator("button", { hasText: /seal on-chain instead/i }).first().click().catch(() => {});
+// The label moved when the on-chain rail became the primary one, and the
+// swallowed .catch() meant a missing button was silent: the click did nothing
+// and the run failed three checks later with "the desk says the bid is sealed"
+// — which reads like the desk lying rather than like this script clicking
+// nothing. Assert the control exists before pressing it.
+const sealChain = bp.locator("button", { hasText: /^seal bid on-chain$/i }).first();
+check("the on-chain seal control is on the form", (await sealChain.count()) > 0, "no on-chain seal button");
+await sealChain.click().catch(() => {});
 // A transaction hash, not the word "commitment" — which is in the static copy
 // beside the button and made this pass without a bid ever being sent.
 const sealed = await until(bp, /sealed on-chain: 0x[0-9a-f]{64}/i, 240);
