@@ -418,7 +418,7 @@ const Scene: React.FC<{ beat: Beat }> = ({ beat }) => {
           src="audit.webm"
           caption="every line a public read"
           focus="auditRows"
-          boxes={[{ mark: "auditRows", label: "read from the chain by your browser", delay: 130 }]}
+          boxes={[{ mark: "auditRows", label: "read from the chain by your browser", delay: 130, above: true }]}
         />
       );
 

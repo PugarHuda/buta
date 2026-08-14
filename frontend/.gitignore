@@ -6,6 +6,7 @@ dist
 .playwright-mcp/
 *.png
 !book-ui.png
+!landing/og.png
 tsconfig.tsbuildinfo
 .vercel
 dist/
