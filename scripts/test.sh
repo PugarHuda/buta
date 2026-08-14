@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# test.sh — Send instructions on-chain, poll for results, and validate correctness.
+# test.sh - Send instructions on-chain, poll for results, and validate correctness.
 #
 # Run this AFTER post-build.sh (TEE machine must be registered and running).
 #
 # Inputs (env vars):
-#   EXT_PROXY_URL       — extension proxy URL (auto-detected: :6674 for Docker, :6664 for local)
-#   CHAIN_URL           — chain RPC URL (default: http://127.0.0.1:8545)
-#   ADDRESSES_FILE      — path to deployed-addresses.json (auto-detected if unset)
-#   INSTRUCTION_SENDER  — deployed InstructionSender address (from config/extension.env)
+#   EXT_PROXY_URL - extension proxy URL (auto-detected: :6674 for Docker, :6664 for local)
+#   CHAIN_URL - chain RPC URL (default: http://127.0.0.1:8545)
+#   ADDRESSES_FILE - path to deployed-addresses.json (auto-detected if unset)
+#   INSTRUCTION_SENDER - deployed InstructionSender address (from config/extension.env)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

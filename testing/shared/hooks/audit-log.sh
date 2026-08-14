@@ -1,5 +1,5 @@
 #\!/bin/bash
-# PostToolUse hook — logs all tool invocations to results/audit.log
+# PostToolUse hook - logs all tool invocations to results/audit.log
 # Reads tool result JSON from stdin
 
 INPUT=$(cat)

@@ -2,9 +2,9 @@
 
 **This guide explains how to rename the Hello World extension to your own extension name.** The repository ships with working HelloWorld names (`HelloWorldInstructionSender`, `helloworld`, `SAY_HELLO`) that you replace with your extension's actual names.
 
-If you're using [Claude Code](https://claude.ai/code), you can run `/rename-scaffold` to do all of this automatically — just tell it your extension name and it will handle steps 1-5. You can also ask Claude to help you customize the Solidity contract with your own action types and send functions. #TODO: Generalize this to other coding agents
+If you're using [Claude Code](https://claude.ai/code), you can run `/rename-scaffold` to do all of this automatically - just tell it your extension name and it will handle steps 1-5. You can also ask Claude to help you customize the Solidity contract with your own action types and send functions. #TODO: Generalize this to other coding agents
 
-The manual steps are below, using "Orderbook" / "orderbook" as an example — substitute your own name.
+The manual steps are below, using "Orderbook" / "orderbook" as an example - substitute your own name.
 
 ## 1. Rename the Solidity contract
 

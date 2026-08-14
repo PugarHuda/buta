@@ -1,4 +1,4 @@
-// prove-screen.mjs — drive one auction through the running dev extension and
+// prove-screen.mjs - drive one auction through the running dev extension and
 // show the solvency screen actually passing over a bidder who cannot pay.
 //
 //   BUTA_ALLOW_DIRECT_AUCTION=1 BUTA_FUNDS_RPC=... BUTA_INSTRUCTION_SENDER=0x... go run ./cmd/dev
@@ -100,8 +100,8 @@ console.log(`\n  clearing: ${body || cleared.log || "(no data)"}\n`);
 const out = JSON.parse(body || "{}");
 if (out.winner?.toLowerCase() === funded.address.toLowerCase()) {
   console.log("  The highest bid lost. It could not settle, so the screen passed over it");
-  console.log("  and awarded to the bidder who can — which is the whole point.\n");
+  console.log("  and awarded to the bidder who can - which is the whole point.\n");
 } else if (out.winner?.toLowerCase() === broke.address.toLowerCase()) {
-  console.log("  The unfunded bidder WON — the screen is not running.\n");
+  console.log("  The unfunded bidder WON - the screen is not running.\n");
   process.exit(1);
 }

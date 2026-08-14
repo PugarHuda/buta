@@ -16,9 +16,9 @@
 //
 // Environment variables:
 //
-//	CHAIN_URL       — RPC endpoint (default: http://127.0.0.1:8545)
-//	ADDRESSES_FILE  — path to deployed-addresses.json (default: ../../config/coston2/deployed-addresses.json)
-//	DEPLOYMENT_PRIVATE_KEY        — funded private key hex (default: Hardhat dev key)
+//	CHAIN_URL - RPC endpoint (default: http://127.0.0.1:8545)
+//	ADDRESSES_FILE - path to deployed-addresses.json (default: ../../config/coston2/deployed-addresses.json)
+//	DEPLOYMENT_PRIVATE_KEY - funded private key hex (default: Hardhat dev key)
 package integration
 
 import (

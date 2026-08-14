@@ -16,7 +16,7 @@ func TestSetExtensionId_NotRegistered(t *testing.T) {
 	// Deploy a fresh InstructionSender but do NOT register it as an extension.
 	addr, _ := deployFreshInstructionSender(t)
 
-	// Call setExtensionId — should fail because this contract isn't registered.
+	// Call setExtensionId - should fail because this contract isn't registered.
 	err := instrutils.SetExtensionId(testSupport, addr)
 	if err == nil {
 		t.Fatal("expected setExtensionId to fail on unregistered contract, but it succeeded")
@@ -27,13 +27,13 @@ func TestSetExtensionId_NotRegistered(t *testing.T) {
 	// The error should contain the decoded revert reason.
 	errMsg := err.Error()
 	if strings.Contains(errMsg, "revert reason:") {
-		// Good — our hardening extracted the reason
+		// Good - our hardening extracted the reason
 		if !strings.Contains(errMsg, "Extension ID not found") {
 			t.Errorf("expected revert reason to mention 'Extension ID not found', got: %s", errMsg)
 		}
 	} else {
-		// DecodeRevertReason might not work on all nodes — log for diagnosis
-		t.Logf("Note: error does not contain 'revert reason:' — may need SimulateAndDecodeRevert fallback")
+		// DecodeRevertReason might not work on all nodes - log for diagnosis
+		t.Logf("Note: error does not contain 'revert reason:' - may need SimulateAndDecodeRevert fallback")
 		// The error should at least indicate failure
 		if !strings.Contains(errMsg, "failed to call setExtensionId") {
 			t.Errorf("expected error to mention 'failed to call setExtensionId', got: %s", errMsg)
@@ -67,7 +67,7 @@ func TestSetExtensionId_AlreadySet(t *testing.T) {
 			t.Errorf("expected revert reason to mention 'Extension ID already set', got: %s", errMsg)
 		}
 	} else {
-		t.Logf("Note: error does not contain 'revert reason:' — revert data may not be available")
+		t.Logf("Note: error does not contain 'revert reason:' - revert data may not be available")
 		if !strings.Contains(errMsg, "failed to call setExtensionId") {
 			t.Errorf("expected error to mention 'failed to call setExtensionId', got: %s", errMsg)
 		}
@@ -76,7 +76,7 @@ func TestSetExtensionId_AlreadySet(t *testing.T) {
 
 func TestSetExtensionId_RevertReasonDecoded(t *testing.T) {
 	// This test specifically verifies the revert decoding chain works.
-	// Deploy but do NOT register — setExtensionId will revert.
+	// Deploy but do NOT register - setExtensionId will revert.
 	addr, _ := deployFreshInstructionSender(t)
 
 	err := instrutils.SetExtensionId(testSupport, addr)
@@ -87,8 +87,8 @@ func TestSetExtensionId_RevertReasonDecoded(t *testing.T) {
 	errMsg := err.Error()
 
 	// The hardening in SetExtensionId tries:
-	// 1. DecodeRevertReason(err) — from the estimation error
-	// 2. SimulateAndDecodeRevert() — replays the call via eth_call
+	// 1. DecodeRevertReason(err) - from the estimation error
+	// 2. SimulateAndDecodeRevert() - replays the call via eth_call
 	// At least one of these should produce a human-readable reason.
 	if !strings.Contains(errMsg, "Extension ID not found") {
 		t.Errorf("expected error to contain decoded revert reason 'Extension ID not found', got: %s", errMsg)

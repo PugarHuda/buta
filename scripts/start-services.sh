@@ -84,7 +84,7 @@ log "Local mode:   $LOCAL_MODE"
 if [[ "$USE_LOCAL" == "false" ]]; then
     log "Starting services with Docker Compose..."
 
-    # Dockerfile expects SOURCE_DATE_EPOCH for reproducible builds — see REPRODUCIBILITY.md.
+    # Dockerfile expects SOURCE_DATE_EPOCH for reproducible builds - see REPRODUCIBILITY.md.
     # Without it, `touch -h -d @${SOURCE_DATE_EPOCH}` in the builder stage fails with "invalid date format '@'".
     if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
         if SOURCE_DATE_EPOCH=$(git -C "$PROJECT_DIR" log -1 --format=%ct 2>/dev/null) && [[ -n "$SOURCE_DATE_EPOCH" ]]; then
@@ -116,11 +116,11 @@ if [[ "$USE_LOCAL" == "false" ]]; then
     case "$CHAIN" in
         local) ;;
         coston)
-            log "Coston mode — attaching docker-compose.coston.yaml"
+            log "Coston mode - attaching docker-compose.coston.yaml"
             COMPOSE_FILES+=("-f" "$PROJECT_DIR/docker-compose.coston.yaml")
             ;;
         coston2)
-            log "Coston2 mode — attaching docker-compose.coston2.yaml"
+            log "Coston2 mode - attaching docker-compose.coston2.yaml"
             COMPOSE_FILES+=("-f" "$PROJECT_DIR/docker-compose.coston2.yaml")
             ;;
     esac
@@ -132,7 +132,7 @@ if [[ "$USE_LOCAL" == "false" ]]; then
             export SOURCE_DATE_EPOCH
         else
             export SOURCE_DATE_EPOCH="$(date +%s)"
-            warn "Not a git repo or no commits — using current time as SOURCE_DATE_EPOCH (build not reproducible)"
+            warn "Not a git repo or no commits - using current time as SOURCE_DATE_EPOCH (build not reproducible)"
         fi
     fi
 
@@ -224,7 +224,7 @@ cd "$PROJECT_DIR"
 
 # --- Wait for proxy to be ready ---
 if [[ "$EXT_PROXY_URL" != *"localhost"* && "$EXT_PROXY_URL" != *"127.0.0.1"* ]]; then
-    log "NOTE: EXT_PROXY_URL=$EXT_PROXY_URL (not localhost) — health check targets this URL"
+    log "NOTE: EXT_PROXY_URL=$EXT_PROXY_URL (not localhost) - health check targets this URL"
 fi
 log "Waiting for extension proxy..."
 "$E2E" wait-for-url "http://localhost:6664/info" 60

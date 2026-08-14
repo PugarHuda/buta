@@ -111,7 +111,7 @@ contract ButaClearingTest is Test {
         fxrp.mint(bob, 1_000_000e6);
 
         // Both legs of the settlement are pulls, so both sides have to approve
-        // the desk first — the maker to escrow the lot, the winner to be
+        // the desk first - the maker to escrow the lot, the winner to be
         // charged the clearing price. Nothing about the desk can hide that.
         vm.prank(maker); lot.approve(address(buta), type(uint256).max);
         vm.prank(bob);   fxrp.approve(address(buta), type(uint256).max);
@@ -170,7 +170,7 @@ contract ButaClearingTest is Test {
     }
 
     /// A winner who can pay but never approved the desk cannot be settled
-    /// against — and the whole clearing reverts rather than half-executing, so
+    /// against - and the whole clearing reverts rather than half-executing, so
     /// the lot does not leave the escrow either. Delivery versus payment means
     /// neither leg lands alone.
     function test_SettlementRevertsWhenWinnerHasNotApproved() public {
@@ -189,7 +189,7 @@ contract ButaClearingTest is Test {
 
     /// The allowance has to cover the clearing price, not the bid. A winner who
     /// approved exactly what they bid is short whenever the second price is
-    /// higher than they expected — the desk cannot paper over that.
+    /// higher than they expected - the desk cannot paper over that.
     function test_SettlementRevertsOnPartialApproval() public {
         uint256 clearing = 5218e4;
         vm.prank(bob);
@@ -203,7 +203,7 @@ contract ButaClearingTest is Test {
 
     /// What a maker can actually do when the winner turns out to be broke.
     ///
-    /// The clearing reverts whole, so nothing is half-done — but the auction is
+    /// The clearing reverts whole, so nothing is half-done - but the auction is
     /// also stuck: this signed outcome can never be relayed. The maker is not
     /// trapped, because the revert also rolled back `cleared`, so reclaimLot
     /// still works and the lot comes home. What is lost is the sale: the
@@ -226,14 +226,14 @@ contract ButaClearingTest is Test {
         assertFalse(cleared, "the revert rolled the clearing back");
 
         // so the maker gets the lot back rather than losing it to a bidder who
-        // never paid — but bob, who was good for it, was never awarded anything
+        // never paid - but bob, who was good for it, was never awarded anything
         uint256 before = lot.balanceOf(maker);
         buta.reclaimLot(rfqId);
         assertEq(lot.balanceOf(maker), before + LOT, "maker reclaims the lot");
         assertEq(lot.balanceOf(bob), 0, "the runner-up got nothing");
     }
 
-    /// The same action id cannot be reused after a failed settlement — the
+    /// The same action id cannot be reused after a failed settlement - the
     /// revert rolled back `usedActionIds` too, so the enclave's outcome is
     /// replayable if the winner later funds themselves. That is the desirable
     /// half of the same rollback.
@@ -281,7 +281,7 @@ contract ButaClearingTest is Test {
     /// The reason this test exists: `tee-node` mints a new signing key on every
     /// start and never persists it, so the enclave a deployment was pinned to is
     /// gone the first time the container restarts. When the setter could only run
-    /// once, that made settlement permanently impossible — a live contract with
+    /// once, that made settlement permanently impossible - a live contract with
     /// three settled auctions behind it and no fourth one available, ever.
     function test_TeeAddressRotatesAndTheOldEnclaveStopsSettling() public {
         uint256 newPk = 0xB0B5EC;
@@ -409,7 +409,7 @@ contract ButaClearingTest is Test {
         );
     }
 
-    /// Same commitments, different insertion order, different RFQ — same digest.
+    /// Same commitments, different insertion order, different RFQ - same digest.
     function test_CommitmentDigestIsOrderIndependent() public {
         vm.roll(block.number - 101);
         vm.prank(maker);

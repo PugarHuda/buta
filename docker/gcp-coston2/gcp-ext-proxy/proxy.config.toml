@@ -1,5 +1,5 @@
 # ext-proxy config for VM 1.
-# Secrets come from environment variables — see ../.env.example.
+# Secrets come from environment variables - see ../.env.example.
 
 redis_port = "redis:6379"
 
@@ -9,7 +9,7 @@ signing_policy_fetch_interval = "20s"
 
 chain_id = 114
 
-# Coston2 c-chain indexer DB — shared external instance.
+# Coston2 c-chain indexer DB - shared external instance.
 # host/password are env-var references resolved by the tee-proxy at startup.
 [db]
 host = "INDEXER_DB_HOST"

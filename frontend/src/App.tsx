@@ -10,8 +10,8 @@ import { Desk } from "./pages/Desk";
 
 // WalletConnect needs a real project id. Without one, RainbowKit still offered
 // it, so every page load fired two requests at third parties with
-// "placeholder-project-id" — a 403 from api.web3modal.org and a 400 from
-// pulse.walletconnect.org, in the console of anyone who opened the desk — and
+// "placeholder-project-id" - a 403 from api.web3modal.org and a 400 from
+// pulse.walletconnect.org, in the console of anyone who opened the desk - and
 // the button behind them could never have worked. Injected wallets need no
 // project id at all, so that is the whole list until one is configured.
 const walletConnectId = env.walletConnectProjectId;

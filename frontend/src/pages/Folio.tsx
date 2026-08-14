@@ -1,8 +1,8 @@
 /**
- * Folio.tsx — portfolio + selective disclosure.
+ * Folio.tsx - portfolio + selective disclosure.
  *
- * A bidder can prove the exact amount they bid to a chosen party — an auditor,
- * a counterparty — without it ever becoming public, and without being able to
+ * A bidder can prove the exact amount they bid to a chosen party - an auditor,
+ * a counterparty - without it ever becoming public, and without being able to
  * lie: any other amount produces a different commitment. Sharpest for the
  * winner, whose true bid stays hidden on-chain (Vickrey pays the second price)
  * yet remains bindingly disclosable.
@@ -128,7 +128,7 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
         </p>
         {/* Your own seals, one click each.
             This form used to ask you to type back a 32-byte nonce the desk had
-            shown you once, in a panel that vanished on the next render — so the
+            shown you once, in a panel that vanished on the next render - so the
             sharpest thing the product does was, in practice, unusable. The
             seals are kept in this browser because that is the only place they
             CAN be: nobody else can reconstruct them, by design. */}
@@ -180,7 +180,7 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
                   nonce: nonce as `0x${string}`,
                 });
                 setProof(p);
-                props.onLog("Disclosure built. Hand it to your auditor — they verify it below.");
+                props.onLog("Disclosure built. Hand it to your auditor - they verify it below.");
               } catch (e) {
                 props.onLog(String((e as Error).message));
               }
@@ -195,7 +195,7 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
         <Lbl>Verify a disclosure</Lbl>
         <p className="mt-1 text-[11.5px] text-fg-mute leading-relaxed max-w-[46ch]">
           Paste a disclosure a bidder gave you. This recomputes the commitment and checks it against
-          the one the desk recorded — the bidder cannot lie about their number.
+          the one the desk recorded - the bidder cannot lie about their number.
         </p>
         <textarea
           value={proof}
@@ -210,8 +210,8 @@ export function Folio(props: { address?: Address; onLog: (m: string) => void }) 
                 const r = await verifyDisclosure(proof);
                 setVerdict(
                   r.ok
-                    ? `VERIFIED — ${r.bidder.slice(0, 8)}… bid exactly ${Number(r.amount).toLocaleString()} on RFQ ${r.rfqId}.`
-                    : "NOT VERIFIED — the amount does not match the recorded commitment."
+                    ? `VERIFIED - ${r.bidder.slice(0, 8)}… bid exactly ${Number(r.amount).toLocaleString()} on RFQ ${r.rfqId}.`
+                    : "NOT VERIFIED - the amount does not match the recorded commitment."
                 );
               } catch (e) {
                 setVerdict(String((e as Error).message));

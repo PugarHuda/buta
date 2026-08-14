@@ -17,16 +17,16 @@ services:
     image: ${EXTENSION_TEE_IMAGE:?EXTENSION_TEE_IMAGE must be set}
     environment:
       # 0 = production attestation. The local default is 1, and leaving it here
-      # would make a Confidential Space VM simulate its attestation — the one
+      # would make a Confidential Space VM simulate its attestation - the one
       # thing this deployment exists to stop doing.
       - MODE=${MODE:-0}
       - INITIAL_OWNER=${INITIAL_OWNER:?INITIAL_OWNER must be set}
       - EXTENSION_ID=${EXTENSION_ID:-0x0000000000000000000000000000000000000000000000000000000000000000}
-      - PROXY_URL=${PROXY_URL:?PROXY_URL must be set — internal IP of the ext-proxy VM on port 6663}
+      - PROXY_URL=${PROXY_URL:?PROXY_URL must be set - internal IP of the ext-proxy VM on port 6663}
       - CHAIN_URL=${CHAIN_URL:-https://coston2-api.flare.network/ext/C/rpc}
       # Without this the node fails every signature inside signer.ChainID() with
       # "could not get chain id", and the proxy reports it as "signature must be
-      # 65 bytes, got 0" — a message about the proxy, for a fault in the node.
+      # 65 bytes, got 0" - a message about the proxy, for a fault in the node.
       - CHAIN_ID=${CHAIN_ID:-114}
       - CONFIG_PORT=5501
       - SIGN_PORT=7701

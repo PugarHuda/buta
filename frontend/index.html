@@ -3,12 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-    <title>Buta — sealed-bid OTC desk</title>
+    <!--
+      No webfont, and no third party.
+
+      This pulled JetBrains Mono and Instrument Serif from fonts.googleapis.com,
+      which meant the desk made two requests to somebody else's infrastructure on
+      every load - one click from a landing page that self-hosts the identical
+      typeface as an inline data URI precisely so it would not. A desk whose whole
+      claim is that no third party sees your bid should not begin by telling one
+      that you opened it.
+
+      The mono stack in index.css falls back to what the machine already has
+      (Cascadia Mono, Consolas, ui-monospace), which is what most readers were
+      seeing anyway while the webfont loaded.
+    -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23F4F4F0'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23CE1414' stroke-width='2'/%3E%3Cpath d='M16 4v6M16 22v6M4 16h6M22 16h6' stroke='%23CE1414' stroke-width='2'/%3E%3C/svg%3E" />
+    <title>Buta - sealed-bid OTC desk</title>
   </head>
-  <body class="bg-gray-950 text-gray-100">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

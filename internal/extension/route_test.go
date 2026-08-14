@@ -16,7 +16,7 @@ import (
 	teeutils "github.com/flare-foundation/tee-node/pkg/utils"
 )
 
-// The routing layer had no test at all — every test called a handler directly,
+// The routing layer had no test at all - every test called a handler directly,
 // so the code that decides WHICH handler runs, and whether it may run, was
 // never executed. That code holds the one gate that matters: the direct channel
 // is plain unauthenticated HTTP, and BUTA_ALLOW_DIRECT_AUCTION is what keeps
@@ -36,14 +36,14 @@ func directAction(command string, msg any) teetypes.Action {
 	}}
 }
 
-// With the flag off — which is the default, and what a deployed machine runs —
+// With the flag off - which is the default, and what a deployed machine runs - 
 // the three auction commands must be refused over the direct channel. If they
 // were not, anyone who can reach the proxy could post an RFQ, seal a bid or
 // CLEAR an auction without ever touching the chain or paying for an
 // instruction. Clearing is the worst of the three: it settles.
 func TestDirectAuctionOpsAreRefusedByDefault(t *testing.T) {
 	if config.AllowDirectAuctionOps {
-		t.Fatal("the default must be off — a machine that never sets the env var would accept auction ops over plain HTTP")
+		t.Fatal("the default must be off - a machine that never sets the env var would accept auction ops over plain HTTP")
 	}
 	e := newAuctionExtension()
 
@@ -54,7 +54,7 @@ func TestDirectAuctionOpsAreRefusedByDefault(t *testing.T) {
 	} {
 		code, body := e.processAction(directAction(command, map[string]any{"rfqId": 1}))
 		if code != http.StatusNotImplemented {
-			t.Errorf("%s over the direct channel returned %d, want 501 — it was accepted", command, code)
+			t.Errorf("%s over the direct channel returned %d, want 501 - it was accepted", command, code)
 		}
 		if !strings.Contains(string(body), "direct") && !strings.Contains(string(body), command) {
 			t.Errorf("%s was refused without saying what was refused: %s", command, body)
@@ -76,7 +76,7 @@ func TestDirectAuctionOpsAreRefusedByDefault(t *testing.T) {
 }
 
 // The read-only commands are the ones the desk lives on, and they must work
-// with the gate shut — otherwise closing it takes the whole book down.
+// with the gate shut - otherwise closing it takes the whole book down.
 func TestReadOnlyDirectOpsAlwaysWork(t *testing.T) {
 	e := newAuctionExtension()
 	for _, command := range []string{
@@ -94,7 +94,7 @@ func TestReadOnlyDirectOpsAlwaysWork(t *testing.T) {
 }
 
 // Turning the gate on is what cmd/dev does for the demo path. The same three
-// commands then have to route, or the demo is dead — this is the other half of
+// commands then have to route, or the demo is dead - this is the other half of
 // the claim, and without it the test above would pass on a build where the
 // commands simply do not exist.
 func TestDirectAuctionOpsRouteWhenAllowed(t *testing.T) {
@@ -161,7 +161,7 @@ func TestUnroutableActionsAreRejected(t *testing.T) {
 }
 
 // The production path, end to end through the router: an instruction action
-// carrying what the contract actually emitted — abi.encode, not the desk's
+// carrying what the contract actually emitted - abi.encode, not the desk's
 // JSON. Every other test on this path decodes first and then calls the handler,
 // so the translation and the routing had never run together.
 func instructionAction(command string, payload []byte) teetypes.Action {
@@ -179,7 +179,7 @@ func instructionAction(command string, payload []byte) teetypes.Action {
 func TestOnChainInstructionRoutesAndLands(t *testing.T) {
 	e := newAuctionExtension()
 
-	// The id comes from the contract, not from us — 4211 is the number the
+	// The id comes from the contract, not from us - 4211 is the number the
 	// chain would have stamped.
 	payload, err := postRfqArgs.Pack(
 		big.NewInt(4211), common.HexToAddress("0x1001"), big.NewInt(250_000),
@@ -230,6 +230,6 @@ func TestOnChainInstructionWithGarbagePayloadIsRefused(t *testing.T) {
 
 	// And a command that is ours but has no on-chain form.
 	if code, _ := e.processAction(instructionAction(config.OPCommandListRfqs, nil)); code != http.StatusNotImplemented {
-		t.Errorf("LIST_RFQS as an instruction returned %d, want 501 — it is a read, it has no on-chain form", code)
+		t.Errorf("LIST_RFQS as an instruction returned %d, want 501 - it is a read, it has no on-chain form", code)
 	}
 }

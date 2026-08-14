@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# tunnel-keeper.sh — keep the TEE machine reachable without owning a domain.
+# tunnel-keeper.sh - keep the TEE machine reachable without owning a domain.
 #
 #   ./scripts/tunnel-keeper.sh
 #
 # Data providers push the availability check to the URL written on-chain. A quick
 # tunnel hands out a new hostname every time it starts, so the moment cloudflared
 # restarts the machine points at a dead address and drops out of PRODUCTION. That
-# is why the advice is to use a named tunnel — and a named tunnel needs an
+# is why the advice is to use a named tunnel - and a named tunnel needs an
 # account and a domain.
 #
 # Rather than require the hostname to be stable, this makes the on-chain record
@@ -34,7 +34,7 @@ die() { echo -e "${RED}[keeper] ERROR:${NC} $*" >&2; exit 1; }
 
 command -v cloudflared >/dev/null || die "cloudflared is not installed"
 [[ -d "$UPDATER_DIR/node_modules/viem" ]] \
-  || die "viem not found in $UPDATER_DIR — npm install there, or set UPDATER_DIR"
+  || die "viem not found in $UPDATER_DIR - npm install there, or set UPDATER_DIR"
 
 start_tunnel() {
     log "starting a quick tunnel"
@@ -63,7 +63,7 @@ republish() {
     if grep -q UNCHANGED <<<"$out"; then
         return 0
     fi
-    log "on-chain url is now $HOST — re-running the availability check"
+    log "on-chain url is now $HOST - re-running the availability check"
 
     EXT_PROXY_URL="http://localhost:${LOCAL_PORT}" \
     EXT_PROXY_HOST_URL="$HOST" \
@@ -84,7 +84,7 @@ trap cleanup EXIT
 #
 # This keeper exists for the quick tunnel, and its whole job is to overwrite the
 # hostname on-chain whenever it disagrees with what it is serving. Point it at a
-# machine that has since moved to a domain we own and it does exactly that —
+# machine that has since moved to a domain we own and it does exactly that - 
 # within 60 seconds, with no error, and the only symptom arrives much later as a
 # machine nobody can reach. Since 8 August this project is on a reserved domain,
 # so running this is now almost always a mistake.
@@ -101,7 +101,7 @@ republish || true
 while true; do
     sleep "$CHECK_EVERY"
     if ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
-        log "cloudflared died — restarting"
+        log "cloudflared died - restarting"
         start_tunnel
     fi
     republish || true

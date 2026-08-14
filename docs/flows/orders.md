@@ -1,6 +1,6 @@
 # Order Flow
 
-Orders — placements, cancellations, and every fill that happens between them — never touch the chain. They travel as **direct actions** between the frontend and the TEE, and the matching engine runs entirely inside attested TEE memory. This is what makes the book private.
+Orders - placements, cancellations, and every fill that happens between them - never touch the chain. They travel as **direct actions** between the frontend and the TEE, and the matching engine runs entirely inside attested TEE memory. This is what makes the book private.
 
 For the broader architecture context see [../architecture.md](../architecture.md). For deposits (which top up the balance an order holds against) see [deposit.md](deposit.md).
 
@@ -46,13 +46,13 @@ type PlaceOrderRequest struct {
 }
 ```
 
-The `sender` field identifies the trader. The TEE takes this at face value within the scope of the matching engine — **direct actions are authenticated at the proxy/wallet layer, not re-verified in the handler**. That is a deliberate simplification for this reference implementation; in production you would bind the request to a wallet signature and verify it here. See [Threat model caveats](#threat-model-caveats).
+The `sender` field identifies the trader. The TEE takes this at face value within the scope of the matching engine - **direct actions are authenticated at the proxy/wallet layer, not re-verified in the handler**. That is a deliberate simplification for this reference implementation; in production you would bind the request to a wallet signature and verify it here. See [Threat model caveats](#threat-model-caveats).
 
 ### Price encoding
 
 `price` is stored multiplied by `pricePrecision = 1000` (`internal/extension/handlers.go:25`). A human-visible price of 0.998 is submitted as `998`. Every quote-token amount the TEE computes from a price is divided back out (`qty * price / 1000`). The frontend must apply the same factor on submission and the inverse on display.
 
-## Placement — step by step
+## Placement - step by step
 
 `Extension.processPlaceOrder` (`internal/extension/handlers.go:28`):
 
@@ -150,7 +150,7 @@ resp := types.PlaceOrderResponse{
 
 Implementation: `pkg/orderbook/orderbook.go`, `pkg/orderbook/orderside.go`.
 
-Each `OrderBook` owns two `OrderSide`s — `bids` (descending price) and `asks` (ascending price). An `OrderSide` is backed by:
+Each `OrderBook` owns two `OrderSide`s - `bids` (descending price) and `asks` (ascending price). An `OrderSide` is backed by:
 
 - A red-black tree keyed on price (`github.com/emirpasic/gods/v2/trees/redblacktree`) whose comparator puts the *best* price at the root.
 - A `container/list.List` per price level, holding `*Order`s in arrival order.
@@ -158,7 +158,7 @@ Each `OrderBook` owns two `OrderSide`s — `bids` (descending price) and `asks` 
 
 ### Price-time priority
 
-Matching walks the best-price level first (tree root), fills orders from the front of that level's FIFO queue (earliest first), and moves to the next level once the current one is empty. The execution price is always the **resting** order's price — the incoming order crosses to the resting side. This is classic CLOB semantics.
+Matching walks the best-price level first (tree root), fills orders from the front of that level's FIFO queue (earliest first), and moves to the next level once the current one is empty. The execution price is always the **resting** order's price - the incoming order crosses to the resting side. This is classic CLOB semantics.
 
 `matchBuy` loop (`pkg/orderbook/orderbook.go:118`):
 
@@ -203,7 +203,7 @@ If a limit order partially fills (`Remaining > 0 && len(matches) > 0`), the unfi
 
 ### Determinism and fairness
 
-Given the same starting book state and the same sequence of incoming orders, the matching result is deterministic — the tree comparator is total, the queue is FIFO, and there's no wallclock-dependent branching in the match path. Attestation of the code hash therefore doubles as attestation of matching behaviour.
+Given the same starting book state and the same sequence of incoming orders, the matching result is deterministic - the tree comparator is total, the queue is FIFO, and there's no wallclock-dependent branching in the match path. Attestation of the code hash therefore doubles as attestation of matching behaviour.
 
 The `time.Now().UnixNano()` call inside `fillFromQueue` is only used for the `Match.Timestamp` output; it doesn't affect which orders match.
 
@@ -212,7 +212,7 @@ The `time.Now().UnixNano()` call inside `fillFromQueue` is only used for the `Ma
 `processCancelOrder` (`internal/extension/handlers.go:136`):
 
 1. Look up the order's pair from the `e.orders` index.
-2. Call `OrderBook.CancelOrder(orderID, user)` — this removes from the appropriate side and verifies `order.Owner == user` (re-inserting if ownership doesn't match, so a spoofed cancel leaves the book intact).
+2. Call `OrderBook.CancelOrder(orderID, user)` - this removes from the appropriate side and verifies `order.Owner == user` (re-inserting if ownership doesn't match, so a spoofed cancel leaves the book intact).
 3. Release the held funds: for a buy, `remaining * price / 1000` of quote; for a sell, `remaining` of base.
 4. Clean up the user's active-order list.
 
@@ -222,8 +222,8 @@ Ownership enforcement: `CancelOrder` (`pkg/orderbook/orderbook.go:83`) checks `o
 
 Two direct actions return state without mutating it:
 
-- **`GET_MY_STATE`** (`userstate.go`) — returns the caller's `Available`/`Held` per token, their open orders, and their personal match history. Filtered to `sender`.
-- **`GET_BOOK_STATE`** (`bookstate.go`) — aggregated public depth (price levels and their total quantity) and recent matches. Same shape as `GET /state` but delivered via the proxy's `/direct` path so clients that can only reach the proxy still work.
+- **`GET_MY_STATE`** (`userstate.go`) - returns the caller's `Available`/`Held` per token, their open orders, and their personal match history. Filtered to `sender`.
+- **`GET_BOOK_STATE`** (`bookstate.go`) - aggregated public depth (price levels and their total quantity) and recent matches. Same shape as `GET /state` but delivered via the proxy's `/direct` path so clients that can only reach the proxy still work.
 
 Both are gasless, return in a single round trip, and don't require holds.
 
@@ -239,7 +239,7 @@ For production forks, the usual shapes are (a) persist deposits/withdrawals and 
 
 ## Threat model caveats
 
-This reference implementation trusts the `sender` field in direct actions. That is fine for a demo — the proxy operator can at worst impersonate users within their own balances — but a production deployment must **bind the request to a wallet signature** and verify it before holding funds or placing orders. Otherwise anyone who can reach the proxy can cancel other users' orders and drain their hold-backed positions by placing and cancelling in a loop. The hook for this is inside `processPlaceOrder`/`processCancelOrder` after the JSON decode and before the balance `Hold` — add a signature check over the request bytes against `req.Sender`.
+This reference implementation trusts the `sender` field in direct actions. That is fine for a demo - the proxy operator can at worst impersonate users within their own balances - but a production deployment must **bind the request to a wallet signature** and verify it before holding funds or placing orders. Otherwise anyone who can reach the proxy can cancel other users' orders and drain their hold-backed positions by placing and cancelling in a loop. The hook for this is inside `processPlaceOrder`/`processCancelOrder` after the JSON decode and before the balance `Hold` - add a signature check over the request bytes against `req.Sender`.
 
 ## Failure modes
 
@@ -267,6 +267,6 @@ The UI keeps a local "open orders" list synced against periodic `GET_MY_STATE` c
 
 ## Related
 
-- [deposit.md](deposit.md) — where the balances an order holds against come from
-- [withdrawal.md](withdrawal.md) — pulling filled balances back to your wallet
-- [../architecture.md#op-codes](../architecture.md#op-codes) — the full list of direct-action OPCommands
+- [deposit.md](deposit.md) - where the balances an order holds against come from
+- [withdrawal.md](withdrawal.md) - pulling filled balances back to your wallet
+- [../architecture.md#op-codes](../architecture.md#op-codes) - the full list of direct-action OPCommands

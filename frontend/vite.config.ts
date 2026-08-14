@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
       alias: {
         buffer: "buffer/",
         // ecies-geth ships a WebCrypto build and a Node build, and its
-        // package.json declares no "browser" field — so the bundler took the
+        // package.json declares no "browser" field - so the bundler took the
         // Node one, Vite externalised its `crypto` import, and sealing a bid
         // died on "(0, crypto_1.randomBytes) is not a function". The desk has
         // no other way to encrypt an opening to the enclave, so that is the

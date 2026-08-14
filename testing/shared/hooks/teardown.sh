@@ -1,5 +1,5 @@
 #\!/bin/bash
-# Stop hook — tears down Docker services and releases the lock file
+# Stop hook - tears down Docker services and releases the lock file
 # Prevents orphaned containers and stale locks on agent crash/exit
 
 LOCK_FILE="/tmp/flare-extension-testing.lock"

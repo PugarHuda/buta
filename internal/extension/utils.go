@@ -16,14 +16,14 @@ import (
 // MaxActionBytes bounds one request.
 //
 // The largest legitimate action is a COMMIT_BID carrying an 8 KiB ciphertext
-// (MaxCiphertextBytes) hex-encoded, plus the envelope — call it 32 KiB with
+// (MaxCiphertextBytes) hex-encoded, plus the envelope - call it 32 KiB with
 // room to spare. 256 KiB is generous and still finite.
 //
 // It was unbounded. The ciphertext length was checked, but only AFTER the whole
 // body had been decoded, so the check could not save anything: a client could
 // hand the enclave a gigabyte of JSON and it would parse it. That is memory
 // exhaustion in a process that is designed never to restart, reachable by
-// whoever relays for it — which is precisely the party the design says not to
+// whoever relays for it - which is precisely the party the design says not to
 // trust.
 const MaxActionBytes = 256 << 10
 

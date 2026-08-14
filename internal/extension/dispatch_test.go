@@ -15,7 +15,7 @@ import (
 // only dead code used the default.
 func TestOnlyButaInstructionsAreAccepted(t *testing.T) {
 	if !supportedOPType(teeutils.ToHash(config.OPTypeButa)) {
-		t.Fatal("BUTA is not accepted — nothing would ever be processed")
+		t.Fatal("BUTA is not accepted - nothing would ever be processed")
 	}
 
 	// ORDERBOOK is the one that matters: the fork's op type, which several
@@ -26,7 +26,7 @@ func TestOnlyButaInstructionsAreAccepted(t *testing.T) {
 		}
 	}
 	if supportedOPType(common.Hash{}) {
-		t.Error("the zero hash was accepted — an unset op type must not route anywhere")
+		t.Error("the zero hash was accepted - an unset op type must not route anywhere")
 	}
 }
 

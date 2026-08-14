@@ -90,7 +90,7 @@ func TestIsUsingDevKey_WhenUnset(t *testing.T) {
 }
 
 func TestAddressNotZero_PartialZero(t *testing.T) {
-	// Address with only the last byte non-zero — NOT a zero address
+	// Address with only the last byte non-zero - NOT a zero address
 	addr := common.HexToAddress("0x0000000000000000000000000000000000000001")
 	err := AddressNotZero(addr, "TestRegistry")
 	if err != nil {

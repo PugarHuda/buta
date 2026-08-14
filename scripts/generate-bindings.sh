@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# generate-bindings.sh — Compile Solidity contracts and generate Go bindings.
+# generate-bindings.sh - Compile Solidity contracts and generate Go bindings.
 #
 # Prerequisites: forge (Foundry), jq
 #

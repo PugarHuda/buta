@@ -146,7 +146,7 @@ func CheckDeployerKeySource() CheckResult {
 		ID:      "D5",
 		Name:    "deployer key source",
 		Status:  WARN,
-		Message: "DEPLOYMENT_PRIVATE_KEY not set — using Hardhat dev key which has no funds on Coston2",
+		Message: "DEPLOYMENT_PRIVATE_KEY not set - using Hardhat dev key which has no funds on Coston2",
 		Fix:     "Set DEPLOYMENT_PRIVATE_KEY in .env to a funded account on the target network",
 	}
 }
@@ -313,7 +313,7 @@ func RegisterRegistrationChecks(
 			ID:      "R1-R7",
 			Name:    "registration checks",
 			Status:  SKIP,
-			Message: "config/extension.env not found — run pre-build.sh first",
+			Message: "config/extension.env not found - run pre-build.sh first",
 		})
 		return
 	}
@@ -338,7 +338,7 @@ func RegisterRegistrationChecks(
 				ID:      "R1",
 				Name:    "extensions counter",
 				Status:  WARN,
-				Message: "extensions counter is 0 — no extensions registered yet",
+				Message: "extensions counter is 0 - no extensions registered yet",
 			})
 		} else {
 			r.Add(CheckResult{
@@ -597,7 +597,7 @@ func RegisterServicesChecks(r *Report, extensionEnvPath string) {
 			ID:      "S5",
 			Name:    "extension port not in use",
 			Status:  WARN,
-			Message: fmt.Sprintf("port %s is already in use — extension server will fail to bind", port),
+			Message: fmt.Sprintf("port %s is already in use - extension server will fail to bind", port),
 			Fix:     "Stop the process using that port or change EXTENSION_PORT",
 		})
 	} else {
@@ -662,7 +662,7 @@ func RegisterServicesChecks(r *Report, extensionEnvPath string) {
 				ID:      "S9",
 				Name:    "EXT_PROXY_URL reachable",
 				Status:  WARN,
-				Message: fmt.Sprintf("proxy not reachable at %s — is the proxy running?", proxyURL),
+				Message: fmt.Sprintf("proxy not reachable at %s - is the proxy running?", proxyURL),
 				Fix:     "Start the proxy or check EXT_PROXY_URL",
 			})
 		}
@@ -685,7 +685,7 @@ func RegisterServicesChecks(r *Report, extensionEnvPath string) {
 			ID:      "S10",
 			Name:    "PROXY_PRIVATE_KEY set on non-local",
 			Status:  WARN,
-			Message: "PROXY_PRIVATE_KEY not set in non-local mode — proxy will use default key",
+			Message: "PROXY_PRIVATE_KEY not set in non-local mode - proxy will use default key",
 			Fix:     "Set PROXY_PRIVATE_KEY in .env for non-local deployments",
 		})
 	} else {
@@ -728,7 +728,7 @@ func RegisterTeeVersionChecks(r *Report, extensionEnvPath string) {
 			ID:      "V2",
 			Name:    "extension owner key",
 			Status:  WARN,
-			Message: "neither EXTENSION_OWNER_KEY nor DEPLOYMENT_PRIVATE_KEY set — AddTeeVersion will use dev key which isn't the extension owner on Coston2",
+			Message: "neither EXTENSION_OWNER_KEY nor DEPLOYMENT_PRIVATE_KEY set - AddTeeVersion will use dev key which isn't the extension owner on Coston2",
 			Fix:     "Set EXTENSION_OWNER_KEY or DEPLOYMENT_PRIVATE_KEY in .env",
 		})
 	} else {
@@ -768,7 +768,7 @@ func RegisterTeeVersionChecks(r *Report, extensionEnvPath string) {
 					ID:      "V4",
 					Name:    "EXTENSION_ID valid",
 					Status:  SKIP,
-					Message: "extension.env not found — run pre-build.sh first",
+					Message: "extension.env not found - run pre-build.sh first",
 				})
 			} else {
 				r.Add(CheckResult{
@@ -808,7 +808,7 @@ func RegisterTeeVersionChecks(r *Report, extensionEnvPath string) {
 			ID:      "V6",
 			Name:    "proxy reachable",
 			Status:  SKIP,
-			Message: "EXT_PROXY_URL not set — allow-tee-version uses -p flag",
+			Message: "EXT_PROXY_URL not set - allow-tee-version uses -p flag",
 		})
 	} else {
 		httpClient := &http.Client{Timeout: 5 * time.Second}
@@ -830,7 +830,7 @@ func RegisterTeeVersionChecks(r *Report, extensionEnvPath string) {
 				ID:      "V6",
 				Name:    "proxy reachable",
 				Status:  WARN,
-				Message: fmt.Sprintf("proxy not reachable at %s — start services first", proxyURL),
+				Message: fmt.Sprintf("proxy not reachable at %s - start services first", proxyURL),
 				Fix:     "Start the proxy or check EXT_PROXY_URL",
 			})
 		}
@@ -849,7 +849,7 @@ func RegisterTeeMachineChecks(r *Report, extensionEnvPath string) {
 			ID:      "T1",
 			Name:    "SIMULATED_TEE mode",
 			Status:  WARN,
-			Message: "SIMULATED_TEE=true on non-local deployment — machine will be registered with test attestation values. Set SIMULATED_TEE=false for real TEE hardware",
+			Message: "SIMULATED_TEE=true on non-local deployment - machine will be registered with test attestation values. Set SIMULATED_TEE=false for real TEE hardware",
 			Fix:     "Set SIMULATED_TEE=false in .env when deploying to a real GCP TEE",
 		})
 	} else if simulatedTee == "true" {
@@ -900,7 +900,7 @@ func RegisterTeeMachineChecks(r *Report, extensionEnvPath string) {
 				ID:      "T5",
 				Name:    "NORMAL_PROXY_URL reachable",
 				Status:  WARN,
-				Message: fmt.Sprintf("normal proxy not reachable at %s — required for FTDC availability check", normalProxyURL),
+				Message: fmt.Sprintf("normal proxy not reachable at %s - required for FTDC availability check", normalProxyURL),
 				Fix:     "Ensure the normal/FTDC proxy is running and NORMAL_PROXY_URL is correct in .env",
 			})
 		}
@@ -936,7 +936,7 @@ func RegisterTeeMachineChecks(r *Report, extensionEnvPath string) {
 				ID:      "T10",
 				Name:    "host URL reachable",
 				Status:  WARN,
-				Message: fmt.Sprintf("host URL not reachable at %s — machine will be registered with unreachable host. Data providers can't relay instructions", extProxyURL),
+				Message: fmt.Sprintf("host URL not reachable at %s - machine will be registered with unreachable host. Data providers can't relay instructions", extProxyURL),
 				Fix:     "Ensure the host is accessible and EXT_PROXY_URL or -h flag points to the right URL",
 			})
 		}
@@ -962,7 +962,7 @@ func RegisterTestChecks(r *Report, extensionEnvPath string) {
 				ID:      "E1",
 				Name:    "INSTRUCTION_SENDER valid",
 				Status:  SKIP,
-				Message: "extension.env not found — run pre-build.sh first",
+				Message: "extension.env not found - run pre-build.sh first",
 			})
 		} else if instrSender == "" {
 			r.Add(CheckResult{
@@ -970,7 +970,7 @@ func RegisterTestChecks(r *Report, extensionEnvPath string) {
 				ID:      "E1",
 				Name:    "INSTRUCTION_SENDER valid",
 				Status:  FAIL,
-				Message: "INSTRUCTION_SENDER not set — run pre-build.sh",
+				Message: "INSTRUCTION_SENDER not set - run pre-build.sh",
 				Fix:     "Run scripts/pre-build.sh to deploy and register the extension",
 			})
 		} else if !addressRegex.MatchString(instrSender) {
@@ -1023,7 +1023,7 @@ func RegisterTestChecks(r *Report, extensionEnvPath string) {
 				ID:      "E3",
 				Name:    "proxy reachable for test results",
 				Status:  WARN,
-				Message: "proxy not reachable — test results cannot be polled",
+				Message: "proxy not reachable - test results cannot be polled",
 				Fix:     "Start the proxy or check EXT_PROXY_URL",
 			})
 		}
@@ -1035,7 +1035,7 @@ func RegisterTestChecks(r *Report, extensionEnvPath string) {
 		ID:      "E6",
 		Name:    "OPType/OPCommand alignment info",
 		Status:  PASS,
-		Message: "OPType/OPCommand hashes are validated at runtime — if a 501 error occurs, check the hash values in the error message",
+		Message: "OPType/OPCommand hashes are validated at runtime - if a 501 error occurs, check the hash values in the error message",
 	})
 }
 

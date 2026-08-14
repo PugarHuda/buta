@@ -156,7 +156,7 @@ func replayAddTeeVersion(cc *ethclient.Client, to, from common.Address, extID *b
 	msg := ethereum.CallMsg{From: from, To: &to, Data: calldata}
 	_, callErr := cc.CallContract(context.Background(), msg, nil)
 	if callErr == nil {
-		fmt.Println("  eth_call succeeded — tx-time-only revert (gas/state race?)")
+		fmt.Println("  eth_call succeeded - tx-time-only revert (gas/state race?)")
 		return
 	}
 	revertData := extractRevertData(callErr)

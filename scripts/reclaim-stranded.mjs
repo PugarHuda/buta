@@ -5,7 +5,7 @@
  *
  * Every redeploy of ButaInstructionSender left the previous one holding the
  * lots of any auction that never cleared. Testing produced four of those, and
- * 26 FXRP sat in contracts nothing points at any more — real balance on a
+ * 26 FXRP sat in contracts nothing points at any more - real balance on a
  * faucet-limited testnet, which is what stopped the last settlement rehearsal.
  *
  * `reclaimLot` is permissionless and always refunds `r.maker`, so this can run
@@ -24,7 +24,7 @@ const RPC = process.env.CHAIN_URL ?? "https://coston2-api.flare.network/ext/C/rp
 const FXRP = "0x0b6A3645c240605887a5532109323A3E12273dc7";
 
 /** Every ButaInstructionSender that has been deployed, oldest first. The live
- *  one is included on purpose — a lot stranded there counts the same. */
+ *  one is included on purpose - a lot stranded there counts the same. */
 const KNOWN = [
   "0x20d9CcAA7140bf38AD91D2F102bA996417798e8f",
   "0x04Ad1f8E59027E05D8bFc867e8e30B630aB4681F",
@@ -59,7 +59,7 @@ let wc = null;
 if (!dry) {
   const raw = process.env.DEPLOYMENT_PRIVATE_KEY ?? envValue(".env", "DEPLOYMENT_PRIVATE_KEY");
   if (!raw) {
-    console.error("no DEPLOYMENT_PRIVATE_KEY — set it in the environment or .env (or pass --dry)");
+    console.error("no DEPLOYMENT_PRIVATE_KEY - set it in the environment or .env (or pass --dry)");
     process.exit(2);
   }
   const account = privateKeyToAccount(raw.startsWith("0x") ? raw : `0x${raw}`);
@@ -67,7 +67,7 @@ if (!dry) {
   console.log(`  calling from ${account.address}\n`);
 }
 
-/** Token decimals, read once per token — printing 6-decimal FXRP as ether is
+/** Token decimals, read once per token - printing 6-decimal FXRP as ether is
  *  how "5 FXRP" became "0.000000000000005" in an earlier report. */
 const dec = new Map();
 async function decimalsOf(token) {
@@ -83,7 +83,7 @@ let failures = 0;
 for (const c of contracts) {
   const n = await pc.readContract({ address: c, abi: ABI, functionName: "rfqCount" }).catch(() => null);
   if (n === null) {
-    console.log(`${c}  no rfqCount — not an instruction sender, skipped`);
+    console.log(`${c}  no rfqCount - not an instruction sender, skipped`);
     continue;
   }
 
@@ -95,7 +95,7 @@ for (const c of contracts) {
     // The contract's own guard: `block.number <= deadlineBlock` reverts. A live
     // auction still taking bids is not stranded, it is open.
     if (head <= deadlineBlock) {
-      console.log(`${c.slice(0, 10)}  rfq ${i} is still open (deadline ${deadlineBlock}, head ${head}) — left alone`);
+      console.log(`${c.slice(0, 10)}  rfq ${i} is still open (deadline ${deadlineBlock}, head ${head}) - left alone`);
       continue;
     }
     open.push({ id: i, maker, lotToken, lot });
@@ -119,7 +119,7 @@ for (const c of contracts) {
       // 116700 of a 118988 estimate: FXRP is an FAsset, its transfer cost moves
       // between estimation and execution, and the inner call only gets 63/64 of
       // what is left. It OOGs, returns false, and the contract's own
-      // `require(..., "lot refund failed")` reverts — which reads like a
+      // `require(..., "lot refund failed")` reverts - which reads like a
       // refund bug and is really a gas ceiling. Unused gas is refunded, so the
       // headroom costs nothing.
       const gas = await pc.estimateContractGas({
@@ -136,7 +136,7 @@ for (const c of contracts) {
       }
     } catch (e) {
       failures++;
-      console.log(`${c.slice(0, 10)}  rfq ${o.id} failed — ${String(e.shortMessage ?? e.message).split("\n")[0]}`);
+      console.log(`${c.slice(0, 10)}  rfq ${o.id} failed - ${String(e.shortMessage ?? e.message).split("\n")[0]}`);
     }
   }
 }

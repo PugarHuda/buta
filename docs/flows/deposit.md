@@ -47,7 +47,7 @@ function deposit(address token, uint256 amount) external payable {
 Two things to note:
 
 - **Optional KYC gating.** `kycEnabled` defaults to `false`, so deposits are open. When admins flip it on (`setKycEnabled(true)`), only addresses in the `allowed` mapping can deposit. Admins populate the allowlist via `allowUser` / `removeUser`.
-- **`msg.sender` goes into the message.** The TEE needs to know *who* is depositing. Because data providers reproduce the instruction from the on-chain event independently, the sender field can't be spoofed — a forged instruction wouldn't match any real transaction.
+- **`msg.sender` goes into the message.** The TEE needs to know *who* is depositing. Because data providers reproduce the instruction from the on-chain event independently, the sender field can't be spoofed - a forged instruction wouldn't match any real transaction.
 
 The `payable` modifier is for the value forwarded to `TEE_EXTENSION_REGISTRY.sendInstructions` to pay instruction-relaying fees (see `instruction-sender.md`). The ERC20 itself is moved by `transferFrom`, not by `msg.value`.
 
@@ -90,13 +90,13 @@ func (e *Extension) processDeposit(action teetypes.Action, df *instruction.DataF
 
 Step by step:
 
-1. **Decode.** ABI-unpack the 96-byte message into `(sender, token, amount)`. A decode error fails the action — the on-chain `transferFrom` already happened, so the user's tokens are stuck in the vault and they need an admin or manual recovery. In practice this branch is unreachable because the contract constructs the message with the right types.
+1. **Decode.** ABI-unpack the 96-byte message into `(sender, token, amount)`. A decode error fails the action - the on-chain `transferFrom` already happened, so the user's tokens are stuck in the vault and they need an admin or manual recovery. In practice this branch is unreachable because the contract constructs the message with the right types.
 2. **Normalise the user key.** All per-user maps key on lower-cased hex (`strings.ToLower(sender.Hex())`) so that addresses submitted from different casings (direct actions from the frontend vs instructions from Solidity) hit the same bucket.
 3. **Credit the balance.** `balance.Manager.Deposit` adds to the user's `Available` counter for the given token. Held balances are untouched.
-4. **Record history.** Append a `DepositRecord` with the current timestamp to the per-user history — surfaced later by `EXPORT_HISTORY`.
+4. **Record history.** Append a `DepositRecord` with the current timestamp to the per-user history - surfaced later by `EXPORT_HISTORY`.
 5. **Return response.** `DepositResponse` contains the credited amount and the new `Available` balance. The proxy stores this; the frontend polls `GET /action/result/{id}` and parses it.
 
-There is no per-deposit on-chain event emitted back from the TEE — the response is returned asynchronously via the proxy's result store.
+There is no per-deposit on-chain event emitted back from the TEE - the response is returned asynchronously via the proxy's result store.
 
 ## Response shape
 
@@ -108,7 +108,7 @@ type DepositResponse struct {
 }
 ```
 
-Note the numeric fields are `uint64`, not `uint256`. Amounts are in token smallest units (wei for 18-decimal tokens). This caps a single balance at ~1.8e19, which is fine for test tokens but something to revisit for mainnet assets — see [Limits](#limits-and-edge-cases).
+Note the numeric fields are `uint64`, not `uint256`. Amounts are in token smallest units (wei for 18-decimal tokens). This caps a single balance at ~1.8e19, which is fine for test tokens but something to revisit for mainnet assets - see [Limits](#limits-and-edge-cases).
 
 ## Frontend integration
 
@@ -142,12 +142,12 @@ The `instructionFee` forwarded with `deposit(...)` pays the data providers for r
 
 ## Limits and edge cases
 
-- **`uint64` amount cap.** A single deposit larger than `math.MaxUint64` (~1.8e19) would silently truncate in `amountBig.Uint64()` at `internal/extension/deposit.go:93`. For an 18-decimal token, that's ~18 tokens' worth of precision overhead before you saturate — fine for test tokens, not fine for mainnet USDC without changing the type.
-- **No idempotency check on `InstructionID`.** The deposit handler does not dedupe against `df.InstructionID`. If the proxy somehow delivers the same action twice, the balance would be credited twice. The data-provider layer is responsible for at-most-once delivery — trust is placed there, not in the handler.
+- **`uint64` amount cap.** A single deposit larger than `math.MaxUint64` (~1.8e19) would silently truncate in `amountBig.Uint64()` at `internal/extension/deposit.go:93`. For an 18-decimal token, that's ~18 tokens' worth of precision overhead before you saturate - fine for test tokens, not fine for mainnet USDC without changing the type.
+- **No idempotency check on `InstructionID`.** The deposit handler does not dedupe against `df.InstructionID`. If the proxy somehow delivers the same action twice, the balance would be credited twice. The data-provider layer is responsible for at-most-once delivery - trust is placed there, not in the handler.
 - **No cross-pair coupling.** The balance manager is pair-agnostic; a deposited token becomes available across every orderbook that uses it.
 
 ## Related
 
-- [withdrawal.md](withdrawal.md) — the outbound signed path
-- [orders.md](orders.md) — what deposited balances are actually used for
-- [../instruction-sender.md](../instruction-sender.md) — the on-chain instruction pattern used by `deposit`
+- [withdrawal.md](withdrawal.md) - the outbound signed path
+- [orders.md](orders.md) - what deposited balances are actually used for
+- [../instruction-sender.md](../instruction-sender.md) - the on-chain instruction pattern used by `deposit`

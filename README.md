@@ -4,14 +4,14 @@
 
 Bids are ECIES-encrypted to an attested enclave; the enclave clears them at the
 Vickrey second price and forgets them; the winner and clearing price are public,
-but every losing amount — and the winner's own bid — stays sealed forever. A
+but every losing amount - and the winner's own bid - stays sealed forever. A
 bidder can still prove their exact bid to a chosen auditor without it becoming
 public.
 
 Built for **Flare Summer Signal 2026**, Bounty 2 (Confidential Compute).
 
-- **Live:** https://buta-desk.vercel.app — the landing page, and the desk itself at [/dashboard](https://buta-desk.vercel.app/dashboard)
-- **Contract (Coston2, verified):** [`0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D`](https://coston2-explorer.flare.network/address/0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D) — registered in the FCC diamond as extension `66009`. Verify with `node scripts/onchain-status.mjs`.
+- **Live:** https://buta-desk.vercel.app - the landing page, and the desk itself at [/dashboard](https://buta-desk.vercel.app/dashboard)
+- **Contract (Coston2, verified):** [`0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D`](https://coston2-explorer.flare.network/address/0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D) - registered in the FCC diamond as extension `66009`. Verify with `node scripts/onchain-status.mjs`.
 - **Full write-up:** [`SUBMISSION.md`](SUBMISSION.md) · **Demo script:** [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) · **Deploy:** [`docs/DEPLOY.md`](docs/DEPLOY.md)
 
 ---
@@ -22,7 +22,7 @@ A Vickrey (second-price) auction **cannot be run honestly on a transparent
 chain.** To compute the second price you must know every bid; to know every bid
 on-chain is to publish it; to publish it is to destroy the sealed auction.
 
-Every on-chain "dark" venue leaves one reader standing — whatever clears the
+Every on-chain "dark" venue leaves one reader standing - whatever clears the
 auction can read every bid, and can lie about it. Zero-knowledge doesn't remove
 that reader (the prover holds the openings); threshold decryption doesn't
 (whoever satisfies the policy reads them); a private ledger doesn't (the buyer
@@ -44,7 +44,7 @@ contract rejects a mismatched digest    → "award a subset" reverts on-chain
 
 The last link is the point: the contract records the commitment set **before
 anyone knows what is in it**, and refuses any clearing whose digest doesn't match
-— so the auctioneer cannot quietly drop a bid to move the price. It stops being
+ - so the auctioneer cannot quietly drop a bid to move the price. It stops being
 a policy promise and becomes a transaction that reverts.
 
 ## Run it
@@ -56,25 +56,27 @@ Simulated-TEE path (accepted by Flare for the hackathon):
 #    6674 is the docker proxy's port, so use another one if that stack is up.
 BUTA_ALLOW_DIRECT_AUCTION=1 BUTA_DEV_PORT=6675 go run ./cmd/dev
 
-# 2. a book with auctions on both sides of their deadline — without one that
+# 2. a book with auctions on both sides of their deadline - without one that
 #    has passed there is nothing to press Clear on, and clearing is a third of
 #    the product. Deadlines are placed around the chain's head, not hardcoded.
 node scripts/seed.mjs
 
 # 3. the desk
 cd frontend
+npm install                                            # a clone has no node_modules
 VITE_TEE_PROXY_URL=http://127.0.0.1:6675 npm run dev   # /dashboard/ on :5173
 ```
 
 Post a block, seal a bid (real wallet signature + ECIES), clear at the second
-price, and disclose your bid to an auditor from Portfolio — the seal receipt is
+price, and disclose your bid to an auditor from Portfolio - the seal receipt is
 kept in the browser, so the disclosure form fills itself from it.
 
 ## Tests
 
 ```bash
 go test ./pkg/auction/... ./internal/extension/...   # clearing + handlers, no-leak assertions
-forge test                                            # 19 tests — relayClearing, trimmed-set, replay, reclaim
+forge install foundry-rs/forge-std   # lib/ is gitignored, so a clone needs this first
+forge test                          # 24 tests - relayClearing, trimmed-set, replay, reclaim, rotation
 ```
 
 Against a live Coston2 stack:
@@ -85,7 +87,7 @@ node scripts/settle-from-browser.mjs     # the same thing, driven through the ac
 ```
 
 The second one is not redundant. `onchain-loop.ts` shares its libraries with the
-desk and builds its own arguments, so it proves the contracts and the enclave —
+desk and builds its own arguments, so it proves the contracts and the enclave - 
 and skips the only place the UI can be wrong. Both bugs it found were invisible
 from node: the enclave proxy sends no CORS header, so a browser cannot reach it
 at all; and the settle control lived only in the branch for an auction that had
@@ -99,15 +101,15 @@ and not part of any suite.
 ```
 pkg/auction/            Vickrey clearing engine (enclave-only); losing amounts never returned
 internal/extension/     RFQ store + handlers: POST_RFQ / COMMIT_BID / CLEAR_AUCTION / disclosure
-  decrypt.go            ECIES decryptor interface — tee-node /decrypt in prod, local key in dev
-contracts/              ButaInstructionSender.sol — commitment set, set-digest binding, TEE-sig verify
+  decrypt.go            ECIES decryptor interface - tee-node /decrypt in prod, local key in dev
+contracts/              ButaInstructionSender.sol - commitment set, set-digest binding, TEE-sig verify
 script/Deploy.s.sol     one-command Coston2 deploy
 cmd/dev/                one-process dev facade (extension + the two proxy routes the desk uses)
-frontend/               the desk — post / seal / clear / disclose, Swiss-industrial print
+frontend/               the desk - post / seal / clear / disclose, Swiss-industrial print
 frontend/landing/       the landing page, served at / (the desk is at /dashboard)
 ```
 
-## Prior work — declared
+## Prior work - declared
 
 We built this same sealed-bid thesis five times before, on five other chains
 (iExec, Stellar, Sui, Zama, Canton). Each left the same open problem: *the
@@ -119,7 +121,7 @@ of what carried over vs what is new for Flare.
 
 Not audited. Not for real assets. The clearing price is public by design
 (Vickrey pays the second price). Hiding the openings even from the enclave would
-need MPC — honest future work. The contract is deployed, verified, and
+need MPC - honest future work. The contract is deployed, verified, and
 registered in the FCC diamond (extension 66009); the product runs on the
 simulated-TEE path Flare accepts. Registering a real attested TEE machine
 (Level 2) is the next step (`docs/DEPLOY.md`).
@@ -128,5 +130,5 @@ simulated-TEE path Flare accepts. Registering a real attested TEE machine
 
 Apache-2.0. Forks `flare-foundation/fce-orderbook` for the TEE signing path and
 extension plumbing; the sealed-bid mechanism, commitment binding, and desk are
-new. The fork's order book and deposit/withdraw vault have been deleted — this
+new. The fork's order book and deposit/withdraw vault have been deleted - this
 contract settles directly, so neither could ever be reached.

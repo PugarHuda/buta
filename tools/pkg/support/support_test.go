@@ -73,7 +73,7 @@ func TestDecodeRevertFromError_InvalidHex(t *testing.T) {
 }
 
 func TestDecodeRevertFromError_ShortData(t *testing.T) {
-	// Only 2 bytes — too short for ABI selector
+	// Only 2 bytes - too short for ABI selector
 	err := &mockDataError{
 		msg:  "execution reverted",
 		data: "0x1234",

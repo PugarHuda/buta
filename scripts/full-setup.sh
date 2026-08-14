@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# full-setup.sh — Run the complete extension lifecycle: pre-build → start → post-build → test.
+# full-setup.sh - Run the complete extension lifecycle: pre-build → start → post-build → test.
 #
 # Usage:
 #   ./scripts/full-setup.sh                          # setup only, docker compose, local devnet
@@ -87,7 +87,7 @@ log "Chain: $CHAIN"
 # --- Indexer reachability hint for testnets ---
 if [[ "$CHAIN" == "coston" ]]; then
     if ! (echo > /dev/tcp/127.0.0.1/3306) >/dev/null 2>&1; then
-        warn "No service on 127.0.0.1:3306 — the ext-proxy needs a Coston indexer DB."
+        warn "No service on 127.0.0.1:3306 - the ext-proxy needs a Coston indexer DB."
         warn "Start it with: (cd ../../e2e/docker/coston && docker compose up -d coston-indexer-db coston-indexer)"
     fi
 fi

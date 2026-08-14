@@ -1,5 +1,5 @@
 /**
- * Desk.tsx — the sealed-bid desk.
+ * Desk.tsx - the sealed-bid desk.
  *
  * One screen, three moves: post a block, seal a bid, clear at the second
  * price. The layout owes everything to the landing page's Swiss Industrial
@@ -37,7 +37,12 @@ import {
   type RfqState,
 } from "../lib/buta";
 
-const POLL_MS = 3000;
+// 3s was chosen when the book came from a facade on localhost. Through the
+// deployed path - browser to Vercel to a reserved tunnel to a container - the
+// median round trip is 4.3 seconds, so a 3s timer could never keep up with
+// itself. Six seconds still reads as live and halves what the enclave carries
+// per open tab.
+const POLL_MS = 6000;
 
 // ── shared atoms ─────────────────────────────────────────────────────────────
 
@@ -95,7 +100,7 @@ function Field(props: {
  * Buttons that look like buttons.
  *
  * These used to be 11px uppercase mono with a hairline border and no fill on
- * the secondary — the same weight as the labels beside them, so the desk gave
+ * the secondary - the same weight as the labels beside them, so the desk gave
  * a reader no way to tell what was a control and what was a caption. One
  * filled red primary per panel, a real outlined secondary, both with a hover
  * and a pressed state so a click is felt as well as taken.
@@ -136,8 +141,8 @@ function Btn(props: {
  * desk could reach a settlement it could never perform, and no script could
  * find that, because a script never renders anything.
  *
- * Cleared and settled are two different facts about two different systems — the
- * enclave opened the bids, the contract moved the money — so this renders on
+ * Cleared and settled are two different facts about two different systems - the
+ * enclave opened the bids, the contract moved the money - so this renders on
  * both sides of that split and stops when the CONTRACT says it is done.
  */
 /**
@@ -146,13 +151,13 @@ function Btn(props: {
  * This lived only in the branch for an auction the ENCLAVE had not cleared,
  * which conflated two facts about two systems. The enclave's `cleared` means an
  * outcome exists; the contract's means the money moved. Between those two there
- * is a real state — signed but not settled — and in it the desk offered
+ * is a real state - signed but not settled - and in it the desk offered
  * nothing at all: the outcome lives in React state, a reload loses it, and the
  * only control that could fetch it again was hidden precisely because the
  * clearing had worked. The lot stays escrowed with no route out through the UI.
  *
  * Asking again does NOT reproduce it. The enclave answers
- * `error: auction: already cleared` and returns nothing — the outcome is
+ * `error: auction: already cleared` and returns nothing - the outcome is
  * produced exactly once. That is why the signature is written to storage the
  * moment it arrives (lib/clearings.ts), and why this control says so rather
  * than offering a button that cannot work.
@@ -166,7 +171,7 @@ function RequestClearingBlock(props: { busy: boolean; onRequest: () => void; sig
       <p className="mt-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[34ch]">
         {props.signedAlready ? (
           <>
-            Opened once and kept. A repeat is answered from the enclave's memory in seconds — press
+            Opened once and kept. A repeat is answered from the enclave's memory in seconds - press
             this when the first dispatch came back with nothing.
           </>
         ) : (
@@ -218,7 +223,7 @@ export function Desk() {
   //
   // This was one line at the foot of the page that each action overwrote. Post
   // a block, seal a bid, clear an auction and the only evidence any of it
-  // happened was whatever the last one said — including the receipts, which are
+  // happened was whatever the last one said - including the receipts, which are
   // the part worth keeping.
   const [activity, setActivity] = useState<{ at: string; text: string }[]>([]);
   const say = useCallback((text: string) => {
@@ -247,9 +252,11 @@ export function Desk() {
   // reader, and "Past the deadline?" was a question the desk could answer.
   const [block, setBlock] = useState<bigint | null>(null);
   // A ref as well as state: the demo book is placed around the head, and reading
-  // it through the ref keeps `refresh` out of the block's dependency list — as a
+  // it through the ref keeps `refresh` out of the block's dependency list - as a
   // dependency it would tear down and restart the poll every fifteen seconds.
   const headRef = useRef<bigint | null>(null);
+  /** A book request is in flight; the poll timer skips rather than stacking. */
+  const inFlight = useRef(false);
   useEffect(() => {
     let live = true;
     const tick = () =>
@@ -267,9 +274,9 @@ export function Desk() {
   // about the bundle, so it is answered by asking rather than by a constant.
   //
   // It used to be `DEV || VITE_TEE_PROXY_URL`, which was wrong in both
-  // directions. A full URL in the bundle cannot work at all — the extension
+  // directions. A full URL in the bundle cannot work at all - the extension
   // proxy sends no Access-Control-Allow-Origin header, so the browser blocks
-  // every fetch before it leaves the page — and an empty one ruled out the only
+  // every fetch before it leaves the page - and an empty one ruled out the only
   // arrangement that DOES work: a same-origin rewrite in front of the desk
   // (scripts/point-desk-at-machine.mjs), where /info is served from the machine
   // and there is no preflight to fail.
@@ -298,6 +305,17 @@ export function Desk() {
       setDemo(true);
       return;
     }
+    // One book request at a time.
+    //
+    // A refresh is a POST to the enclave and then a poll for its result, and
+    // measured through the live tunnel that round trip has a median of 4.3
+    // seconds - longer than the interval that fires it. Without this guard the
+    // timer started a second request before the first came back, then a third,
+    // and the queue grew for as long as the enclave stayed slow. The thing that
+    // makes it slow is people opening the desk, so the failure feeds itself and
+    // arrives exactly when an audience does.
+    if (inFlight.current) return;
+    inFlight.current = true;
     try {
       const { rfqs: list, dropped: bad } = await listRfqs();
       setRfqs(list);
@@ -305,23 +323,31 @@ export function Desk() {
       setOffline(false);
       setDemo(false);
     } catch {
-      // No extension reachable — show the demo book so the desk is never empty.
+      // No extension reachable - show the demo book so the desk is never empty.
       setRfqs(demoBook(headRef.current));
       setOffline(true);
       setDemo(true);
+    } finally {
+      inFlight.current = false;
     }
   }, [canReachExtension]);
 
   useEffect(() => {
     refresh();
     if (!canReachExtension) return; // nothing to poll for
-    const t = setInterval(refresh, POLL_MS);
-    return () => clearInterval(t);
+    // A backgrounded tab is a tab nobody is reading. Browsers throttle timers
+    // there but do not stop them, and a judge who leaves this open in another
+    // window should not keep a laptop's enclave busy for hours.
+    const tick = () => { if (!document.hidden) refresh(); };
+    const t = setInterval(tick, POLL_MS);
+    const onVisible = () => { if (!document.hidden) refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(t); document.removeEventListener("visibilitychange", onVisible); };
   }, [refresh, canReachExtension]);
 
   // Only a SEALED auction can be bid on. The book is newest-first and the newest
-  // is usually already cleared, so landing on nothing selected — or worse, on a
-  // closed auction — was the first thing anyone saw. Open on the first one that
+  // is usually already cleared, so landing on nothing selected - or worse, on a
+  // closed auction - was the first thing anyone saw. Open on the first one that
   // can actually be acted on.
   const firstOpen = useMemo(() => rfqs.find((r) => !r.cleared) ?? null, [rfqs]);
   useEffect(() => {
@@ -342,15 +368,15 @@ export function Desk() {
   }, [address, canReachExtension, rfqs.length]);
 
   // Reclaiming is a real transaction, so it says what it is doing and what
-  // happened — including the hash, which is the only part a maker can check
+  // happened - including the hash, which is the only part a maker can check
   // against the chain themselves.
   /**
    * A demo row's number is not a number on the contract.
    *
    * Every row-scoped on-chain button took `r.rfqId` straight to a transaction,
    * and when the enclave is unreachable those ids come from demoBook(). The run
-   * that found this had the desk showing demo row 5 — the proxy had rejected
-   * /direct for a missing API key — pressed "Request clearing on-chain", and
+   * that found this had the desk showing demo row 5 - the proxy had rejected
+   * /direct for a missing API key - pressed "Request clearing on-chain", and
    * sent a real, paid instruction about contract RFQ 5, which belonged to
    * somebody else's auction entirely. Nothing looked wrong: the demo banner was
    * up, the button worked, the transaction succeeded.
@@ -371,7 +397,7 @@ export function Desk() {
    * Every write goes through here so none of them can be starved of gas.
    *
    * The wallet estimates against the current block and the transaction lands in
-   * a later one. For an FAsset that difference is enough — see gasForWrite. Six
+   * a later one. For an FAsset that difference is enough - see gasForWrite. Six
    * call sites, one ceiling to get wrong, so there is one place that sets it.
    */
   const send = useCallback(
@@ -411,18 +437,18 @@ export function Desk() {
         refresh();
       }
     },
-    [writeContractAsync, say, refresh, rowIsReal],
+    [sender, writeContractAsync, say, refresh, rowIsReal],
   );
 
   // Post a block as a transaction: escrow the lot, forward the instruction.
   //
   // Everything checkable is checked from public reads first. The desk's own
-  // history is the argument — the postRfq that ran on Coston2 failed on "ERC20:
+  // history is the argument - the postRfq that ran on Coston2 failed on "ERC20:
   // insufficient allowance", and the only way to find that out was to pay for a
   // reverted transaction.
   const postOnChain = useCallback(
     async (lot: number, deadlineBlock: number, invited: string, reserve: bigint, pair: string) => {
-      if (!address) return say("Connect a wallet first — posting on-chain is a transaction.");
+      if (!address) return say("Connect a wallet first - posting on-chain is a transaction.");
       const lotUnits = BigInt(Math.max(0, Math.floor(lot)));
       const spender = sender;
       const token = TOKENS.FXRP.address;
@@ -450,7 +476,7 @@ export function Desk() {
         }
 
         if (pre.needsApproval) {
-          say(`Approving ${lotUnits} ${TOKENS.FXRP.symbol} to the escrow — one transaction, then the block.`);
+          say(`Approving ${lotUnits} ${TOKENS.FXRP.symbol} to the escrow - one transaction, then the block.`);
           const a = await send({
             address: token, abi: erc20Abi, functionName: "approve", args: [spender, lotUnits],
           });
@@ -475,7 +501,7 @@ export function Desk() {
         say(`Posted on-chain: ${hash}. The lot is escrowed and the instruction is on its way to the enclave.`);
         await pc.waitForTransactionReceipt({ hash });
         const count = await pc.readContract({ address: spender, abi: senderAbi, functionName: "rfqCount" });
-        say(`Confirmed. rfqCount is now ${count} — the auction exists on-chain before the enclave has heard of it.`);
+        say(`Confirmed. rfqCount is now ${count} - the auction exists on-chain before the enclave has heard of it.`);
         setPanel("auto");
       } catch (e) {
         const m = e as { shortMessage?: string; message?: string };
@@ -484,7 +510,7 @@ export function Desk() {
         refresh();
       }
     },
-    [address, writeContractAsync, say, refresh],
+    [address, sender, writeContractAsync, say, refresh],
   );
 
   // Seal a bid as a transaction.
@@ -497,7 +523,7 @@ export function Desk() {
   const [sealingChain, setSealingChain] = useState<number | null>(null);
   const bidOnChain = useCallback(
     async (rfqId: number, amount: bigint) => {
-      if (!address) return say("Connect a wallet — sealing on-chain is a transaction.");
+      if (!address) return say("Connect a wallet - sealing on-chain is a transaction.");
       if (!rowIsReal()) return;
       setSealingChain(rfqId);
       try {
@@ -518,26 +544,26 @@ export function Desk() {
         });
         if (!pre.ok) return say(`Cannot seal on-chain: ${pre.blocker}`);
 
-        // Winning means paying, so the approval belongs here — at the moment
-        // the promise is made — and not at settlement, where it is somebody
+        // Winning means paying, so the approval belongs here - at the moment
+        // the promise is made - and not at settlement, where it is somebody
         // else's transaction that reverts.
         //
         // Without it the auction reaches a signed clearing and stops: the
         // contract moves the price from the winner to the maker in the same
         // call that moves the lot, and it cannot, so nothing moves at all and
-        // the lot stays escrowed. Approving the bid amount is enough — the
+        // the lot stays escrowed. Approving the bid amount is enough - the
         // second price is never above it.
         const owed = await pc.readContract({
           address: row[1], abi: erc20Abi, functionName: "allowance", args: [address, sender],
         }).catch(() => null);
         if (owed === null) {
           return say(
-            "The settlement token on this auction does not answer — it may not be a contract at all. " +
+            "The settlement token on this auction does not answer - it may not be a contract at all. " +
               "Nothing sealed here could ever be settled, so this stops now.",
           );
         }
         if (owed < amount) {
-          say(`Approving ${amount} of the settlement token first — winning this means paying it.`);
+          say(`Approving ${amount} of the settlement token first - winning this means paying it.`);
           const a = await send({
             address: row[1], abi: erc20Abi, functionName: "approve", args: [sender, amount],
           });
@@ -545,7 +571,7 @@ export function Desk() {
           say(`Approved: ${a}`);
         }
 
-        // Same commitment and the same sealed opening as the direct rail — only
+        // Same commitment and the same sealed opening as the direct rail - only
         // the transport differs, which is the point.
         const sealed = await sealBidEnvelope({
           rfqId, bidder: address, amount, chainId,
@@ -568,7 +594,7 @@ export function Desk() {
         refresh();
       }
     },
-    [address, chainId, signMessageAsync, writeContractAsync, say, refresh, rowIsReal],
+    [address, chainId, sender, signMessageAsync, writeContractAsync, say, refresh, rowIsReal],
   );
 
   // Settle it. The only function that moves money, and the only one that makes
@@ -578,7 +604,7 @@ export function Desk() {
   // an inconvenient bid produces a clearing that reverts.
   const [settling, setSettling] = useState<number | null>(null);
   // The last clearing this session produced, kept because settling needs the
-  // signature and the action id — not just the winner and the price.
+  // signature and the action id - not just the winner and the price.
   const [lastOutcome, setLastOutcome] = useState<
     (ClearingOutcome & { actionId?: string; submissionTag?: string; signature?: string }) | null
   >(null);
@@ -588,7 +614,7 @@ export function Desk() {
   useEffect(() => setKept(allClearings()), []);
   const settle = useCallback(
     async (out: ClearingOutcome & { actionId?: string; submissionTag?: string; signature?: string }) => {
-      if (!address) return say("Connect a wallet — settling is a transaction.");
+      if (!address) return say("Connect a wallet - settling is a transaction.");
       if (!rowIsReal()) return;
       setSettling(out.rfqId);
       try {
@@ -624,6 +650,15 @@ export function Desk() {
         await pc.waitForTransactionReceipt({ hash });
         forgetClearing(out.rfqId);
         setKept(allClearings());
+        // And drop it from state, or forgetting it changes nothing.
+        //
+        // The panel picks `lastOutcome` before it looks in storage, so clearing
+        // the stored copy left the stale one in front of it: the session that
+        // actually settled the auction kept being offered "Settle on-chain" for
+        // it, and pressing that got "Already settled on-chain." A fresh reload
+        // showed it correctly, which is why this survived - the only session
+        // that could see the bug was the one that had just done the work.
+        setLastOutcome((cur) => (cur?.rfqId === out.rfqId ? null : cur));
         say(`Settled on-chain. Delivery versus payment, and the losing amounts were never revealed to anyone.`);
       } catch (e) {
         const m = e as { shortMessage?: string; message?: string };
@@ -633,7 +668,7 @@ export function Desk() {
         refresh();
       }
     },
-    [address, writeContractAsync, say, refresh, rowIsReal],
+    [address, sender, writeContractAsync, say, refresh, rowIsReal],
   );
 
   // Ask for the clearing ON-CHAIN, then wait for the enclave to sign it.
@@ -646,7 +681,7 @@ export function Desk() {
   const [requesting, setRequesting] = useState<number | null>(null);
   const requestClearingOnChain = useCallback(
     async (rfqId: number) => {
-      if (!address) return say("Connect a wallet — requesting a clearing is a transaction.");
+      if (!address) return say("Connect a wallet - requesting a clearing is a transaction.");
       if (!rowIsReal()) return;
       setRequesting(rfqId);
       try {
@@ -655,14 +690,14 @@ export function Desk() {
         // back empty, and the enclave answers a repeat from its own memory. The
         // CONTRACT is the one that stops: requestClearing reverts AlreadyCleared
         // once relayClearing has settled the row. That is a paid transaction
-        // that can only fail, so it is refused here rather than sent — and the
+        // that can only fail, so it is refused here rather than sent - and the
         // guard lives in the one function every caller routes through.
         const onChain = await pc.readContract({
           address: sender, abi: senderAbi, functionName: "rfqs", args: [BigInt(rfqId)],
         });
         if (onChain[6]) {
           return say(
-            `RFQ ${rfqId} is already settled on-chain — requestClearing would revert AlreadyCleared. ` +
+            `RFQ ${rfqId} is already settled on-chain - requestClearing would revert AlreadyCleared. ` +
               "The outcome moved the money; there is nothing left to ask the enclave for.",
           );
         }
@@ -677,7 +712,7 @@ export function Desk() {
 
         const signed = await awaitSignedClearing(env.teeProxyUrl, id);
         if (!signed) {
-          // Press it again — that is not a shrug, it is the fix.
+          // Press it again - that is not a shrug, it is the fix.
           //
           // The FIRST delivery is the unreliable one: the instruction travels
           // through the data providers, and when Coston2 is between signing
@@ -687,7 +722,7 @@ export function Desk() {
           // stored outcome rather than an error. Saying so beats leaving
           // somebody staring at a dead panel deciding the product is broken.
           return say(
-            "No signed outcome came back for that request. The clearing itself may well have happened — " +
+            "No signed outcome came back for that request. The clearing itself may well have happened - " +
               "press Request clearing again. A repeat is answered from the enclave's memory, usually in seconds, " +
               "because it returns the outcome it already computed. (On the dev facade there is no signature at all, " +
               "and no number of retries will produce one.)",
@@ -700,12 +735,12 @@ export function Desk() {
         // The id the CONTRACT knows, not the one the enclave echoed back.
         // relayClearing is a contract call: it reads rfqs[id] and compares the
         // digest of the commitments IT recorded, so settling under the enclave's
-        // own numbering reads the wrong row. They should agree — and when they
+        // own numbering reads the wrong row. They should agree - and when they
         // do not, that is worth a sentence rather than silently picking one.
         if (Number(oRfq) !== rfqId) {
           return say(
             `The enclave signed an outcome for RFQ ${oRfq}, and this desk asked about RFQ ${rfqId}. ` +
-              "Not settling that — the two are not the same auction.",
+              "Not settling that - the two are not the same auction.",
           );
         }
         setLastOutcome({
@@ -747,7 +782,7 @@ export function Desk() {
     ["audit", "Audit"],
   ] as const;
 
-  // All / Open / Mine. "Mine" is the maker's own blocks — the one cut a desk
+  // All / Open / Mine. "Mine" is the maker's own blocks - the one cut a desk
   // actually wants, and it needs no extra read because the maker is public.
   const shown = rfqs.filter((r) =>
     filter === "open" ? !r.cleared
@@ -761,7 +796,7 @@ export function Desk() {
     // desk made prose harder to read to buy alignment that only the table needs.
     <div className="min-h-screen bg-bg text-fg text-[13.5px] md:flex">
       {/* ── sidebar ──
-          Identity, the three places you can be, and the state of the desk —
+          Identity, the three places you can be, and the state of the desk - 
           all of it permanent, so the reader is never asked to remember which
           tab they were on or click something to find out where they are. On a
           phone it lays out along the top instead. */}
@@ -782,7 +817,12 @@ export function Desk() {
         <div className="hidden md:flex items-start gap-2 mx-4 my-3 px-2.5 py-1.5 border border-line bg-bg-1 text-[11.5px] tracking-[0.1em] uppercase text-fg-mute leading-snug">
           <span className={"mt-1 w-1.5 h-1.5 shrink-0 " + (tee.state === "production" ? "bg-accent" : "bg-fg-mute")} />
           <span className="min-w-0">
-            {tee.state === "production" ? <>Coston2 <Red>///</Red> TEE production</>
+            {/* "TEE PRODUCTION" is the FCC registry's word for a machine that
+                passed its availability check. It is not a claim about hardware,
+                and the badge read as one: the footer says simulated-TEE path a
+                screen below, and the landing page says so too. The status and
+                what it does not mean now sit in the same line. */}
+            {tee.state === "production" ? <>Coston2 <Red>///</Red> TEE production, simulated path</>
               : offline ? <Red>Extension offline</Red>
               : <>Coston2 <Red>///</Red> simulated TEE</>}
           </span>
@@ -806,7 +846,7 @@ export function Desk() {
         </div>
 
         {/* Wraps on a phone. Four tabs side by side at px-4 come to 347px, so at
-            320px the nav alone pushed the page 27px wide — the last thing left
+            320px the nav alone pushed the page 27px wide - the last thing left
             overflowing after the book's columns were made to drop. */}
         <nav className="flex flex-wrap md:flex-col border-y border-line">
           {NAV.map(([id, label]) => (
@@ -886,15 +926,15 @@ export function Desk() {
         // demo data; the machine is real. Say the first here and leave the
         // second to the Audit panel, which links it to the explorer.
         <div className="px-4 py-1.5 bg-accent text-bg text-[11.5px] tracking-[0.12em] uppercase">
-          Demo book <span className="opacity-70">— no enclave reachable from this browser.</span>{" "}
+          Demo book <span className="opacity-70"> - no enclave reachable from this browser.</span>{" "}
           <span className="opacity-70">Start it with <span className="opacity-100">go run ./cmd/dev</span> for the live flow;{" "}
-          the machine itself is registered — see Audit.</span>
+          the machine itself is registered - see Audit.</span>
         </div>
       )}
-      {/* who this is for — the first thing a judge reads */}
+      {/* who this is for - the first thing a judge reads */}
       <p className="px-4 py-3 max-w-[72ch] text-[12.5px] leading-relaxed text-fg-dim">
         For desks moving size. Post a block, collect sealed bids, clear at the fair second
-        price. <b className="text-fg">Nobody can read a bid before it clears — not the maker,
+        price. <b className="text-fg">Nobody can read a bid before it clears - not the maker,
         not the operator, not us.</b> Losing amounts are never revealed at all.
       </p>
 
@@ -952,7 +992,7 @@ export function Desk() {
               {activity.length === 0 ? (
                 <p className="text-fg-mute max-w-[46ch] leading-relaxed">
                   Nothing yet. Post a block or seal a bid, and every receipt the desk hands back
-                  is kept here — including the clearing outcomes, which used to be overwritten by
+                  is kept here - including the clearing outcomes, which used to be overwritten by
                   whatever happened next.
                 </p>
               ) : (
@@ -1012,14 +1052,14 @@ export function Desk() {
             </div>
 
             {/* The book is eight columns of fixed widths, which comes to about
-                700px — so on a phone it pushed the page 313px wider than the
+                700px - so on a phone it pushed the page 313px wider than the
                 viewport, and the repo's own rule is that the body must never
                 scroll sideways. It went unmeasured because the render checks
                 only ever loaded the landing page at narrow widths; the desk was
                 never looked at on a phone at all.
                 Columns drop instead of the page stretching. Lot, bids and the
                 deadline are all in the panel that opens under the row, so
-                nothing is lost — and the redaction bar survives to the smallest
+                nothing is lost - and the redaction bar survives to the smallest
                 layout that fits it, because that bar is the claim. */}
             <div className="grid grid-cols-[4.5rem_1fr_4.5rem_5rem] sm:grid-cols-[4.5rem_1fr_4rem_4.5rem_5rem] md:grid-cols-[5.5rem_1fr_7rem_6rem_4rem_8rem_6rem_5.5rem] gap-2 md:gap-3 px-4 py-2 border-y border-line bg-bg-1 text-[11px] font-medium tracking-[0.1em] uppercase text-fg-mute">
               <span>RFQ</span><span>Pair</span><span className="hidden md:block">Lot</span>
@@ -1054,7 +1094,7 @@ export function Desk() {
                       : "border-l-transparent hover:bg-bg-1 hover:border-l-line-2")
                   }
                 >
-                  {/* The row and its action are siblings, not nested — a button
+                  {/* The row and its action are siblings, not nested - a button
                       inside a button is invalid and the inner one stops working. */}
                   <button
                     onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
@@ -1087,7 +1127,7 @@ export function Desk() {
                     <span className="hidden sm:block">
                       <span
                         className="inline-block w-10 md:w-14 h-[11px] bg-fg align-middle"
-                        title="The maker's floor is ECIES-encrypted to the enclave key. Nobody else can read it — not the operator, not us."
+                        title="The maker's floor is ECIES-encrypted to the enclave key. Nobody else can read it - not the operator, not us."
                       />
                     </span>
                     <span className="hidden md:block">{r.bidCount}</span>
@@ -1119,7 +1159,7 @@ export function Desk() {
                   {/* The action is on the row it acts on. It used to be a panel
                       on the other side of the screen that you had to look at
                       after clicking, which is why the desk read as two things. */}
-                  {/* The action on the row, at the weight of an action — and
+                  {/* The action on the row, at the weight of an action - and
                       naming the action that is actually available. An auction
                       past its deadline takes no more bids, and this said "Bid"
                       on it anyway; the only thing left to do there is clear it,
@@ -1135,9 +1175,15 @@ export function Desk() {
                   >
                     {r.cleared
                       ? "View"
-                      : block !== null && countdown(r.deadline, block).passed
-                        ? "Clear"
-                        : "Bid →"}
+                      : block === null
+                        // The head is unreadable, so which action is available
+                        // is unknown. "Bid →" was the old default and it was a
+                        // guess - on an auction 12,000 blocks past its deadline
+                        // it was the wrong one.
+                        ? "Open"
+                        : countdown(r.deadline, block).passed
+                          ? "Clear"
+                          : "Bid →"}
                   </button>
                 </div>
 
@@ -1161,7 +1207,7 @@ export function Desk() {
                               rather than looking identical to a proven one. */}
                           <div className="mt-1 text-[11.5px] text-fg-mute leading-relaxed">
                             {demo || offline
-                              ? "Demo book — nothing here was signed."
+                              ? "Demo book - nothing here was signed."
                               : "Relayed without a signature on this rail: the enclave's signature is checked on-chain by relayClearing, not here."}
                           </div>
                           <div className="mt-1 text-[15px]" style={{ fontFamily: "var(--f-macro)" }}>
@@ -1173,7 +1219,7 @@ export function Desk() {
                           <Lbl>Sealed forever</Lbl>
                           {/* The commitments, listed. "N losing amounts" is a
                               number you take on trust; the hashes are the thing
-                              itself — each one was recorded on-chain before
+                              itself - each one was recorded on-chain before
                               anyone knew what was in it, and none of them can be
                               opened by anyone but the bidder who made it. */}
                           {!!r.commitments?.length && (
@@ -1182,8 +1228,8 @@ export function Desk() {
                                 <div key={c} className="flex items-baseline gap-2 text-[11.5px]">
                                   <span className="text-fg-mute">bid {i + 1}</span>
                                   {/* A column of commitments only reads as a column
-                                      if every line is the same width — and
-                                      tabular-nums does nothing for a–f. */}
+                                      if every line is the same width - and
+                                      tabular-nums does nothing for a-f. */}
                                   <span className="text-fg-dim font-mono">{c.slice(2, 16)}…</span>
                                   <span className="inline-block w-8 h-[9px] bg-fg align-middle" title="amount sealed" />
                                 </div>
@@ -1196,7 +1242,7 @@ export function Desk() {
                               product's claim. Say the true thing for the case. */}
                           <div className="mt-1">
                             {r.bidCount <= 1
-                              ? "The winner's own bid and the reserve. It cleared at the reserve — there was no second bid to price it."
+                              ? "The winner's own bid and the reserve. It cleared at the reserve - there was no second bid to price it."
                               : `${r.bidCount - 1} losing ${r.bidCount - 1 === 1 ? "amount" : "amounts"}, the winner's own bid, and the reserve.`}
                           </div>
                         </div>
@@ -1205,7 +1251,7 @@ export function Desk() {
                           settled it is a different question, and until it does
                           this row still has work left on it.
                           The signature comes from state if this session
-                          produced it, and from storage if an earlier one did —
+                          produced it, and from storage if an earlier one did - 
                           the enclave will not issue it twice. */}
                       {(() => {
                         const held =
@@ -1233,7 +1279,7 @@ export function Desk() {
                       <div className="grid lg:grid-cols-[minmax(0,34rem)_20rem] gap-6">
                         {/* No bid form past the deadline. commitBid is refused
                             after it, so the form was a page of controls that
-                            could only fail — and the longest thing on screen
+                            could only fail - and the longest thing on screen
                             for a row whose only remaining move is to clear. */}
                         {block !== null && countdown(r.deadline, block).passed ? (
                           <div>
@@ -1241,7 +1287,15 @@ export function Desk() {
                             <p className="mt-1 text-[11.5px] text-fg-mute leading-relaxed max-w-[40ch]">
                               Block {r.deadline.toLocaleString()} has passed, so no further bid can be
                               sealed on this one. {r.bidCount === 0
-                                ? "Nothing was bid; clearing it returns the lot to the maker."
+                                // This said clearing returns the lot, which is
+                                // false and expensive: the enclave answers an
+                                // empty auction with "no bids" and signs
+                                // nothing, so requestClearing is a paid
+                                // transaction that can never produce a
+                                // settlement - and the desk then advises
+                                // pressing it again. reclaimLot is the only
+                                // call that moves the lot back.
+                                ? "Nothing was bid. Clearing cannot settle an empty auction - the maker takes the lot back with reclaimLot, which anyone may call for them once the deadline has passed."
                                 : `${r.bidCount} sealed ${r.bidCount === 1 ? "bid is" : "bids are"} waiting to be opened.`}
                             </p>
                           </div>
@@ -1255,7 +1309,7 @@ export function Desk() {
                         />
                         )}
                         <div className="lg:border-l lg:border-line lg:pl-6">
-                          {/* This used to ask "Past the deadline?" — a question
+                          {/* This used to ask "Past the deadline?" - a question
                               the desk can answer from one eth_blockNumber, and
                               it offered the same button on an auction with two
                               hours left as on one that closed yesterday. */}
@@ -1264,21 +1318,37 @@ export function Desk() {
                             {block === null
                               ? "Cannot read the chain's head, so whether the deadline has passed is unknown."
                               : countdown(r.deadline, block).passed
-                                ? `Block ${r.deadline.toLocaleString()} is behind us — this can be cleared now.`
+                                ? `Block ${r.deadline.toLocaleString()} is behind us - this can be cleared now.`
                                 : `Not until block ${r.deadline.toLocaleString()}, ${countdown(r.deadline, block).text}.`}
                           </p>
                           {/* Nothing to press before the deadline.
                               requestClearing reverts DeadlineNotReached and the
                               enclave refuses too, so an auction with two hours
                               left was offering two paid transactions that could
-                              only fail — the same mistake as offering to bid on
+                              only fail - the same mistake as offering to bid on
                               a cleared auction, which the desk already refuses
                               to make. The countdown above says when, and this
                               says what will appear. */}
-                          {block !== null && !countdown(r.deadline, block).passed ? (
+                          {/* Fails to "no controls", not to "all controls".
+                              This read `block !== null && !passed`, so an
+                              unreadable chain head made the condition false and
+                              fell through to the else - offering a paid
+                              requestClearing on an auction days from its
+                              deadline, directly under a line saying we could not
+                              tell whether the deadline had passed. The bid form
+                              two columns over already failed the safe way. */}
+                          {block === null || !countdown(r.deadline, block).passed || r.bidCount === 0 ? (
                             <p className="mt-2 text-[11.5px] text-fg-mute max-w-[30ch] leading-relaxed">
-                              Clearing opens at that block, for anyone — liveness never depends on the
-                              maker. Nothing to press until then.
+                              {block === null
+                                ? "Nothing to press until the chain's head can be read - clearing before the deadline is refused by the contract, and we cannot tell yet which side of it this is."
+                                : !countdown(r.deadline, block).passed
+                                  ? "Clearing opens at that block, for anyone - liveness never depends on the maker. Nothing to press until then."
+                                  // An empty auction has nothing to clear. The
+                                  // enclave answers "no bids" and signs
+                                  // nothing, so every clearing control here was
+                                  // a paid transaction that could not end in a
+                                  // settlement.
+                                  : "No bids arrived, so there is nothing to open. Reclaiming is what closes this one."}
                             </p>
                           ) : (
                             <>
@@ -1321,7 +1391,7 @@ export function Desk() {
                               The contract refuses a clearing whose signature
                               does not recover to the registered enclave, or
                               whose digest is not the digest of the commitments
-                              IT recorded — so an auctioneer who dropped a bid
+                              IT recorded - so an auctioneer who dropped a bid
                               produces a settlement that reverts. */}
                           {lastOutcome?.rfqId === r.rfqId && (
                             <SettleBlock
@@ -1336,14 +1406,18 @@ export function Desk() {
                               start with no way to call it: a maker who drew no
                               bid had escrowed a lot and no route back to it
                               except a hand-written transaction. */}
-                          {!!address &&
-                            r.maker.toLowerCase() === address.toLowerCase() &&
-                            countdown(r.deadline, block).passed && (
+                          {/* Anyone, not just the maker. reclaimLot only ever
+                              sends the lot back to whoever posted it, and the
+                              contract lets any caller do that once the deadline
+                              has passed - so hiding the control from everybody
+                              else left an escrowed lot with, for most readers,
+                              no visible way home. */}
+                          {countdown(r.deadline, block).passed && (
                               <div className="mt-4 pt-4 border-t border-line">
-                                <Lbl>Your lot</Lbl>
-                                <p className="mt-1 mb-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[26ch]">
+                                <Lbl>{!!address && r.maker.toLowerCase() === address.toLowerCase() ? "Your lot" : "The lot"}</Lbl>
+                                <p className="mt-1 mb-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[30ch]">
                                   {r.bidCount === 0
-                                    ? "Nobody bid. Take the lot back — this closes the auction with no winner."
+                                    ? "Nobody bid. The lot goes back to the maker - anyone may send it, it can only go there."
                                     : `${r.bidCount} sealed ${r.bidCount === 1 ? "bid" : "bids"} are on this. Reclaiming closes it without clearing them.`}
                                 </p>
                                 <Btn
@@ -1365,7 +1439,7 @@ export function Desk() {
           </>
         )}
 
-        {/* The most recent line stays in view wherever you are — feedback has to
+        {/* The most recent line stays in view wherever you are - feedback has to
             be where the action was. The rest is kept under Activity. */}
         {latest && panel !== "activity" && (
           <p className="mx-4 mt-6 pt-4 border-t border-line text-[11px] leading-relaxed text-fg-dim break-all">
@@ -1383,7 +1457,7 @@ export function Desk() {
       </main>
 
       <footer className="border-t-2 border-fg px-4 py-3 flex flex-wrap gap-x-6 gap-y-1 text-[11.5px] tracking-[0.08em] uppercase text-fg-mute">
-        <span>BUTA<Red>®</Red> — sealed-bid OTC on Flare Confidential Compute</span>
+        <span>BUTA<Red>®</Red> - sealed-bid OTC on Flare Confidential Compute</span>
         {/* "not deployed" sat three lines under a chip reading TEE PRODUCTION,
             which is a contradiction to anyone reading top to bottom. Both were
             true and neither said which sense it meant. */}
@@ -1400,7 +1474,7 @@ export function Desk() {
  * The three claims, where a reader lands.
  *
  * The desk led with what it does and never said why it takes an enclave to do
- * it — which is the first question anybody serious asks, and the one a sealed
+ * it - which is the first question anybody serious asks, and the one a sealed
  * bid on a public chain usually cannot answer. "Encrypted bids" is a feature
  * several things claim. The middle claim here is the one that is hard: the
  * enclave signs over the set the CONTRACT recorded, so the party running the
@@ -1413,7 +1487,7 @@ function Claims() {
   //
   // These were a paragraph apiece, and three paragraphs of argument above a
   // table is an essay, not a desk. The reasoning did not get worse for being
-  // cut — it moved to where reasoning belongs, which is the code and
+  // cut - it moved to where reasoning belongs, which is the code and
   // SUBMISSION.md. What a reader needs on the page is the claim and where it
   // bites.
   const claims: [string, React.ReactNode][] = [
@@ -1430,7 +1504,7 @@ function Claims() {
     ],
     [
       "Solvency, without disclosure",
-      <>Bidders who could not pay are dropped — without anyone learning what they bid.</>,
+      <>Bidders who could not pay are dropped - without anyone learning what they bid.</>,
     ],
   ];
 
@@ -1457,7 +1531,7 @@ function Claims() {
  * Run the whole thing yourself, in about three minutes.
  *
  * The desk assumed a reader who already knew what to press. Somebody arriving
- * cold — a judge, say — could read every claim on the page and still have no
+ * cold - a judge, say - could read every claim on the page and still have no
  * route to testing one, because the only auctions on the book were ours and
  * they close when they close.
  *
@@ -1474,7 +1548,7 @@ function TryIt({ live }: { live: boolean }) {
         <a className="text-accent hover:underline" href="https://faucet.flare.network/coston2" target="_blank" rel="noopener">
           Coston2 faucet
         </a>{" "}
-        — gas and FXRP, once a day per address.
+ - gas and FXRP, once a day per address.
       </>,
     ],
     ["Post a block", <>Set the deadline in minutes. Two is enough.</>],
@@ -1482,20 +1556,23 @@ function TryIt({ live }: { live: boolean }) {
     [
       "Clear, then settle",
       <>
-        Winner pays the runner-up's price. Check it on <b className="text-fg">Audit</b>, not on our
-        word.
+        {/* "Winner pays the runner-up's price" is false for exactly the
+            person following these four steps: they are the only bidder, and a
+            lone bid clears at the reserve. */}
+        Winner pays the runner-up's price - or your reserve, if nobody else bid. Check it on{" "}
+        <b className="text-fg">Audit</b>, not on our word.
       </>,
     ],
   ];
 
   return (
     <div className="border-t border-line px-4 py-3">
-      <Lbl>Try it yourself — about three minutes</Lbl>
+      <Lbl>Try it yourself - about three minutes</Lbl>
       {!live && (
         <p className="mt-1 text-[11.5px] leading-relaxed text-accent max-w-[70ch]">
           The enclave is not answering this browser right now, so the book below is demo data and
           steps 2 to 4 will not go through. The contract and every settlement it has already made
-          are on Coston2 and stay checkable — see Audit.
+          are on Coston2 and stay checkable - see Audit.
         </p>
       )}
       <ol className="mt-2 grid gap-x-6 gap-y-2 md:grid-cols-4 max-w-[76rem]">
@@ -1519,13 +1596,13 @@ function TryIt({ live }: { live: boolean }) {
  * What a reader can check without trusting the page.
  *
  * Every claim the desk makes about itself is a public read, and they were only
- * written down in SUBMISSION.md — which meant anyone looking at the product had
+ * written down in SUBMISSION.md - which meant anyone looking at the product had
  * to leave it to find out whether any of this was true. The machine is read from
  * the diamond on load, so this panel cannot claim a machine that is not there.
  */
 const EXPLORER = "https://coston2-explorer.flare.network/address/";
 // Only a last resort. The desk asks the diamond which contract is bound to
-// the desk's extension — a constant here was the first of four deployments while
+// the desk's extension - a constant here was the first of four deployments while
 // three later ones were live, and a stale address does not throw, it just
 // reverts every transaction against a contract nobody is bound to any more.
 const SENDER_FALLBACK = env.instructionSender || "0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D";
@@ -1535,7 +1612,7 @@ function Audit({ tee, sender }: { tee: TeeStatus; sender: string }) {
     [
       "Instruction sender",
       <a className="hover:text-accent break-all font-mono" href={`${EXPLORER}${sender}`} target="_blank" rel="noopener">{sender}</a>,
-      "Read from the diamond, not written down here — this is whatever contract is bound to the desk's extension right now. It records every commitment, checks the enclave's signature, and rejects a clearing whose set digest is not the set it recorded.",
+      "Read from the diamond, not written down here - this is whatever contract is bound to the desk's extension right now. It records every commitment, checks the enclave's signature, and rejects a clearing whose set digest is not the set it recorded.",
     ],
     [
       "FCC extension",
@@ -1576,7 +1653,7 @@ function Audit({ tee, sender }: { tee: TeeStatus; sender: string }) {
         ))}
       </div>
       <p className="mt-4 text-[11px] text-fg-dim leading-relaxed max-w-[70ch]">
-        The clearing price is public by design — Vickrey pays the second price, so that number is
+        The clearing price is public by design - Vickrey pays the second price, so that number is
         on-chain. What stays sealed is which bid produced it, every amount that lost, and the
         maker's reserve.
       </p>
@@ -1586,7 +1663,7 @@ function Audit({ tee, sender }: { tee: TeeStatus; sender: string }) {
 
 // ── forms ────────────────────────────────────────────────────────────────────
 
-/** Only ever rendered for an auction that is open — the desk decides that, and
+/** Only ever rendered for an auction that is open - the desk decides that, and
  *  shows something useful for the other two cases instead of a dead end here. */
 function BidForm(props: {
   sel: RfqState;
@@ -1602,7 +1679,7 @@ function BidForm(props: {
   const [receipt, setReceipt] = useState<{ commitment: string; nonce: string; amount: string } | null>(null);
   const { signMessageAsync } = useSignMessage();
   // useAccount().chainId is the chain the WALLET is on. useChainId() is the
-  // chain wagmi is configured for — only Coston2 is configured, so it answered
+  // chain wagmi is configured for - only Coston2 is configured, so it answered
   // 114 whatever the wallet was doing, and the warning could never fire.
   const { chainId: walletChain } = useAccount();
   const chainId = walletChain ?? coston2.id;
@@ -1614,7 +1691,7 @@ function BidForm(props: {
       <div>
         <Lbl>Bidding on</Lbl>
         <div className="mt-1">
-          RFQ {String(props.sel.rfqId).padStart(3, "0")} — {props.sel.lot.toLocaleString()} {props.sel.pair}
+          RFQ {String(props.sel.rfqId).padStart(3, "0")} - {props.sel.lot.toLocaleString()} {props.sel.pair}
         </div>
       </div>
 
@@ -1623,7 +1700,7 @@ function BidForm(props: {
         value={amount}
         onChange={setAmount}
         placeholder="130450"
-        hint="Vickrey: if you win, you pay the runner-up's price — so bid what it is worth to you."
+        hint="Vickrey: if you win, you pay the runner-up's price - so bid what it is worth to you."
       />
 
       {/* What has to be true before this can be sealed, said before it is
@@ -1643,14 +1720,14 @@ function BidForm(props: {
           [chainId === coston2.id,
             chainId === coston2.id
               ? "Your wallet is on Coston2, which the signature is bound to"
-              : `Your wallet is on chain ${chainId}, not Coston2 (${coston2.id}) — this bid would be rejected`],
+              : `Your wallet is on chain ${chainId}, not Coston2 (${coston2.id}) - this bid would be rejected`],
           // The one line that must never be quietly true. Encrypting to a key
           // the relay handed over means the relay can read the bid, and that is
           // the whole thing this desk claims not to do.
           [!env.allowUnverifiedTeeKey,
             env.allowUnverifiedTeeKey
               ? "UNVERIFIED KEY: this build encrypts to whatever the relay serves, so the relay can read your bid"
-              : "Encrypted to the key the chain published — the relay cannot substitute it"],
+              : "Encrypted to the key the chain published - the relay cannot substitute it"],
           [true, "keccak256(amount ‖ nonce ‖ your address) computed here, not sent"],
           [true, "The operator relays ciphertext"],
         ].map(([ok, text]) => (
@@ -1674,7 +1751,7 @@ function BidForm(props: {
             )}
           </ConnectButton.Custom>
           <span className="text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
-            Sealed here, signed by your wallet — so nobody can bid in your name.
+            Sealed here, signed by your wallet - so nobody can bid in your name.
           </span>
         </div>
       ) : (
@@ -1682,7 +1759,7 @@ function BidForm(props: {
         {/* The transaction first, because it is the one that counts.
             A bid sealed over the direct channel lives in the enclave's memory
             and nowhere else, so it can demonstrate the mechanism but can never
-            be part of a settlement — relayClearing checks a clearing against
+            be part of a settlement - relayClearing checks a clearing against
             the set the CONTRACT recorded. Leading with the demo rail was
             defensible while the only desk that could reach an enclave was a
             local one. On the deployed desk the direct channel is closed on
@@ -1711,8 +1788,8 @@ function BidForm(props: {
           quiet
           busy={busy}
           onClick={async () => {
-            // BigInt throws on anything that is not a whole number — "1.5",
-            // "1e9", "abc" — and this ran outside the try, so a typo killed the
+            // BigInt throws on anything that is not a whole number - "1.5",
+            // "1e9", "abc" - and this ran outside the try, so a typo killed the
             // click with an uncaught error and no message. One test in
             // qa/flows-desk.mjs types each of them.
             if (!/^\d+$/.test(amount.trim())) {
@@ -1750,7 +1827,7 @@ function BidForm(props: {
           Seal over the direct rail
         </Btn>
         <p className="mt-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
-          Same envelope, straight to the enclave. Memory only, so it can never settle — and the
+          Same envelope, straight to the enclave. Memory only, so it can never settle - and the
           deployed desk refuses it.
         </p>
         </div>
@@ -1759,7 +1836,7 @@ function BidForm(props: {
 
       {receipt && (
         <div className="border border-line bg-bg-1 p-3 flex flex-col gap-2">
-          <Lbl>Your seal — keep the nonce</Lbl>
+          <Lbl>Your seal - keep the nonce</Lbl>
           {/* The nonce is 32 bytes somebody has to copy correctly or lose the
               only proof of what they bid. Rendering it in a proportional face,
               where 0/O and 1/l are the same glyph shape, is a way to lose it. */}
@@ -1770,7 +1847,7 @@ function BidForm(props: {
             <span className="text-fg-mute">nonce </span>{receipt.nonce}
           </div>
           <p className="text-[11.5px] text-fg-mute leading-relaxed">
-            The chain records only the commitment. With the nonce you — and only you — can
+            The chain records only the commitment. With the nonce you - and only you - can
             later prove to anyone what you bid, without it ever becoming public.
           </p>
         </div>
@@ -1793,15 +1870,27 @@ function PostForm(props: {
   const [minutes, setMinutes] = useState("60");
   const [invited, setInvited] = useState("");
   const [bilateral, setBilateral] = useState(false);
-  const [rail, setRail] = useState<"direct" | "chain">("direct");
+  // On-chain by default.
+  //
+  // "direct" was the default from when the only desk that could reach an
+  // enclave was a local one. On the deployed desk that rail is refused - the
+  // proxy carries reads only - so the first action the page's own four-step
+  // guide recommends answered 403, with the raw error as the only feedback.
+  // The rail that escrows the lot and that a clearing can settle against is the
+  // one a newcomer should land on.
+  const [rail, setRail] = useState<"direct" | "chain">("chain");
   const [busy, setBusy] = useState(false);
 
   // Minutes in, block out. The field used to ask for a block number, with a
-  // placeholder of 24109880 — a real block, nine million behind the chain by
+  // placeholder of 24109880 - a real block, nine million behind the chain by
   // now, so anyone who followed the example posted an auction whose deadline
   // had already passed. Nobody knows what block it will be in an hour; the
   // desk does.
-  const SECONDS_PER_BLOCK = 1.8;
+  // Measured, not the target - the same 2.059s the countdown uses. This copy
+  // was missed when blockClock.ts was corrected, so a form promising 60 minutes
+  // produced a block the book then described as "about 1h 8m left": two numbers
+  // disagreeing on one screen, seconds apart.
+  const SECONDS_PER_BLOCK = 2.06;
   const mins = Number(minutes);
   const deadlineBlock =
     props.block !== null && Number.isFinite(mins) && mins > 0
@@ -1811,8 +1900,8 @@ function PostForm(props: {
   return (
     <div className="flex flex-col gap-4">
       {/* Two shapes, one mechanism. An invited auction with a single sealed bid
-          IS a bilateral OTC settle — same commitment, same signature, same set
-          digest — which is why there is no separate opcode for it. The UI never
+          IS a bilateral OTC settle - same commitment, same signature, same set
+          digest - which is why there is no separate opcode for it. The UI never
           said so: the second product was an optional field at the bottom of the
           form, below the deadline. */}
       <div>
@@ -1820,7 +1909,7 @@ function PostForm(props: {
         <div className="mt-2 grid sm:grid-cols-2 gap-px bg-line border border-line">
           {[
             [false, "Open auction", "Anyone may seal a bid. Highest wins and pays the runner-up's price."],
-            [true, "One counterparty", "Only the address you name may bid. A lone sealed bid clears at your reserve — a bilateral settle with the same guarantees."],
+            [true, "One counterparty", "Only the address you name may bid. A lone sealed bid clears at your reserve - a bilateral settle with the same guarantees."],
           ].map(([mode, title, why]) => (
             <button
               key={String(title)}
@@ -1858,7 +1947,7 @@ function PostForm(props: {
         hint={
           props.block === null
             ? "Cannot read the chain's head, so this cannot be turned into a deadline block yet."
-            : `Deadline is block ${deadlineBlock.toLocaleString()} — a block number, not a clock, because the enclave's clock is not a trust anchor.`
+            : `Deadline is block ${deadlineBlock.toLocaleString()} - a block number, not a clock, because the enclave's clock is not a trust anchor.`
         }
       />
       {bilateral && (
@@ -1893,7 +1982,7 @@ function PostForm(props: {
         </div>
         <p className="mt-1 text-[11.5px] text-fg-mute leading-relaxed max-w-[52ch]">
           {rail === "direct"
-            ? "Straight to the enclave. Nothing is escrowed and nothing is recorded on-chain — fine for a demo, not a trade."
+            ? "Straight to the enclave. Nothing is escrowed and nothing is recorded on-chain - fine for a demo, not a trade."
             : `A transaction: ${TOKENS.FXRP.symbol} is escrowed in the contract and the instruction goes through the diamond, so the commitment set exists on-chain before the enclave has heard of it. Needs an approval first.`}
         </p>
       </div>
@@ -1908,11 +1997,11 @@ function PostForm(props: {
             return props.onDone("A bilateral block needs the counterparty's address.", 0);
           }
           // An empty reserve is a floor of zero, and clearing floors AT the
-          // reserve — so a lone bid takes the lot for nothing. The field was
+          // reserve - so a lone bid takes the lot for nothing. The field was
           // optional and said nothing about that.
           if (!/^\d+$/.test(reserve.trim()) || BigInt(reserve.trim()) === 0n) {
             return props.onDone(
-              "Set a reserve above zero. It is your floor, and a single bid clears at exactly it — " +
+              "Set a reserve above zero. It is your floor, and a single bid clears at exactly it - " +
                 "a zero reserve gives the lot away.",
               0,
             );

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# post-build.sh — Register TEE version and TEE machine on-chain.
+# post-build.sh - Register TEE version and TEE machine on-chain.
 #
 # Run this AFTER Docker Compose brings up the extension TEE + proxy + Redis.
 #
 # Inputs (env vars):
-#   EXT_PROXY_URL       — extension proxy URL (auto-detected: :6674 for Docker, :6664 for local)
-#   NORMAL_PROXY_URL    — normal/FTDC proxy URL (default: http://localhost:6662)
-#   CHAIN_URL           — chain RPC URL (default: http://127.0.0.1:8545)
-#   ADDRESSES_FILE      — path to deployed-addresses.json (auto-detected if unset)
-#   TEE_VERSION         — version string (default: v0.1.0)
-#   LOCAL_MODE          — skip attestation (default: true)
-#   WAIT_TIMEOUT        — service wait timeout in seconds (default: 120)
-#   EXTENSION_OWNER_KEY — private key override for AddTeeVersion (optional)
-#   SKIP_ALLOW_VERSION  — skip step 1 if version already registered on-chain (default: false)
+#   EXT_PROXY_URL - extension proxy URL (auto-detected: :6674 for Docker, :6664 for local)
+#   NORMAL_PROXY_URL - normal/FTDC proxy URL (default: http://localhost:6662)
+#   CHAIN_URL - chain RPC URL (default: http://127.0.0.1:8545)
+#   ADDRESSES_FILE - path to deployed-addresses.json (auto-detected if unset)
+#   TEE_VERSION - version string (default: v0.1.0)
+#   LOCAL_MODE - skip attestation (default: true)
+#   WAIT_TIMEOUT - service wait timeout in seconds (default: 120)
+#   EXTENSION_OWNER_KEY - private key override for AddTeeVersion (optional)
+#   SKIP_ALLOW_VERSION - skip step 1 if version already registered on-chain (default: false)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -133,7 +133,7 @@ cd "$PROJECT_DIR/tools"
 # --- Step 1: Allow TEE version on extension ---
 step 1 "Allow TEE version"
 if [[ "$SKIP_ALLOW_VERSION" == "true" ]]; then
-    log "SKIP_ALLOW_VERSION=true — skipping (version assumed already registered on-chain)"
+    log "SKIP_ALLOW_VERSION=true - skipping (version assumed already registered on-chain)"
 else
     go run ./cmd/allow-tee-version \
         -a "$ADDRESSES_FILE" \
@@ -149,7 +149,7 @@ fi
 # registry into ExtensionGovernanceFacet, and register-tee now checks that the
 # on-chain governance hash matches the one the TEE node derived from its own
 # GOVERNANCE_SIGNERS / GOVERNANCE_THRESHOLD. Skip this and register-tee reverts
-# InvalidGovernanceHash. Both sides must see identical values — that is the
+# InvalidGovernanceHash. Both sides must see identical values - that is the
 # whole failure mode.
 step 1b "Set TEE governance"
 go run ./cmd/set-governance \
@@ -178,12 +178,12 @@ go run ./cmd/register-tee \
 step 3 "Set extension ID on InstructionSender"
 log "InstructionSender: $INSTRUCTION_SENDER"
 
-# setExtensionId() is idempotent — reverts with "Extension ID already set." if already done.
+# setExtensionId() is idempotent - reverts with "Extension ID already set." if already done.
 if cast send "$INSTRUCTION_SENDER" "setExtensionId()" \
     --rpc-url "$CHAIN_URL" --private-key "$DEPLOYMENT_PRIVATE_KEY" >/dev/null 2>&1; then
     log "Extension ID set on InstructionSender"
 else
-    log "Extension ID already set on InstructionSender (or call failed — continuing)"
+    log "Extension ID already set on InstructionSender (or call failed - continuing)"
 fi
 
 echo ""

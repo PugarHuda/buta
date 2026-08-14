@@ -39,7 +39,7 @@ func TestSetupExtension_DuplicateSenderFails(t *testing.T) {
 	}
 	t.Logf("First registration: ID=%s", extID1.String())
 
-	// Second registration with the same InstructionSender should fail —
+	// Second registration with the same InstructionSender should fail - 
 	// the contract rejects duplicate senders. Duplicate detection belongs in
 	// verify-deploy (check R7), not in the deploy hot path.
 	_, err = fccutils.SetupExtension(testSupport, governanceHash, addr, common.Address{})

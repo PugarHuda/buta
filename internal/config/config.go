@@ -31,7 +31,7 @@ const (
 	OPCommandListRfqs     = "LIST_RFQS"
 
 	// DEPOSIT, WITHDRAW and DIRECT_SETTLE used to live here. The first two are
-	// the fork's vault, which is deleted — the submission says custody you
+	// the fork's vault, which is deleted - the submission says custody you
 	// cannot enter is not a feature, and leaving the opcodes behind made that
 	// read like a temporary removal. DIRECT_SETTLE was never needed: an invited
 	// auction with one sealed bid IS a bilateral settle, with the same
@@ -45,7 +45,7 @@ var (
 	// AllowDirectAuctionOps lets POST_RFQ / COMMIT_BID / CLEAR_AUCTION arrive as
 	// direct actions instead of on-chain instructions. Demo convenience for the
 	// simulated-TEE path while the Coston2 FCC round trip is being reworked.
-	// In production these MUST come from the chain — a direct post has no
+	// In production these MUST come from the chain - a direct post has no
 	// escrow and a direct clear has no deadline check behind it.
 	AllowDirectAuctionOps = false
 

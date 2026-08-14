@@ -21,7 +21,7 @@ EXTENSION_ID=0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
 
 	for _, res := range results {
 		if res.Status == FAIL {
-			t.Errorf("unexpected FAIL: %s — %s", res.Name, res.Message)
+			t.Errorf("unexpected FAIL: %s - %s", res.Name, res.Message)
 		}
 	}
 
@@ -418,7 +418,7 @@ EXTENSION_ID=0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
 	results := CheckExtensionEnvFormat(path)
 	for _, res := range results {
 		if res.Status == FAIL {
-			t.Errorf("unexpected FAIL for lowercase hex: %s — %s", res.Name, res.Message)
+			t.Errorf("unexpected FAIL for lowercase hex: %s - %s", res.Name, res.Message)
 		}
 	}
 }
@@ -437,7 +437,7 @@ EXTENSION_ID=0x00000000000000000000000000000000000000000000000000000000000000Db
 	results := CheckExtensionEnvFormat(path)
 	for _, res := range results {
 		if res.Status == FAIL {
-			t.Errorf("unexpected FAIL for mixed-case (EIP-55) address: %s — %s", res.Name, res.Message)
+			t.Errorf("unexpected FAIL for mixed-case (EIP-55) address: %s - %s", res.Name, res.Message)
 		}
 	}
 }

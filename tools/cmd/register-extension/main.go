@@ -44,7 +44,7 @@ func main() {
 	}
 
 	if extensionID == nil || extensionID.Sign() <= 0 {
-		logger.Warnf("WARNING: extension ID is %v — verify this is expected", extensionID)
+		logger.Warnf("WARNING: extension ID is %v - verify this is expected", extensionID)
 	}
 
 	extensionIDHex := fmt.Sprintf("0x%064x", extensionID)

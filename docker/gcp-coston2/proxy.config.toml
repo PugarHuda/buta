@@ -13,7 +13,7 @@ signing_policy_fetch_interval = "20s"
 chain_id = 114
 
 # Coston2 c-chain indexer DB (external, shared).
-# Host/password are templated at deploy time — see docker-compose env_file.
+# Host/password are templated at deploy time - see docker-compose env_file.
 [db]
 host = "INDEXER_DB_HOST"
 port = 3306

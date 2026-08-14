@@ -21,7 +21,7 @@ Each run, in order:
    deposit into the extension.
 5. **Run** personas (market-maker, taker, walker, whale, flicker) concurrently
    for the configured duration (or until `Ctrl+C`).
-6. **Sweep** — cancel any remaining open orders and withdraw all on-chain
+6. **Sweep** - cancel any remaining open orders and withdraw all on-chain
    balances back to each trader's wallet. Runs even on `SIGINT`.
 
 Metrics (latency p50 / p95 / p99 and error rates per action) are printed
@@ -33,8 +33,8 @@ periodically during the run and as a final snapshot on exit.
 
 Before the first run:
 
-1. Extension deployed and registered — `scripts/full-setup.sh`.
-2. Test tokens deployed — `cd tools && go run ./cmd/test-setup`. This deploys one
+1. Extension deployed and registered - `scripts/full-setup.sh`.
+2. Test tokens deployed - `cd tools && go run ./cmd/test-setup`. This deploys one
    shared `TUSDT` quote token plus one base token per pair (`TFLR`, `TBTC`,
    `TETH`), writes all three pairs to `config/pairs.json`, and writes
    `config/test-tokens.env` with `QUOTE_TOKEN`, legacy `BASE_TOKEN` (= FLR
@@ -82,7 +82,7 @@ cd tools && go run ./cmd/stress-test \
 
 ---
 
-## Quick start — "just give me some activity"
+## Quick start - "just give me some activity"
 
 ### Fastest smoke test (~1 minute, 3 traders)
 
@@ -111,7 +111,7 @@ cd tools && go run ./cmd/stress-test \
   -a "$ADDRESSES_FILE" -c "$CHAIN_URL" -p "$EXT_PROXY_URL" -instructionSender "$INSTRUCTION_SENDER"
 ```
 
-Market-makers post resting bids and asks around a mid-price — use this when
+Market-makers post resting bids and asks around a mid-price - use this when
 you want to populate the book for the UI or for another test to trade against.
 
 ### Only aggressive market-order flow
@@ -125,10 +125,10 @@ cd tools && go run ./cmd/stress-test \
   -a "$ADDRESSES_FILE" -c "$CHAIN_URL" -p "$EXT_PROXY_URL" -instructionSender "$INSTRUCTION_SENDER"
 ```
 
-(You need resting orders on the book for takers to hit — usually combine with
+(You need resting orders on the book for takers to hit - usually combine with
 at least one `mm` trader, e.g. `-persona-mix=mm:2,taker:6`.)
 
-### Long soak — simulate a quiet trading day
+### Long soak - simulate a quiet trading day
 
 ```bash
 cd tools && go run ./cmd/stress-test \
@@ -166,20 +166,20 @@ Tiers are preset persona mixes + durations. Pick one with `-tier=`.
 | L4       | 10 | 60    | 100    | 20    | 10      | 200   | 15m              | Stress |
 | L5       | 20 | 150   | 250    | 50    | 30      | 500   | 30s              | Max throughput burst |
 | day      | 2  | 2     | 1      | 0     | 0       | 5     | until SIGTERM    | Long-running soak, static mid=100, slow cadence |
-| btc-day  | 2  | 2     | 1      | 0     | 0       | 5     | until SIGTERM    | Soak tracking live BTC/USD (CoinGecko); qty 0.005–0.1 BTC |
-| eth-day  | 2  | 2     | 1      | 0     | 0       | 5     | until SIGTERM    | Soak tracking live ETH/USD (CoinGecko); qty 0.1–1 ETH |
+| btc-day  | 2  | 2     | 1      | 0     | 0       | 5     | until SIGTERM    | Soak tracking live BTC/USD (CoinGecko); qty 0.005-0.1 BTC |
+| eth-day  | 2  | 2     | 1      | 0     | 0       | 5     | until SIGTERM    | Soak tracking live ETH/USD (CoinGecko); qty 0.1-1 ETH |
 
-**L1–L5** — throughput / contention tests (static pricing around mid = 100).
-**day** — multi-hour FLR/USDT correctness soak; slow cadence, tight price bands,
+**L1-L5** - throughput / contention tests (static pricing around mid = 100).
+**day** - multi-hour FLR/USDT correctness soak; slow cadence, tight price bands,
 balance-neutral, Persistent traders.
-**btc-day / eth-day** — same cadence as `day`, but the mid floats with the real
+**btc-day / eth-day** - same cadence as `day`, but the mid floats with the real
 CoinGecko price and qty bounds are scaled for high-priced assets. Use these
 when you target `-pair=BTC/USDT` or `-pair=ETH/USDT`; a plain `day` tier would
 send orders at $100/BTC and is useless for those books.
 
 ### Persistent vs ephemeral traders
 
-- **Market-makers are always Persistent** — they run until `Ctrl+C` regardless
+- **Market-makers are always Persistent** - they run until `Ctrl+C` regardless
   of `-duration`. This is deliberate: if an MM stopped mid-run, the book would
   go one-sided immediately.
 - With `-duration=0` or `-tier=day`, **every trader is Persistent**.
@@ -193,7 +193,7 @@ send orders at $100/BTC and is useless for those books.
 |----------|-----------------------------------------------------------|------------------|
 | mm       | Posts limit orders on both sides of mid, cancels stale     | 3s refresh |
 | taker    | Aggressive market orders crossing the book                 | 500ms |
-| walker   | Random side / type / price within tier bounds              | 500ms–2s random |
+| walker   | Random side / type / price within tier bounds              | 500ms-2s random |
 | whale    | Occasional very large market orders                        | 30s |
 | flicker  | Alternates place / cancel rapidly (tests cancel path)      | 200ms |
 
@@ -216,7 +216,7 @@ All flags for `cd tools && go run ./cmd/stress-test`:
 | `-pair` | `FLR/USDT` | Trading pair name as defined in `config/pairs.json`. The symbol before the `/` selects `BASE_TOKEN_<SYMBOL>` from `config/test-tokens.env`. |
 | `-keys` | `./traders.json` | Cache file for trader private keys. Reused across runs so traders keep their balances. |
 | `-fund-per-trader` | `50000000000000000` | Native wei per trader at funding time (0.05 FLR). |
-| `-fund-min` | `10000000000000000` | Top-up threshold — traders below this (0.01 FLR) get refilled. |
+| `-fund-min` | `10000000000000000` | Top-up threshold - traders below this (0.01 FLR) get refilled. |
 | `-mint` | `1000000` | Human token amount to mint per trader per side (scaled by `decimals()`). |
 | `-deposit` | `100000` | Human token amount to deposit per trader per side. |
 | `-log-file` | *(unset)* | Also write all log output to this file. Console output preserved. |
@@ -229,14 +229,14 @@ All flags for `cd tools && go run ./cmd/stress-test`:
 
 ### Environment variables
 
-- `QUOTE_TOKEN` — required. Shared TUSDT quote address for every pair.
-- `BASE_TOKEN_<SYMBOL>` — one per pair (`BASE_TOKEN_FLR`, `BASE_TOKEN_BTC`,
+- `QUOTE_TOKEN` - required. Shared TUSDT quote address for every pair.
+- `BASE_TOKEN_<SYMBOL>` - one per pair (`BASE_TOKEN_FLR`, `BASE_TOKEN_BTC`,
   `BASE_TOKEN_ETH`). `stress-test` selects the right one from the `-pair`
   flag (the symbol before the `/`). Falls back to `BASE_TOKEN` if unset.
-- `BASE_TOKEN` — legacy single-base variable, points at the FLR base. Kept for
+- `BASE_TOKEN` - legacy single-base variable, points at the FLR base. Kept for
   `test-deposit` and `test-withdraw`.
 - All of the above are populated by `test-setup` into `config/test-tokens.env`.
-- `DEPLOYMENT_PRIVATE_KEY` — used to fund traders.
+- `DEPLOYMENT_PRIVATE_KEY` - used to fund traders.
 
 ### Targeting a specific pair
 
@@ -251,7 +251,7 @@ For the oracle soak tiers, the tier already knows which asset to price from
 CoinGecko, but you still need `-pair` so orders route to the right book:
 
 ```bash
-# Default — FLR/USDT (static mid=100, no oracle)
+# Default - FLR/USDT (static mid=100, no oracle)
 cd tools && go run ./cmd/stress-test -tier=L2 -a "$ADDRESSES_FILE" -c "$CHAIN_URL" -p "$EXT_PROXY_URL" -instructionSender "$INSTRUCTION_SENDER"
 
 # BTC/USDT with live BTC/USD mid from CoinGecko and BTC-sized qty
@@ -268,7 +268,7 @@ cd tools && go run ./cmd/stress-test -tier=L2 -pair=BTC/USDT -price-symbol="" \
 ```
 
 Any tier combines with any pair, but the oracle tiers (`btc-day`, `eth-day`)
-only make sense with the matching pair — a plain `-tier=day -pair=BTC/USDT`
+only make sense with the matching pair - a plain `-tier=day -pair=BTC/USDT`
 would post BTC orders at $100 and drain balances immediately.
 
 `stress-test` targets one pair per invocation. To generate activity on
@@ -297,9 +297,9 @@ cache files so traders don't collide.
 
 During a run:
 
-- **Every 60s** — one-line compact status per action:
+- **Every 60s** - one-line compact status per action:
   `status place_order[ok=423 p50=120ms p95=340ms err=2%] | cancel_order[...]`
-- **Every 5 min** — full per-action breakdown with p50 / p95 / p99 / error buckets.
+- **Every 5 min** - full per-action breakdown with p50 / p95 / p99 / error buckets.
 
 On exit:
 
@@ -318,7 +318,7 @@ cd tools && go run ./cmd/stress-test -tier=L1 -duration=5m \
   -a "$ADDRESSES_FILE" -c "$CHAIN_URL" -p "$EXT_PROXY_URL" -instructionSender "$INSTRUCTION_SENDER"
 ```
 
-Open the frontend — you'll see the book fill in within a few seconds.
+Open the frontend - you'll see the book fill in within a few seconds.
 
 ### "I want a populated book to manually trade against"
 
@@ -365,9 +365,9 @@ already-funded traders.
 
 ## See also
 
-- [`tools/cmd/stress-test/README.md`](../tools/cmd/stress-test/README.md) —
+- [`tools/cmd/stress-test/README.md`](../tools/cmd/stress-test/README.md) - 
   short CLI reference.
-- [`docs/testing.md`](./testing.md) — manual test flows (single deposit /
+- [`docs/testing.md`](./testing.md) - manual test flows (single deposit /
   order / withdraw).
-- `docs/superpowers/plans/2026-04-20-orderbook-stress-test.md` — original
+- `docs/superpowers/plans/2026-04-20-orderbook-stress-test.md` - original
   design doc.

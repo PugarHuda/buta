@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# extension-post-setup.sh — Extension-specific setup that runs AFTER Docker Compose
+# extension-post-setup.sh - Extension-specific setup that runs AFTER Docker Compose
 # and AFTER the TEE has been registered on-chain by post-build.sh.
 #
 # This hook runs once the TEE node is live and registered on-chain via the
 # FlareTeeManager diamond. Use it for any setup that needs the TEE's on-chain
-# identity to exist — things you couldn't do in extension-setup.sh because the
+# identity to exist - things you couldn't do in extension-setup.sh because the
 # TEE didn't exist yet.
 #
 # For the orderbook this:
@@ -16,11 +16,11 @@
 # Without this, executeWithdrawal reverts with "TEE not configured".
 #
 # Inputs (env vars, typically sourced from .env + config/extension.env):
-#   ADDRESSES_FILE          — path to deployed-addresses.json
-#   CHAIN_URL               — chain RPC URL
-#   INSTRUCTION_SENDER      — InstructionSender contract address (from pre-build)
-#   EXTENSION_ID            — extension id (from pre-build)
-#   DEPLOYMENT_PRIVATE_KEY  — admin key for setTeeAddress call
+#   ADDRESSES_FILE - path to deployed-addresses.json
+#   CHAIN_URL - chain RPC URL
+#   INSTRUCTION_SENDER - InstructionSender contract address (from pre-build)
+#   EXTENSION_ID - extension id (from pre-build)
+#   DEPLOYMENT_PRIVATE_KEY - admin key for setTeeAddress call
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -40,7 +40,7 @@ if [[ -f "$CONFIG_FILE" ]]; then
     source "$CONFIG_FILE"
     log "Loaded config from $CONFIG_FILE"
 else
-    die "config/extension.env not found — run pre-build.sh first"
+    die "config/extension.env not found - run pre-build.sh first"
 fi
 
 CHAIN_URL="${CHAIN_URL:-http://127.0.0.1:8545}"
@@ -96,13 +96,13 @@ log "Extension ID:        $EXTENSION_ID"
 already_set="$(cast call "$INSTRUCTION_SENDER" "teeAddressSet()(bool)" --rpc-url "$CHAIN_URL" 2>/dev/null || echo "")"
 if [[ "$already_set" == "true" ]]; then
     current="$(cast call "$INSTRUCTION_SENDER" "teeAddress()(address)" --rpc-url "$CHAIN_URL")"
-    log "TEE address already set on InstructionSender ($current) — nothing to do"
+    log "TEE address already set on InstructionSender ($current) - nothing to do"
     exit 0
 fi
 
 # --- Look up TEE signing address from TeeMachineRegistry ---
 # getActiveTeeMachines returns (address[] teeIds, string[] urls). We take the
-# first entry — orderbook uses single-TEE signing (cosignersThreshold=0).
+# first entry - orderbook uses single-TEE signing (cosignersThreshold=0).
 log "Querying FlareTeeManager.getActiveTeeMachines($EXTENSION_ID)..."
 raw="$(cast call "$FLARE_TEE_MANAGER" \
     "getActiveTeeMachines(uint256)(address[],string[])" \
@@ -118,7 +118,7 @@ if [[ -z "$tee_addr" || "$tee_addr" == "0x00000000000000000000000000000000000000
     die "No active TEE machines registered for extension $EXTENSION_ID. Did post-build.sh complete?"
 fi
 
-# Count how many TEEs are active — warn if more than one, since we only wire one.
+# Count how many TEEs are active - warn if more than one, since we only wire one.
 num_addrs="$(echo "$addrs_stripped" | tr ',' '\n' | grep -c '0x' || true)"
 if [[ "$num_addrs" -gt 1 ]]; then
     log "Note: $num_addrs active TEEs registered; using the first ($tee_addr)"
@@ -132,4 +132,4 @@ cast send "$INSTRUCTION_SENDER" "setTeeAddress(address)" "$tee_addr" \
     --rpc-url "$CHAIN_URL" --private-key "$DEPLOYMENT_PRIVATE_KEY" >/dev/null \
     || die "setTeeAddress failed"
 
-log "TEE address set on InstructionSender — executeWithdrawal() is now enabled"
+log "TEE address set on InstructionSender - executeWithdrawal() is now enabled"

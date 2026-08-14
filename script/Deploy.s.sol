@@ -10,7 +10,7 @@ import { ITeeMachineRegistry } from "../contracts/interfaces/ITeeMachineRegistry
 ///
 /// The FlareTeeManager diamond implements BOTH the extension registry and the
 /// machine registry, so a single address plays both roles. Use the CURRENT
-/// diamond — the old 0x0042… one predates the ExtensionGovernance facet and
+/// diamond - the old 0x0042… one predates the ExtensionGovernance facet and
 /// will fail registration (see docs/DEPLOY.md).
 ///
 /// Run:

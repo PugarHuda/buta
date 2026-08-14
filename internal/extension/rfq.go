@@ -49,7 +49,7 @@ type Rfq struct {
 	Openings []auction.Bid        // decrypted bids; never leaves this struct
 	// Invited is the direct rail: a maker scopes a block to one counterparty
 	// ("" = open to anyone). A directed RFQ with a single sealed bid IS a
-	// bilateral OTC settle — the lone bidder clears at the reserve (Clear floors
+	// bilateral OTC settle - the lone bidder clears at the reserve (Clear floors
 	// at reserve when there is no second price). So there is no separate
 	// DIRECT_SETTLE opcode: the invited-auction path already is one, with the
 	// same commitment, signature, and set-digest guarantees. ponytail: one
@@ -78,7 +78,7 @@ func newRfqStore() *rfqStore {
 //
 // The listers used to count down from s.next, which was fine while the enclave
 // numbered auctions itself and next was the auction count. Now that the id
-// comes from the contract, next is the chain's rfqCount — so one auction at id
+// comes from the contract, next is the chain's rfqCount - so one auction at id
 // 4211 meant 4211 map lookups per call, holding the read lock the whole way.
 // Callers hold the lock.
 func (s *rfqStore) idsDescending() []uint64 {
@@ -106,7 +106,7 @@ type postRfqRequest struct {
 	// RfqID is the id the CONTRACT assigned (`rfqId = ++rfqCount`), carried in
 	// the instruction. It is authoritative: relayClearing and commitmentDigest
 	// are both keyed by it, so an enclave that numbers auctions on its own
-	// agrees with the chain only by coincidence — and stops agreeing the first
+	// agrees with the chain only by coincidence - and stops agreeing the first
 	// time this process restarts, since the book lives in volatile memory.
 	// Zero means the simulated path, where no contract has spoken yet.
 	RfqID    uint64 `json:"rfqId"`
@@ -138,7 +138,7 @@ type commitBidRequest struct {
 	// Ciphertext, when present, is the ECIES envelope over {amount, nonce, sig}
 	// encrypted to the TEE public key. It is the real path: the operator sees
 	// only this blob in transit. The three plaintext fields above are then
-	// ignored — filled from the decrypted opening. On the simulated/testing
+	// ignored - filled from the decrypted opening. On the simulated/testing
 	// path with no decryptor wired, callers send the plaintext fields directly.
 	Ciphertext string `json:"ciphertext"`
 }
@@ -177,7 +177,7 @@ type rfqStateResponse struct {
 
 	// The commitments, in the order the contract accepted them.
 	//
-	// These are already public — the contract records every one of them
+	// These are already public - the contract records every one of them
 	// on-chain before anyone knows what is in it, which is the load-bearing
 	// idea of the whole design. Withholding them here gained nothing and cost
 	// the desk its best evidence: "3 bids" is a number you take on trust,
@@ -191,7 +191,7 @@ type myBidsRequest struct {
 }
 
 // myBidEntry is one bid the caller placed. It carries the commitment (public)
-// and outcome, never an amount — the bidder holds their own amount locally.
+// and outcome, never an amount - the bidder holds their own amount locally.
 type myBidEntry struct {
 	RfqID      uint64 `json:"rfqId"`
 	Pair       string `json:"pair"`
@@ -306,7 +306,7 @@ func (e *Extension) processCommitBid(action teetypes.Action, df *instruction.Dat
 		return buildResult(action, df, nil, 0, auction.ErrOpeningMismatch)
 	}
 
-	// The sender field is bound to a wallet signature — the hole the reference
+	// The sender field is bound to a wallet signature - the hole the reference
 	// orderbook documents in its own threat model ("the TEE takes sender at
 	// face value") and leaves open. Without this, anyone who reaches the proxy
 	// can bid as anyone.
@@ -335,7 +335,7 @@ func (e *Extension) processCommitBid(action teetypes.Action, df *instruction.Dat
 	}
 	// One bid per address, which is what the CONTRACT enforces
 	// (test_CommitBidRejectsSecondBidFromSameAddress). Only the commitment was
-	// checked here, and the nonce is random — so the same bidder could seal any
+	// checked here, and the nonce is random - so the same bidder could seal any
 	// number of bids on the direct rail, each with a different commitment.
 	//
 	// That is not a tidiness problem. The enclave would build a set the contract
@@ -374,7 +374,7 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 		return buildResult(action, df, nil, 0, errRfqNotFound)
 	}
 	// Clearing again returns the same outcome rather than an error, and that is
-	// not politeness — it is what makes the rail work at all.
+	// not politeness - it is what makes the rail work at all.
 	//
 	// One requestClearing produces SEVERAL deliveries of the same instruction:
 	// the data providers push it under a `threshold` tag and an `end` tag, and
@@ -385,7 +385,7 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 	// While this returned ErrAlreadyClosed, whichever delivery arrived FIRST won
 	// and any later one failed with status 0. When `end` arrived first, the
 	// threshold result came back as an error and the auction could never be
-	// settled — the run died at "no signed outcome came back", which reads like
+	// settled - the run died at "no signed outcome came back", which reads like
 	// a slow network. Three runs were lost to that before the proxy log named
 	// it: `received failed result … tag threshold … log: error: auction:
 	// already cleared`.
@@ -401,7 +401,7 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 		return buildResult(action, df, same, 1, nil)
 	}
 
-	// Screened when a chain reader is wired, plain Vickrey when it is not — an
+	// Screened when a chain reader is wired, plain Vickrey when it is not - an
 	// enclave with no way to check balances must not silently decide nobody can
 	// pay. See solvency.go for why this belongs here and nowhere else.
 	out, err := auction.ClearScreened(r.Recorded, r.Openings, r.Reserve, e.solvencyScreenFor(r.ID, r.SettleToken))
@@ -413,7 +413,7 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 
 	// Forget the amounts. Clearing is the last thing that needs them: the
 	// outcome is the second price and the winner's address, and GET_MY_BIDS
-	// only ever reads Bidder and Commitment — both of which are already public,
+	// only ever reads Bidder and Commitment - both of which are already public,
 	// the commitment because the contract recorded it.
 	//
 	// The winner's own bid is the sharpest case. Vickrey means it is never
@@ -429,13 +429,13 @@ func (e *Extension) processClearAuction(action teetypes.Action, df *instruction.
 	// ABI-encoded, not JSON, and this is load-bearing.
 	//
 	// The node signs over the RESULT DATA BYTES exactly as they are. The
-	// contract does not receive those bytes — relayClearing rebuilds them with
+	// contract does not receive those bytes - relayClearing rebuilds them with
 	// abi.encode(rfqId, winner, clearingPrice, setDigest) and hashes that. So
 	// the two only agree if the enclave emits the same encoding.
 	//
 	// It emitted JSON. Every clearing signature was therefore unverifiable
 	// on-chain, and relayClearing reverted BadTeeSignature on a perfectly honest
-	// outcome — proven on Coston2 twice before this was found. The fork test
+	// outcome - proven on Coston2 twice before this was found. The fork test
 	// never caught it because it signed the abi-encoded form itself, so it was
 	// checking the contract against its own assumption rather than against the
 	// enclave.
@@ -480,7 +480,7 @@ func (e *Extension) processGetRfqState(action teetypes.Action, df *instruction.D
 }
 
 // processListRfqs returns the public view of every auction, newest first.
-// Same disclosure rule as GET_RFQ_STATE: size, deadline, count, outcome —
+// Same disclosure rule as GET_RFQ_STATE: size, deadline, count, outcome - 
 // never a reserve, never an amount that lost.
 func (e *Extension) processListRfqs(action teetypes.Action, df *instruction.DataFixed, _ hexutil.Bytes) teetypes.ActionResult {
 	e.rfqs.mu.RLock()
@@ -508,7 +508,7 @@ func (e *Extension) processListRfqs(action teetypes.Action, df *instruction.Data
 	return buildResult(action, df, b, 1, nil)
 }
 
-// The chain this desk settles on. Coston2 unless told otherwise — and it is in
+// The chain this desk settles on. Coston2 unless told otherwise - and it is in
 // the signed payload, not merely checked, so a signature cannot be moved between
 // deployments even by someone who has both.
 var bidChainID = func() uint64 {
@@ -528,8 +528,8 @@ var bidChainID = func() uint64 {
 //
 // The chain id was missing, and its absence was an asymmetry rather than a hole:
 // the enclave's OUTBOUND signature is domain-separated by block.chainid in the
-// contract, while the bidder's INBOUND one was not. Not exploitable — replaying
-// it elsewhere needs the opening, which is sealed — but "not exploitable today"
+// contract, while the bidder's INBOUND one was not. Not exploitable - replaying
+// it elsewhere needs the opening, which is sealed - but "not exploitable today"
 // is a weaker property than "cannot be moved", and the second one costs 32 bytes.
 func bidSigPayload(rfqID uint64, c auction.Commitment) common.Hash {
 	var id [32]byte

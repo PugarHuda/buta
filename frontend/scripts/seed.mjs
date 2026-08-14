@@ -5,7 +5,7 @@
 //   BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev     (from buta/)
 //   node scripts/seed.mjs                            (from buta/frontend/)
 //
-// State lives in extension memory — reseed after every facade restart.
+// State lives in extension memory - reseed after every facade restart.
 
 import { Buffer } from "buffer";
 globalThis.Buffer = Buffer;
@@ -36,8 +36,16 @@ async function seal(rfqId, acct, amount) {
   const nonce = "0x" + (nonceCounter++).toString(16).padStart(64, "0");
   const bidder = acct.address.toLowerCase();
   const commitment = keccak256(encodePacked(["uint256", "bytes32", "address"], [BigInt(amount), nonce, bidder]));
-  // the enclave recovers this signature and refuses a sender mismatch
-  const payload = keccak256(encodePacked(["string", "uint256", "bytes32"], ["BUTA_BID", BigInt(rfqId), commitment]));
+  // The enclave recovers this signature and refuses a sender mismatch.
+  //
+  // The chain id belongs in the payload and was missing here, so every bid this
+  // script sealed recovered to the wrong address and came back
+  // errBadBidSig - on the demo path the README and DEMO_SCRIPT both point at.
+  // The desk and the enclave agree on four fields; this had three.
+  const chainId = BigInt(process.env.CHAIN_ID ?? 114);
+  const payload = keccak256(
+    encodePacked(["string", "uint256", "uint256", "bytes32"], ["BUTA_BID", chainId, BigInt(rfqId), commitment]),
+  );
   const sig = await acct.signMessage({ message: { raw: payload } });
   const ct = await encrypt(TEE_KEY, Buffer.from(JSON.stringify({ amount, nonce, sig })));
   return call("COMMIT_BID", { rfqId, bidder, commitment, ciphertext: "0x" + ct.toString("hex") });
@@ -54,7 +62,7 @@ const TEE_KEY = Buffer.concat([Buffer.from([0x04]), Buffer.from(_x), Buffer.from
 
 // ── the book ──────────────────────────────────────────────────────────────
 
-// 1: a settled block — the desk's proof it works
+// 1: a settled block - the desk's proof it works
 let { rfqId: r1 } = await call("POST_RFQ", { maker: W(1).address, pair: "FXRP/USDT0", lot: 250_000, reserve: 122_000, deadline: 24_109_880, invited: "" });
 await seal(r1, W(2), 129_850);
 await seal(r1, W(3), 130_450);
@@ -70,11 +78,11 @@ await seal(r2, W(8), 604_200);
 // 3: fresh, no bids yet
 await call("POST_RFQ", { maker: W(9).address, pair: "FXRP/USDT0", lot: 80_000, reserve: 38_500, deadline: 24_118_000, invited: "" });
 
-// 4: directed block — one invited counterparty, one sealed quote
+// 4: directed block - one invited counterparty, one sealed quote
 let { rfqId: r4 } = await call("POST_RFQ", { maker: W(1).address, pair: "FXRP/USDT0", lot: 500_000, reserve: 243_000, deadline: 24_125_000, invited: W(7).address });
 await seal(r4, W(7), 251_500);
 
-// 5: lone bidder cleared at the reserve — the honest edge case, on display
+// 5: lone bidder cleared at the reserve - the honest edge case, on display
 let { rfqId: r5 } = await call("POST_RFQ", { maker: W(3).address, pair: "FXRP/USDT0", lot: 60_000, reserve: 29_400, deadline: 24_100_000, invited: "" });
 await seal(r5, W(2), 31_000);
 await call("CLEAR_AUCTION", { rfqId: r5 });

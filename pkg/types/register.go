@@ -8,7 +8,7 @@ import "buta/pkg/decoder"
 //
 // The fork arrived registering DEPOSIT, WITHDRAW and the CLOB commands under op
 // type "ORDERBOOK". Buta answers only the op type "BUTA", so every one of those
-// keys had become unreachable — decoders for messages that can no longer
+// keys had become unreachable - decoders for messages that can no longer
 // arrive. The vault they served is gone too: ButaInstructionSender settles
 // directly and has no deposit or withdraw function.
 //

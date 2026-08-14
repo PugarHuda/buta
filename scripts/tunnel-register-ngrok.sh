@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tunnel-register-ngrok.sh — publish the extension proxy on a static ngrok
+# tunnel-register-ngrok.sh - publish the extension proxy on a static ngrok
 # domain and register the TEE machine against it.
 #
 # Same job as tunnel-register.sh, for people without a domain on Cloudflare.
@@ -33,7 +33,7 @@ die()  { echo -e "${RED}[tunnel] ERROR:${NC} $*" >&2; exit 1; }
 
 [[ -n "$DOMAIN" ]] || die "usage: $0 <static-domain>   e.g. buta-tee.ngrok-free.app
 
-Get one free at https://dashboard.ngrok.com/domains — a random URL will not do,
+Get one free at https://dashboard.ngrok.com/domains - a random URL will not do,
 because the hostname goes on-chain and has to still be yours tomorrow."
 
 # winget installs it outside PATH for this shell, so look there too.
@@ -54,7 +54,7 @@ log "authtoken present"
 
 step "1b/5 nothing else may be publishing a hostname"
 # tunnel-keeper.sh republishes a cloudflare quick-tunnel URL whenever the chain
-# disagrees with what it is serving — every 60 seconds, forever. Left running,
+# disagrees with what it is serving - every 60 seconds, forever. Left running,
 # it would overwrite the static domain minutes after this script wrote it, and
 # the only symptom would be the machine going unreachable again later, for no
 # visible reason. Stop it first; that is the whole point of moving off it.
@@ -100,16 +100,16 @@ done
 
 step "4b/5 publish the hostname on-chain BEFORE asking anyone to check it"
 # post-build.sh does not update the URL of a machine that is already registered
-# — it re-attests the one already on record. So on a machine that exists, the
+# - it re-attests the one already on record. So on a machine that exists, the
 # availability check below gets pushed to whatever hostname was published last,
 # which after a switch is a tunnel that no longer exists. The symptom is a 404
 # on the action result and a registration that "failed" while everything local
 # is perfectly healthy. Publishing first costs one transaction and removes the
 # whole failure mode.
-node "$SCRIPT_DIR/update-machine-url.mjs" "https://${DOMAIN}" \n  || die "could not publish the hostname on-chain — nothing below would reach this machine"
+node "$SCRIPT_DIR/update-machine-url.mjs" "https://${DOMAIN}" \n  || die "could not publish the hostname on-chain - nothing below would reach this machine"
 
 step "5/5 register the machine against the public URL"
-# EXT_PROXY_URL stays local — that is how the tools reach the proxy.
+# EXT_PROXY_URL stays local - that is how the tools reach the proxy.
 # EXT_PROXY_HOST_URL is what gets written on-chain, and it is the whole point.
 # rRap: the capital R asks for a FRESH attestation challenge, because the
 # previous one is single-use and a re-run with the old one dies ChallengeExpired.
@@ -130,19 +130,19 @@ echo
 log "registered. Checking it took:"
 
 # This used to print three cast commands against a hardcoded teeId, which was
-# wrong the moment the container restarted — tee-node mints a new key at every
+# wrong the moment the container restarted - tee-node mints a new key at every
 # start, so the id in a script is an id for a machine that may not exist. Run
 # the check instead of printing it, and let it derive the id from the key the
 # proxy is actually serving.
 node "$SCRIPT_DIR/health.mjs" || {
     echo
-    echo "Registration went through but the machine is not healthy — read the lines above."
+    echo "Registration went through but the machine is not healthy - read the lines above."
     exit 1
 }
 
 cat <<'EOF'
 
 Leave ngrok running. If it stops, the hostname on-chain stops answering and the
-machine goes unreachable again — which is why this is a static domain and not a
+machine goes unreachable again - which is why this is a static domain and not a
 random one.
 EOF

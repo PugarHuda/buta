@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# extension-setup.sh — Extension-specific setup that runs BEFORE Docker Compose.
+# extension-setup.sh - Extension-specific setup that runs BEFORE Docker Compose.
 #
 # This hook runs between pre-build (contract deployment) and docker-up (starting
-# the TEE). Use it for any setup whose output the extension needs at startup —
+# the TEE). Use it for any setup whose output the extension needs at startup - 
 # e.g. deploying auxiliary contracts, writing config files the extension reads.
 #
 # For the orderbook this:
@@ -13,8 +13,8 @@
 #   5. Approves InstructionSender to spend tokens
 #   6. Writes config/test-tokens.env
 #
-# Token deployment (steps 2–4) is skipped automatically by test-setup when
-# config/pairs.json is already fully populated — token addresses are read from
+# Token deployment (steps 2-4) is skipped automatically by test-setup when
+# config/pairs.json is already fully populated - token addresses are read from
 # there instead. Steps 1, 5, and 6 always run, because allow + approve are
 # tied to the (possibly freshly-redeployed) InstructionSender.
 #
@@ -22,9 +22,9 @@
 # deployment you must rebuild the image before `docker compose up`.
 #
 # Inputs (env vars, typically sourced from .env + config/extension.env):
-#   ADDRESSES_FILE       — path to deployed-addresses.json
-#   CHAIN_URL            — chain RPC URL
-#   INSTRUCTION_SENDER   — InstructionSender contract address (from pre-build)
+#   ADDRESSES_FILE - path to deployed-addresses.json
+#   CHAIN_URL - chain RPC URL
+#   INSTRUCTION_SENDER - InstructionSender contract address (from pre-build)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -44,7 +44,7 @@ if [[ -f "$CONFIG_FILE" ]]; then
     source "$CONFIG_FILE"
     log "Loaded config from $CONFIG_FILE"
 else
-    die "config/extension.env not found — run pre-build.sh first"
+    die "config/extension.env not found - run pre-build.sh first"
 fi
 
 CHAIN_URL="${CHAIN_URL:-http://127.0.0.1:8545}"

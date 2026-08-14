@@ -3,9 +3,9 @@
  *
  *   node scripts/probe-clearing.mjs 10
  *
- * The desk and scripts/onchain-loop.ts run the same three steps — requestClearing,
+ * The desk and scripts/onchain-loop.ts run the same three steps - requestClearing,
  * pull the instruction id out of the diamond's log, poll the proxy for a signed
- * result — and get different answers. The loop settles; the desk decodes an
+ * result - and get different answers. The loop settles; the desk decodes an
  * rfqId of 5569537058682514101…, which is a 32-byte word starting 0x7b, which is
  * `{`. That is JSON being read as a uint256.
  *
@@ -54,7 +54,7 @@ const hash = await wc.writeContract({
 console.log(`requestClearing(${rfqId})  ${hash}`);
 const rcpt = await pc.waitForTransactionReceipt({ hash });
 
-// Every diamond log, not just the first — if the id is being taken from the
+// Every diamond log, not just the first - if the id is being taken from the
 // wrong one, that shows up here and nowhere else.
 console.log(`\ndiamond logs in this receipt:`);
 for (const l of rcpt.logs) {
@@ -82,7 +82,7 @@ for (let i = 0; i < 60; i++) {
       );
       console.log(`as abi  : rfqId ${d[0]}  winner ${d[1]}  price ${d[2]}`);
     } catch (e) {
-      console.log(`as abi  : will not decode — ${String(e.shortMessage ?? e.message).split("\n")[0]}`);
+      console.log(`as abi  : will not decode - ${String(e.shortMessage ?? e.message).split("\n")[0]}`);
     }
     process.exit(0);
   }

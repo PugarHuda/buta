@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-types-server.sh — Run decode tests against a running types-server.
+# test-types-server.sh - Run decode tests against a running types-server.
 #
 # Usage: ./scripts/test-types-server.sh
 set -euo pipefail

@@ -51,4 +51,4 @@ tmux send-keys -t "$SESSION" "claude --dangerously-skip-permissions $RESUME_FLAG
 sleep 8
 tmux send-keys -t "$SESSION" "" Enter || true
 sleep 15
-# Agent is now idle — the sequencer will dispatch /heartbeat when it's this agent's turn
+# Agent is now idle - the sequencer will dispatch /heartbeat when it's this agent's turn

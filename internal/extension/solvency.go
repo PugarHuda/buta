@@ -6,7 +6,7 @@ package extension
 // transferFrom on the winner, and if it reverts the whole clearing reverts with
 // it. The auction dies, the runner-up who was willing and able gets nothing, and
 // the maker gets a wasted deadline. Bidding costs nothing, so this is not a rare
-// accident — it is something a maker can be attacked with.
+// accident - it is something a maker can be attacked with.
 //
 // The enclave is the only place the question can be asked without answering a
 // different one. It already holds the decrypted amounts, so it can check a
@@ -14,9 +14,9 @@ package extension
 // without telling anybody what anyone bid. Everything it learns stays inside;
 // only the winner and the price come out, exactly as before.
 //
-// The settle token is NOT in the instruction payload — the contract encodes
+// The settle token is NOT in the instruction payload - the contract encodes
 // (rfqId, maker, lot, deadlineBlock, invited, encryptedReserve) and nothing more
-// — so it is read back from the contract's own `rfqs` getter rather than trusted
+// - so it is read back from the contract's own `rfqs` getter rather than trusted
 // from a caller. That also means no contract change and no redeploy.
 
 import (
@@ -48,7 +48,7 @@ type Funds interface {
 // enableSolvencyScreenFromEnv turns the screen on for every way this extension
 // is started, which used to be one way out of two.
 //
-// The wiring lived in cmd/dev — the local facade — and nowhere else, so the
+// The wiring lived in cmd/dev - the local facade - and nowhere else, so the
 // enclave that actually settles ran with the screen off. Everything about it
 // was true except where it happened: tested, documented in the submission, and
 // unreachable in production. A feature that exists in the process nobody
@@ -60,7 +60,7 @@ type Funds interface {
 func (e *Extension) enableSolvencyScreenFromEnv() {
 	rpc := os.Getenv("BUTA_FUNDS_RPC")
 	if rpc == "" {
-		logger.Infof("solvency screening off — set BUTA_FUNDS_RPC to enable it")
+		logger.Infof("solvency screening off - set BUTA_FUNDS_RPC to enable it")
 		return
 	}
 	// INSTRUCTION_SENDER is the name config/extension.env uses, which is the file
@@ -73,7 +73,7 @@ func (e *Extension) enableSolvencyScreenFromEnv() {
 	}
 	sender := common.HexToAddress(raw)
 	if sender == (common.Address{}) {
-		logger.Fatalf("BUTA_FUNDS_RPC is set but no instruction sender is — the screen needs the spender relayClearing pulls through (BUTA_INSTRUCTION_SENDER, or INSTRUCTION_SENDER from config/extension.env)")
+		logger.Fatalf("BUTA_FUNDS_RPC is set but no instruction sender is - the screen needs the spender relayClearing pulls through (BUTA_INSTRUCTION_SENDER, or INSTRUCTION_SENDER from config/extension.env)")
 	}
 	funds, err := NewChainFunds(rpc, sender)
 	if err != nil {
@@ -105,7 +105,7 @@ const erc20AndRfqABI = `[
 
 // chainFunds reads balances over JSON-RPC. Read-only: it holds no key and sends
 // no transaction, so the worst a compromised endpoint can do is make the screen
-// answer wrongly — which is why a read failure is an error and not a "no".
+// answer wrongly - which is why a read failure is an error and not a "no".
 type chainFunds struct {
 	client   *ethclient.Client
 	parsed   abi.ABI

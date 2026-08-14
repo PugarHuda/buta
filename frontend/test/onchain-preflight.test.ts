@@ -125,7 +125,7 @@ test("and an auction already settled is not settled twice", () => {
 // FAsset: its transfer cost drifts between estimation and execution, and the
 // inner call only gets 63/64 of what remains.
 
-test("the gas sent is not the gas estimated — it carries headroom", async () => {
+test("the gas sent is not the gas estimated - it carries headroom", async () => {
   const pc = { estimateContractGas: async () => 118988n };
   const gas = await gasForWrite(pc as never, {});
   assert.ok(gas! > 118988n, "the estimate was sent unchanged, which is what starved the reclaim");
@@ -150,7 +150,7 @@ test("the four-word ABI outcome is accepted", () => {
   assert.equal(isClearingOutcome(`0x${"ab".repeat(128)}`), true);
 });
 
-test("the consensus envelope is not — it is signed, status 1, and useless", () => {
+test("the consensus envelope is not - it is signed, status 1, and useless", () => {
   // What "end" actually returns: 1887 bytes beginning {"voteSequence":…
   const json = Buffer.from('{"voteSequence":{"voteHash":"0x4c9d"}}').toString("hex");
   assert.equal(isClearingOutcome(`0x${json}`), false, "a vote envelope was taken for a clearing");

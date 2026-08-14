@@ -10,7 +10,7 @@
  * blocked before they leave the page, the desk quietly falls back to the demo
  * book, and every script keeps working because node has no CORS to enforce.
  *
- * In dev, vite's server.proxy already solves this — the desk fetches relative
+ * In dev, vite's server.proxy already solves this - the desk fetches relative
  * paths and vite forwards them. This is the same trick for production: Vercel
  * rewrites are server-side, so /info on the desk's own origin is served from the
  * machine with no preflight and no header to add on the enclave.
@@ -22,9 +22,9 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const CONFIG = fileURLToPath(new URL("../frontend/vercel.json", import.meta.url));
-/** Exactly the paths vite proxies in dev — see frontend/vite.config.ts. */
+/** Exactly the paths vite proxies in dev - see frontend/vite.config.ts. */
 const PATHS = ["/info", "/direct", "/state", "/action"];
-/** Ours are identified by their source, not by a marker key — vercel.json is
+/** Ours are identified by their source, not by a marker key - vercel.json is
  *  schema-validated and an unknown property in a rewrite is a deploy error. */
 const ours = (r) => PATHS.some((p) => r.source === p || r.source === `${p}/:path*`);
 
@@ -47,7 +47,7 @@ if (arg !== "--clear") {
   }
   if (host.protocol !== "https:") {
     // The desk is served over https, and a browser will not let it fetch http.
-    console.error("the machine has to be on https — a page on https cannot fetch http");
+    console.error("the machine has to be on https - a page on https cannot fetch http");
     process.exit(2);
   }
   const base = arg.replace(/\/$/, "");
@@ -55,7 +55,7 @@ if (arg !== "--clear") {
   // Fail here rather than after a deploy that silently serves nothing.
   const alive = await fetch(`${base}/info`).then((r) => r.ok).catch(() => false);
   if (!alive) {
-    console.error(`${base}/info does not answer — publish the machine first`);
+    console.error(`${base}/info does not answer - publish the machine first`);
     process.exit(1);
   }
 
@@ -67,7 +67,7 @@ if (arg !== "--clear") {
   }
   console.log(`the desk will reach the enclave at ${base}, on its own origin`);
 } else {
-  console.log("machine rewrites removed — the desk falls back to the demo book");
+  console.log("machine rewrites removed - the desk falls back to the demo book");
 }
 
 fs.writeFileSync(CONFIG, `${JSON.stringify(config, null, 2)}\n`);

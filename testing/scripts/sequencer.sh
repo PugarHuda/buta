@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Centralized sequencer — dispatches /heartbeat to agents in weighted rotation.
+# Centralized sequencer - dispatches /heartbeat to agents in weighted rotation.
 # Runs as a persistent loop in its own tmux session.
 # Usage: bash testing/scripts/sequencer.sh
 

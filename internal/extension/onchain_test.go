@@ -13,7 +13,7 @@ import (
 
 // These encode exactly what ButaInstructionSender._sendInstruction encodes, and
 // then check the enclave accepts it. Until this file existed, the on-chain
-// payload went straight into json.Unmarshal — every real instruction would have
+// payload went straight into json.Unmarshal - every real instruction would have
 // been rejected, and no test could see it because no TEE machine is registered
 // to deliver one.
 
@@ -52,7 +52,7 @@ func TestDecodePostRfqMatchesTheContractEncoding(t *testing.T) {
 		t.Errorf("invited = %q, want %s", got.Invited, invited.Hex())
 	}
 	if got.Reserve != 5000 || got.Pair != "FXRP/USD" {
-		t.Errorf("reserve/pair = %d/%q, want 5000/FXRP/USD — the sealed reserve was not opened", got.Reserve, got.Pair)
+		t.Errorf("reserve/pair = %d/%q, want 5000/FXRP/USD - the sealed reserve was not opened", got.Reserve, got.Pair)
 	}
 }
 
@@ -110,7 +110,7 @@ func TestDecodeCommitBidKeepsTheOpeningSealed(t *testing.T) {
 	if got.Ciphertext != "0x010203" {
 		t.Errorf("ciphertext = %s", got.Ciphertext)
 	}
-	// The amount must NOT be filled here — the handler opens the envelope, so
+	// The amount must NOT be filled here - the handler opens the envelope, so
 	// the plaintext exists in exactly one place.
 	if got.Amount != 0 || got.Nonce != "" || got.Sig != "" {
 		t.Errorf("the decoder filled opening fields it should never see: %+v", got)
@@ -131,7 +131,7 @@ func TestDecodeClearAuction(t *testing.T) {
 }
 
 // A uint256 that cannot be a real lot must not be truncated into a plausible
-// one — silently keeping the low 64 bits is how an absurd value becomes a
+// one - silently keeping the low 64 bits is how an absurd value becomes a
 // believable one.
 func TestOversizedValuesAreRefusedNotTruncated(t *testing.T) {
 	huge := new(big.Int).Lsh(big.NewInt(1), 200)
@@ -181,14 +181,14 @@ func mustReq(t *testing.T, msg []byte) postRfqRequest {
 // The encoding IS the interface between the enclave and relayClearing.
 //
 // The node signs the result data byte for byte. The contract never receives
-// those bytes — it rebuilds them with
+// those bytes - it rebuilds them with
 // abi.encode(rfqId, winner, clearingPrice, setDigest) and hashes that. So the
 // signature only verifies if the enclave emitted exactly that encoding.
 //
 // It emitted JSON, and every clearing signature was therefore unverifiable
 // on-chain. relayClearing reverted BadTeeSignature on perfectly honest
 // outcomes, twice on Coston2, before anyone looked. The Foundry test did not
-// catch it because it signs the abi-encoded form itself — checking the contract
+// catch it because it signs the abi-encoded form itself - checking the contract
 // against its own assumption rather than against the enclave.
 func TestClearingResultIsEncodedTheWayTheContractRebuildsIt(t *testing.T) {
 	digest := [32]byte{0xab, 0xcd}
@@ -231,7 +231,7 @@ func TestClearingResultIsEncodedTheWayTheContractRebuildsIt(t *testing.T) {
 		t.Fatalf("clear failed: %s", ar.Log)
 	}
 	if len(ar.Data) != 128 {
-		t.Fatalf("the clearing returned %d bytes, not the 128 the contract rebuilds — this is the bug that reverted BadTeeSignature on-chain", len(ar.Data))
+		t.Fatalf("the clearing returned %d bytes, not the 128 the contract rebuilds - this is the bug that reverted BadTeeSignature on-chain", len(ar.Data))
 	}
 	if _, _, p, _, err := decodeClearingResultData(ar.Data); err != nil || p != 5107 {
 		t.Fatalf("decoded price %d (err %v), want the runner-up's 5107", p, err)

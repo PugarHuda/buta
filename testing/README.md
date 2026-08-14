@@ -8,7 +8,7 @@ Three specialized Claude Code agents that continuously test the Flare TEE extens
 |-------|-------|-------|-------------|
 | **Smoketest** | Happy path | ~5 min (2/5 slots) | Runs `full-setup.sh --test` and variants repeatedly. Catches regressions and flaky infrastructure. |
 | **Edge Case** | Systematic | ~5 min (2/5 slots) | Works through 20+ documented edge cases (D1-E9). Records whether errors match expectations and how clear the messages are. |
-| **Chaos** | Adversarial | ~5 min (1/5 slots) | Tries to break things creatively — concurrent deploys, mid-process kills, code modifications. Runs in its own git worktree so it can modify source code. |
+| **Chaos** | Adversarial | ~5 min (1/5 slots) | Tries to break things creatively - concurrent deploys, mid-process kills, code modifications. Runs in its own git worktree so it can modify source code. |
 
 ## How It Works
 
@@ -31,9 +31,9 @@ Each agent is a Claude Code CLI session with its own CLAUDE.md (identity/behavio
 
 The deployment stack uses fixed ports (Redis 6382, ext-proxy 6674, etc.) and a single ngrok tunnel. Only one agent can have services running at a time.
 
-**Sequencer:** A persistent bash script (`scripts/sequencer.sh`) runs in its own tmux session. It cycles through a configurable weighted rotation, dispatching `/heartbeat` to each agent via `tmux send-keys`. Agents are passive — they sit idle until the sequencer tells them to go.
+**Sequencer:** A persistent bash script (`scripts/sequencer.sh`) runs in its own tmux session. It cycles through a configurable weighted rotation, dispatching `/heartbeat` to each agent via `tmux send-keys`. Agents are passive - they sit idle until the sequencer tells them to go.
 
-**Rotation:** Configured in `shared/rotation.conf`. Default: `smoketest,edgecase,smoketest,edgecase,chaos` (2:2:1 weight). Edit the file to change weights — the sequencer picks up changes on the next cycle.
+**Rotation:** Configured in `shared/rotation.conf`. Default: `smoketest,edgecase,smoketest,edgecase,chaos` (2:2:1 weight). Edit the file to change weights - the sequencer picks up changes on the next cycle.
 
 **Lock file:** `/tmp/flare-extension-testing.lock`
 - The dispatched agent writes `agent-name|unix-timestamp` when it starts
@@ -100,7 +100,7 @@ cp .env.example .env
 claude /login
 ```
 
-This is interactive — do it once manually.
+This is interactive - do it once manually.
 
 ### 4. Run Setup
 
@@ -298,7 +298,7 @@ The sequencer dispatches agents in a weighted rotation with a 5-minute minimum g
 | Edge Case | 2 | 2 of every 5 |
 | Chaos | 1 | 1 of every 5 |
 
-Full cycle: ~25 minutes (5 slots x 5 min). Actual throughput adapts — if a run takes longer than 5 min, the next dispatch waits for it to finish.
+Full cycle: ~25 minutes (5 slots x 5 min). Actual throughput adapts - if a run takes longer than 5 min, the next dispatch waits for it to finish.
 
 Edit `shared/rotation.conf` to change the rotation, slot interval, or lock timeout. Changes take effect on the next cycle without any restarts.
 

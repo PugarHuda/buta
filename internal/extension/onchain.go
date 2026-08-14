@@ -106,7 +106,7 @@ func decodePostRfq(payload []byte, d Decryptor) ([]byte, error) {
 		}
 		req.Reserve, req.Pair = body.Reserve, body.Pair
 	}
-	// A reserve of zero is legitimate — it means "any bid clears" — so its
+	// A reserve of zero is legitimate - it means "any bid clears" - so its
 	// absence is not an error here. Clear() floors a lone bidder at it either
 	// way.
 
@@ -152,7 +152,7 @@ func decodeClearAuction(payload []byte) ([]byte, error) {
 //	abi.encode(uint256 rfqId, address winner, uint256 clearingPrice, bytes32 setDigest)
 //
 // The node signs the result data as-is, and the contract never sees those bytes
-// — it reconstructs them. So this encoding IS the interface between the two, and
+// - it reconstructs them. So this encoding IS the interface between the two, and
 // a drift makes every honest clearing unverifiable rather than making a forged
 // one pass, which is the safe direction but a silent one.
 func clearingResultData(rfqID uint64, winner string, price uint64, digest [32]byte) ([]byte, error) {
@@ -172,7 +172,7 @@ var clearingResultArgs = abi.Arguments{
 }
 
 // decodeClearingResultData reads back what clearingResultData produced. Only
-// tests need this — the contract does its own decoding — but a round trip is
+// tests need this - the contract does its own decoding - but a round trip is
 // the cheapest proof that the encoding is what the contract expects.
 func decodeClearingResultData(b []byte) (rfqID uint64, winner string, price uint64, digest [32]byte, err error) {
 	vals, err := clearingResultArgs.Unpack(b)

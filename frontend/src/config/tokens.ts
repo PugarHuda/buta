@@ -4,7 +4,7 @@
  * FXRP is the real FAssets token on Coston2; USDT0 is the quote side. Both are
  * env-overridable so a fresh deploy or a mock-token run can point elsewhere
  * without a rebuild. When the desk settles for real, the maker escrows FXRP as
- * the lot and the winner pays USDT0 as the clearing price — the two-ledger
+ * the lot and the winner pays USDT0 as the clearing price - the two-ledger
  * story starts here and finishes with the XRPL delivery leg (roadmap).
  */
 
@@ -18,7 +18,7 @@ export const FXRP = (env.fxrp ||
 /**
  * The quote token the winner pays in.
  *
- * This was 0xe7cd86e1…C82D, which has NO CODE on Coston2 — nothing is deployed
+ * This was 0xe7cd86e1…C82D, which has NO CODE on Coston2 - nothing is deployed
  * there. Every on-chain block the desk posted escrowed a lot against a
  * settlement that could not happen: relayClearing calls transferFrom on an
  * address that is not a contract. It went unseen because the settlements that

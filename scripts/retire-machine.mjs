@@ -5,7 +5,7 @@
  *
  * tee-node mints a fresh key at every start, so a restarted container registers
  * as a NEW machine while the old one stays PRODUCTION on-chain forever. Both
- * then sit in extensionActiveTeeIds, and getRandomTeeIds hands out either —
+ * then sit in extensionActiveTeeIds, and getRandomTeeIds hands out either - 
  * meaning roughly half of all instructions are routed to an address nobody is
  * listening on, and the desk simply never gets a result. Nothing reverts, so
  * nothing looks broken.
@@ -44,7 +44,7 @@ function envValue(file, key) {
 
 const raw = process.env.DEPLOYMENT_PRIVATE_KEY ?? envValue(".env", "DEPLOYMENT_PRIVATE_KEY");
 if (!raw) {
-  console.error("no DEPLOYMENT_PRIVATE_KEY — set it in the environment or .env");
+  console.error("no DEPLOYMENT_PRIVATE_KEY - set it in the environment or .env");
   process.exit(2);
 }
 const account = privateKeyToAccount(raw.startsWith("0x") ? raw : `0x${raw}`);
@@ -65,7 +65,7 @@ const status = Number(
 const NAMES = ["NONE", "INITIALIZED", "PRODUCTION", "SUSPENDED", "PAUSED"];
 console.log(`  ${target} is ${NAMES[status] ?? status}`);
 if (status !== 2) {
-  console.log("  not in production — nothing to retire");
+  console.log("  not in production - nothing to retire");
   process.exit(0);
 }
 
@@ -75,7 +75,7 @@ const [, , url] = await pc.readContract({
   address: DIAMOND, abi: ABI, functionName: "getTeeMachine", args: [target],
 });
 //
-// The URL answering is NOT the test. Two machines can share a hostname — after
+// The URL answering is NOT the test. Two machines can share a hostname - after
 // a restart the keeper republishes the same tunnel for the new machine, so the
 // dead one's recorded URL answers perfectly while a different key is behind it.
 // Derive the teeId from the public key being served and compare.

@@ -1,4 +1,4 @@
-# Combined reference compose — runs redis, ext-proxy, and extension-tee on a
+# Combined reference compose - runs redis, ext-proxy, and extension-tee on a
 # single VM. Useful for smoke-testing the GCP config on a non-Confidential VM
 # before splitting services across machines.
 #

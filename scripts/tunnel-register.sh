@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# tunnel-register.sh — publish the extension proxy on a stable hostname and
+# tunnel-register.sh - publish the extension proxy on a stable hostname and
 # register the TEE machine against it.
 #
 # The availability check fails while the host URL on-chain is localhost: data
 # providers push to whatever is written there, and they cannot reach your laptop.
-# A quick tunnel does not fix it either — `cloudflared tunnel --url` hands out a
+# A quick tunnel does not fix it either - `cloudflared tunnel --url` hands out a
 # new hostname every restart, and the one on-chain goes stale. Hence a *named*
 # tunnel.
 #
@@ -35,7 +35,7 @@ die()  { echo -e "${RED}[tunnel] ERROR:${NC} $*" >&2; exit 1; }
 command -v cloudflared >/dev/null || die "cloudflared is not installed"
 
 CERT="${HOME}/.cloudflared/cert.pem"
-[[ -f "$CERT" ]] || die "no cloudflared credentials at $CERT — run: cloudflared tunnel login"
+[[ -f "$CERT" ]] || die "no cloudflared credentials at $CERT - run: cloudflared tunnel login"
 
 step "1/5 the proxy has to be serving before anything is published"
 curl -fsS -m 10 "${LOCAL_URL}/info" >/dev/null \
@@ -56,7 +56,7 @@ step "3/5 dns route"
 # Idempotent in practice: routing an already-routed hostname to the same tunnel
 # is a no-op, and to a different one is an error worth seeing.
 cloudflared tunnel route dns "$TUNNEL_NAME" "$HOSTNAME_ARG" \
-  || log "route already present (or refused — check the message above)"
+  || log "route already present (or refused - check the message above)"
 
 step "4/5 run it"
 LOG="$PROJECT_DIR/tunnel.log"
@@ -77,7 +77,7 @@ $(tail -20 "$LOG")"
 done
 
 step "5/5 register the machine against the public URL"
-# EXT_PROXY_URL stays local — that is how the tools talk to the proxy.
+# EXT_PROXY_URL stays local - that is how the tools talk to the proxy.
 # EXT_PROXY_HOST_URL is what gets written on-chain, and it is the whole point.
 #
 # -command rRap: capital R asks for a FRESH attestation challenge. The challenge
@@ -107,11 +107,11 @@ cat <<EOF
   cast call 0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE \\
     "getTeeMachineStatus(address)(uint8)" <teeId>
 
-  # and the one that matters — an address instead of TooMany()
+  # and the one that matters - an address instead of TooMany()
   cast call 0x1a9C4A0f9D76c0b1D91d22E24E573a9b377618aE \\
     "getRandomTeeIds(uint256,uint256)(address[])" <EXTENSION_ID from config/extension.env> 1
 
 Leave the tunnel running. If it stops, the hostname on-chain goes dead and the
-machine drops back to unreachable — that is why this is a named tunnel and not a
+machine drops back to unreachable - that is why this is a named tunnel and not a
 quick one.
 EOF

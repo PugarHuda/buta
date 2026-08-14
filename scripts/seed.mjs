@@ -9,7 +9,7 @@
  * their deadline.
  *
  * The deadlines are placed around the CHAIN'S head, not hardcoded. A fixed
- * block number goes stale — the demo book was written around 24.1M while
+ * block number goes stale - the demo book was written around 24.1M while
  * Coston2 is past 33M, so every row read "deadline passed 9,478,951 blocks ago",
  * which demonstrates the countdown in its one useless state.
  *
@@ -63,7 +63,7 @@ const MAKER = "0x1111111111111111111111111111111111111111";
 const BOOK = [
   { lot: 500_000, reserve: 120_000, offset: +4_000, note: "about two hours left" },
   { lot: 80_000, reserve: 20_000, offset: +1_200, note: "about half an hour left" },
-  { lot: 1_200_000, reserve: 300_000, offset: -50, note: "past its deadline — clearable now" },
+  { lot: 1_200_000, reserve: 300_000, offset: -50, note: "past its deadline - clearable now" },
 ];
 
 try {
@@ -71,7 +71,7 @@ try {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
   });
 } catch (e) {
-  console.error(`no extension at ${BASE} — ${e.message}`);
+  console.error(`no extension at ${BASE} - ${e.message}`);
   console.error("start it with:  BUTA_ALLOW_DIRECT_AUCTION=1 BUTA_DEV_PORT=6675 go run ./cmd/dev");
   process.exit(1);
 }

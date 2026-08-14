@@ -5,7 +5,7 @@ need an account; two are design work with a decision already made.
 
 ---
 
-## 1. A static hostname (yours — 10 minutes)
+## 1. A static hostname (yours - 10 minutes)
 
 The machine is PRODUCTION right now, published through a rotating quick tunnel
 that `scripts/tunnel-keeper.sh` republishes whenever it moves. That works and it
@@ -14,7 +14,7 @@ rotation and removes a minute of unreachability each time.
 
 **ngrok, free tier, no domain purchase:**
 
-1. Sign up: <https://dashboard.ngrok.com/signup> — Google or GitHub is fine.
+1. Sign up: <https://dashboard.ngrok.com/signup> - Google or GitHub is fine.
 2. Copy the authtoken from
    <https://dashboard.ngrok.com/get-started/your-authtoken> and run:
 
@@ -38,30 +38,30 @@ on restart, the on-chain record goes stale, and the machine silently drops out
 of PRODUCTION. Quantic's pinned message says this is why machines are sitting at
 INITIALIZED with dead hostnames.
 
-Stop the keeper once the static domain is live — two things republishing the
+Stop the keeper once the static domain is live - two things republishing the
 same record will fight.
 
 ---
 
-## 2. Hardware attestation (yours — half a day, and probably not worth it)
+## 2. Hardware attestation (yours - half a day, and probably not worth it)
 
 Flare have said twice, in writing, that this is not required:
 
-> "you do not need to deploy your own confidential space — you can run your FCE
+> "you do not need to deploy your own confidential space - you can run your FCE
 > on any machine which is proxied for use in the Coston2 network (this is
 > 'simulated', you don't need a full production deploy for the bounties)"
-> — Tim Rowley, 28 July
+> - Tim Rowley, 28 July
 
-> "We will accept Coston2 simulated approach, no worries." — Kristaps
+> "We will accept Coston2 simulated approach, no worries." - Kristaps
 
 If you want it anyway, the shape is:
 
 1. A GCP project with billing, and the Confidential Computing API enabled.
-2. A Confidential Space VM — **Intel TDX**, `c3-standard-4` or larger, image
+2. A Confidential Space VM - **Intel TDX**, `c3-standard-4` or larger, image
    family `confidential-space-debian-12`.
 3. Push the extension image to Artifact Registry, and set the workload policy so
    the launch policy allows only the env vars the image declares (`LOG_LEVEL`,
-   `PROXY_URL`, `INITIAL_OWNER`, `EXTENSION_ID` — see tee-node
+   `PROXY_URL`, `INITIAL_OWNER`, `EXTENSION_ID` - see tee-node
    `docs/deployment.md`).
 4. `MODE=0` instead of `1`. The node then fetches attestation tokens from the
    Confidential Space launcher rather than simulating them.
@@ -73,7 +73,7 @@ instead.**
 
 ---
 
-## 3. The XRPL delivery leg — N10.5 says do NOT build it
+## 3. The XRPL delivery leg - N10.5 says do NOT build it
 
 Checked before designing anything, which is the rule that has already saved this
 project twice.
@@ -91,7 +91,7 @@ WalletProjectPauseFacet
 
 So XRPL custody, key management, backup and per-project pause are **already
 Flare's**, on the same diamond our extension is registered in. Building our own
-would duplicate protocol infrastructure — the exact thing that got another
+would duplicate protocol infrastructure - the exact thing that got another
 project shut down by Tim Rowley, and the reason we did not rebuild the
 MintingTagManager either.
 
@@ -99,7 +99,7 @@ MintingTagManager either.
 wallet facets to sign an XRPL payment from a project wallet, not by holding keys
 ourselves. The enclave already proves it may act (it signs the clearing); the
 wallet facets already decide whether that signature may move funds. Our part is
-one call and the plumbing to wait for it — small, and only because the hard part
+one call and the plumbing to wait for it - small, and only because the hard part
 is not ours.
 
 Not implemented. It needs a wallet project created on the diamond and an XRPL
@@ -108,7 +108,7 @@ touches settlement three weeks after settlement was last tested.
 
 ---
 
-## 4. Proof-of-funds via FDC — the design, and why it is not built
+## 4. Proof-of-funds via FDC - the design, and why it is not built
 
 The idea: instead of escrowing the full clearing price, a bidder proves they
 hold the funds. The screen would then be evidence rather than a balance read.
@@ -123,25 +123,25 @@ the enclave verifies it against `FdcVerification` before ranking.
 
 1. It touches `commitBid`, which is the one path tested end to end on-chain, at
    a moment when there is no time to re-test it properly.
-2. `ClearScreened` already solves the failure it was meant to solve — a winner
+2. `ClearScreened` already solves the failure it was meant to solve - a winner
    who cannot pay is passed over, and that is wired and tested. Proof-of-funds is
    a better version of a problem that is no longer bleeding.
 3. A balance proof at block N says nothing about block N+1. It reduces escrow
-   without removing the risk, so it is an improvement, not a fix — and improvements
+   without removing the risk, so it is an improvement, not a fix - and improvements
    do not justify touching tested settlement code this late.
 
 Roadmap, not backlog. The distinction matters: this is deliberate, not pending.
 
 ---
 
-## 5. MPC clearing — the honest long-term answer
+## 5. MPC clearing - the honest long-term answer
 
 Stated in the submission as the answer to "the settler still sees the openings",
 and it is. Writing down the shape so the claim is not hand-waving.
 
 **The problem it solves.** Today the enclave decrypts every bid. That is safe
 against the operator, the maker and us, because the code hash is attested and
-the amounts never leave — but it is not safe against a compromised enclave. One
+the amounts never leave - but it is not safe against a compromised enclave. One
 machine sees everything.
 
 **The shape.** Split the clearing across n enclaves so no single one holds a
@@ -149,7 +149,7 @@ whole bid:
 
 - The bidder secret-shares their amount to n enclaves rather than encrypting to
   one. Shamir over a prime field is enough; the amounts are uint64.
-- Ranking is the hard part — comparison is expensive in MPC. A practical
+- Ranking is the hard part - comparison is expensive in MPC. A practical
   compromise is a bucketed comparison: bids are compared within price bands,
   which leaks the band and not the amount, and the band is public anyway once
   the clearing price is announced.
@@ -164,5 +164,5 @@ not twelve days.
 
 **What makes the claim credible today:** the clearing engine already takes the
 recorded set and returns only `(winner, price, digest)`. Everything else is
-internal. Swapping how the ranking is computed does not change that interface —
+internal. Swapping how the ranking is computed does not change that interface - 
 which is the property that makes the roadmap item real rather than aspirational.

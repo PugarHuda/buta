@@ -1,7 +1,7 @@
-// onchain-status.mjs — proves Buta's on-chain wiring from public reads alone.
+// onchain-status.mjs - proves Buta's on-chain wiring from public reads alone.
 //
 // Anyone (a judge, a skeptic) can run this against Coston2 and confirm the
-// contract is deployed, source-verified, and reads back its own constants — no
+// contract is deployed, source-verified, and reads back its own constants - no
 // private key, no trust in our word. Node >= 18 (global fetch).
 //
 //   node scripts/onchain-status.mjs
@@ -33,7 +33,7 @@ const lastAddr = (hex) => "0x" + hex.slice(-40);
 const line = (label, value, link) =>
   console.log(`  ${label.padEnd(26)} ${link ? `${value}  ${link}` : value}`);
 
-// Function selectors (first 4 bytes of keccak256(signature)) — verified against
+// Function selectors (first 4 bytes of keccak256(signature)) - verified against
 // the deployed ABI, not guessed.
 const SEL = {
   OP_TYPE_BUTA: "0xdb86b5dd",
@@ -44,9 +44,9 @@ const SEL = {
   senderOf: "0x2c177358",
 };
 
-console.log("\nBUTA — on-chain status (Coston2, chain 114)\n");
+console.log("\nBUTA - on-chain status (Coston2, chain 114)\n");
 
-// 1) explorer facts (verified source + name) — the strongest single proof
+// 1) explorer facts (verified source + name) - the strongest single proof
 const meta = await explorer(`smart-contracts/${BUTA}`).catch(() => ({}));
 line("Contract", BUTA, EXPLORER + BUTA);
 line("Source verified", meta?.is_verified ? "yes" : "no (check explorer)");
@@ -76,7 +76,7 @@ try {
 // The line that used to matter most: getRandomTeeIds reverted TooMany() while no
 // machine was registered, and _sendInstruction calls it on every postRfq,
 // commitBid and requestClearing. Check it from public reads rather than claiming
-// it — this whole script exists so a sceptic does not have to take our word.
+// it - this whole script exists so a sceptic does not have to take our word.
 const TEE_IDS_SELECTOR = "0xfeeabcbf"; // getRandomTeeIds(uint256,uint256)
 let machineLine;
 try {
@@ -87,10 +87,10 @@ try {
   const addr = "0x" + raw.slice(-40);
   machineLine =
     addr === "0x" + "0".repeat(40)
-      ? "no machine returned — instructions cannot be processed"
+      ? "no machine returned - instructions cannot be processed"
       : `${addr}  PRODUCTION`;
 } catch {
-  machineLine = "getRandomTeeIds reverts — no machine registered for this extension";
+  machineLine = "getRandomTeeIds reverts - no machine registered for this extension";
 }
 line("Active TEE machine", machineLine);
 

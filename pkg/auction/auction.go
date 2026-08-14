@@ -8,13 +8,13 @@
 //
 // The clearing rule is Vickrey: the highest bid wins and pays the second-highest
 // price, floored at the maker's reserve. A bidder therefore has no reason to
-// shade — which is the whole point of running a sealed auction, and the reason
+// shade - which is the whole point of running a sealed auction, and the reason
 // the auctioneer must not be able to read the book.
 //
 // Solvency screening (ClearScreened) is wired: internal/extension/solvency.go
 // builds a CanPay that reads the bidder's balance and allowance, and the
 // clearing handler passes it in. With no chain reader it is nil, and clearing
-// falls back to the plain Vickrey rule — an enclave that cannot see balances
+// falls back to the plain Vickrey rule - an enclave that cannot see balances
 // must not decide that nobody can pay.
 package auction
 
@@ -45,7 +45,7 @@ type Commitment [32]byte
 // Commit binds a bid to its commitment: keccak256(amount || nonce || bidder).
 // The contract records this on-chain before the amount is known; the enclave
 // recomputes it from the decrypted opening and refuses any mismatch. Without
-// this, committing on-chain to X and handing the enclave Y would clear at Y —
+// this, committing on-chain to X and handing the enclave Y would clear at Y - 
 // the commitment would be theatre.
 //
 // bidder is the 20-byte address bytes (lowercased upstream; only the bytes
@@ -116,7 +116,7 @@ func Clear(recorded []Commitment, bids []Bid, reserve uint64) (Outcome, error) {
 // settlement transferFrom reverts, so the whole clearing can never be relayed
 // and the auction dies. The runner-up, who was willing and able, gets nothing,
 // and the maker gets their lot back and a wasted deadline. Bidding costs
-// nothing, so this is not a rare accident — it is an attack on the maker.
+// nothing, so this is not a rare accident - it is an attack on the maker.
 //
 // The screen walks down the ranking and awards to the first bidder who can
 // settle at the price they would owe. That price depends on who is skipped, so
@@ -137,7 +137,7 @@ func ClearScreened(recorded []Commitment, bids []Bid, reserve uint64, canPay Can
 	}
 
 	// Sort by amount descending. Ties break on the commitment bytes so the
-	// result is deterministic across machines — the code hash is attested, so
+	// result is deterministic across machines - the code hash is attested, so
 	// two enclaves running the same set must agree exactly.
 	ranked := make([]Bid, len(bids))
 	copy(ranked, bids)
@@ -158,7 +158,7 @@ func ClearScreened(recorded []Commitment, bids []Bid, reserve uint64, canPay Can
 		}
 
 		// Vickrey: pay the price of the best bid you beat. With nobody left
-		// below, the reserve stands in — otherwise a lone bidder clears at zero.
+		// below, the reserve stands in - otherwise a lone bidder clears at zero.
 		clearing := reserve
 		if i+1 < len(ranked) && ranked[i+1].Amount > clearing {
 			clearing = ranked[i+1].Amount
@@ -216,7 +216,7 @@ func matchesRecorded(recorded []Commitment, bids []Bid) error {
 
 // digest is keccak256 over the commitment set sorted bytewise ascending.
 // Order-independent (the sort), collision-resistant (the keccak), and
-// byte-identical to Solidity's commitmentDigest — both sides pin the same
+// byte-identical to Solidity's commitmentDigest - both sides pin the same
 // test vector so a drift fails CI on whichever side moved.
 func digest(recorded []Commitment) Commitment {
 	sorted := make([]Commitment, len(recorded))

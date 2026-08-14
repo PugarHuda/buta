@@ -23,7 +23,7 @@ func TestOversizedActionIsRefusedBeforeItIsParsed(t *testing.T) {
 	// decoder ignores.
 	//
 	// The first version of this sent a huge malformed payload, which the handler
-	// rejected either way — for being malformed, after parsing every byte of it,
+	// rejected either way - for being malformed, after parsing every byte of it,
 	// which is the harm. Removing the limit left the test passing. The padding
 	// has to be the only thing wrong with the request.
 	small, _ := json.Marshal(directAction("LIST_RFQS", map[string]any{}))
@@ -36,7 +36,7 @@ func TestOversizedActionIsRefusedBeforeItIsParsed(t *testing.T) {
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusBadRequest {
-		t.Fatalf("a %d-byte body returned %d, want 400 — the only thing wrong with it was its size", len(padded), res.StatusCode)
+		t.Fatalf("a %d-byte body returned %d, want 400 - the only thing wrong with it was its size", len(padded), res.StatusCode)
 	}
 
 	// And an ordinary one still goes through, so the limit is not simply
@@ -51,7 +51,7 @@ func TestOversizedActionIsRefusedBeforeItIsParsed(t *testing.T) {
 	}
 }
 
-// Go's server defaults are all zero, which means "wait indefinitely" — one
+// Go's server defaults are all zero, which means "wait indefinitely" - one
 // stalled connection is a goroutine that never comes back.
 func TestTheServerHasTimeouts(t *testing.T) {
 	e := New(0, 0)
@@ -62,7 +62,7 @@ func TestTheServerHasTimeouts(t *testing.T) {
 		"IdleTimeout":       e.Server.IdleTimeout,
 	} {
 		if got <= 0 {
-			t.Errorf("%s is %v — a connection that stalls is never reclaimed", name, got)
+			t.Errorf("%s is %v - a connection that stalls is never reclaimed", name, got)
 		}
 	}
 	if e.Server.MaxHeaderBytes <= 0 {

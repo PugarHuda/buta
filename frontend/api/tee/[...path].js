@@ -2,7 +2,7 @@
  * The one hop between a deployed desk and the enclave under the desk.
  *
  * Until now the production bundle carried no proxy URL at all, so the deployed
- * desk always fell back to the demo book — and because the book was demo,
+ * desk always fell back to the demo book - and because the book was demo,
  * `rowIsReal()` refused every on-chain action behind it. A judge opening the
  * link could not post, seal or settle anything, while the contract and the
  * enclave were both live. The whole rail only ever ran from localhost.
@@ -11,14 +11,14 @@
  *
  *   1. The extension proxy sends no Access-Control-Allow-Origin at all, so a
  *      cross-origin call from the page dies before it leaves. Flare's own FTDC
- *      proxy does not send one either — checked against it, not assumed.
+ *      proxy does not send one either - checked against it, not assumed.
  *   2. /direct is gated by an API key, and a key in the bundle is a public key
  *      (that is what X8.50 was about). It has to live somewhere the browser
  *      cannot read.
  *
  * So this runs server-side: same-origin for the page, key injected here from an
  * environment variable, and a hard allowlist of what may pass. Everything that
- * MOVES MONEY — postRfq, commitBid, requestClearing, relayClearing — is a
+ * MOVES MONEY - postRfq, commitBid, requestClearing, relayClearing - is a
  * contract call signed by the visitor's own wallet and never comes through
  * here. What comes through here is reading the book, the enclave's public key,
  * and a result that is already public once the auction has cleared.
@@ -27,7 +27,7 @@
  *   BUTA_ENCLAVE_URL     https://<the host published on-chain>
  *   BUTA_DIRECT_API_KEY  the key the proxy's /direct expects
  */
-import { forward, headers, upstream } from "../_forward.js";
+import { forward, headers, throttled, upstream } from "../_forward.js";
 
 /** bytes32-hex, as the desk encodes op names, back to its string. */
 function fromBytes32(hex) {
@@ -60,24 +60,37 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "no enclave configured for this deployment" });
   }
 
+  if (throttled(req, res)) return;
+
   // From the URL, not from req.query.
   //
-  // Vercel passes a catch-all segment under the literal key "...path" — dots
-  // included — so `req.query.path` is undefined and every request fell through
+  // Vercel passes a catch-all segment under the literal key "...path" - dots
+  // included - so `req.query.path` is undefined and every request fell through
   // with no clue why. The path is in the URL either way, and reading it there
   // does not depend on a convention that can be renamed.
-  const path = decodeURIComponent(String(req.url ?? "").split("?")[0])
-    .replace(/^\/api\/tee\/?/, "")
-    .replace(/\/+$/, "");
+  //
+  // The decode is guarded because it throws: `/api/tee/%c0` is not valid UTF-8,
+  // and an uncaught URIError became a raw 500 - from a file whose whole promise
+  // is that every failure reads as "no enclave" rather than as a broken server.
+  let path;
+  try {
+    path = decodeURIComponent(String(req.url ?? "").split("?")[0])
+      .replace(/^\/api\/tee\/?/, "")
+      .replace(/\/+$/, "");
+  } catch {
+    return res.status(404).json({ error: "not proxied" });
+  }
 
   if (req.method === "GET" && path === "info") {
     // The enclave's signed TeeInfo, carrying the public key bids are encrypted
     // to. Public by necessity: the same key hashes to the teeId the diamond
     // publishes, which is how health.mjs identifies the machine, and the desk
     // refuses to encrypt to a key the chain does not confirm anyway. It is also
-    // the desk's reachability probe — without it the page decides there is no
+    // the desk's reachability probe - without it the page decides there is no
     // enclave and shows the demo book, which is what this exists to stop.
-    return forward(res, `${base}/info`, { method: "GET", headers: headers() });
+    // Same answer for everyone, asked by every tab on load: cached briefly so a
+    // crowd costs the enclave what one reader does.
+    return forward(res, `${base}/info`, { method: "GET", headers: headers() }, { cacheKey: "info", ttlMs: 15_000 });
   }
 
   if (req.method === "POST" && path === "direct") {
@@ -87,14 +100,19 @@ export default async function handler(req, res) {
       return res.status(403).json({
         error:
           `${command || "that command"} is not readable through this endpoint. ` +
-          "Posting a block, sealing a bid and clearing are transactions — sign them with your wallet.",
+          "Posting a block, sealing a bid and clearing are transactions - sign them with your wallet.",
       });
     }
-    return forward(res, `${base}/direct`, {
-      method: "POST",
-      headers: { ...headers(), "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    return forward(
+      res,
+      `${base}/direct`,
+      { method: "POST", headers: { ...headers(), "Content-Type": "application/json" }, body: JSON.stringify(body) },
+      // The book is one answer shared by every reader, so it is collapsed for a
+      // few seconds. GET_MY_BIDS and GET_RFQ_STATE are not: one is per-caller
+      // and the other per-auction, and a cache that returned somebody else's
+      // answer would be a far worse bug than the load it saved.
+      command === "LIST_RFQS" ? { cacheKey: "book", ttlMs: 4000 } : {},
+    );
   }
 
   return res.status(404).json({ error: `not proxied: ${req.method} ${path || "/"}` });

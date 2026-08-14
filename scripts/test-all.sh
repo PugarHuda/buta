@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-all.sh — Run all orderbook test commands in sequence.
+# test-all.sh - Run all orderbook test commands in sequence.
 #
 # Prerequisites:
 #   - Full setup completed (phases 1-3)

@@ -66,7 +66,7 @@ func TestClearRefusesTrimmedSet(t *testing.T) {
 	}
 }
 
-// Same size, different membership — must also fail, or substitution replaces
+// Same size, different membership - must also fail, or substitution replaces
 // trimming as the attack.
 func TestClearRefusesSubstitutedBid(t *testing.T) {
 	real := []Bid{bid(1, "0xaaa", 5194), bid(2, "0xbbb", 5218)}
@@ -111,7 +111,7 @@ func TestClearLoneBidderPaysReserve(t *testing.T) {
 		t.Fatalf("Clear: %v", err)
 	}
 	if got.ClearingPrice != 5100 {
-		t.Errorf("clearing = %d, want 5100 — a lone bidder must not clear at zero", got.ClearingPrice)
+		t.Errorf("clearing = %d, want 5100 - a lone bidder must not clear at zero", got.ClearingPrice)
 	}
 }
 
@@ -196,7 +196,7 @@ func TestScreenSkipsABidderWhoCannotSettle(t *testing.T) {
 	if got.Winner != "0xbbb" {
 		t.Errorf("winner = %q, want 0xbbb", got.Winner)
 	}
-	// 0xbbb pays the best price it actually beat, which is 0xaaa's 5100 — not
+	// 0xbbb pays the best price it actually beat, which is 0xaaa's 5100 - not
 	// the 5200 it would have paid if the insolvent bid still counted.
 	if got.ClearingPrice != 5100 {
 		t.Errorf("clearing = %d, want 5100", got.ClearingPrice)
@@ -245,7 +245,7 @@ func TestScreenRejectsWhenNobodyCanSettle(t *testing.T) {
 }
 
 // The screen is asked about the price the bidder would actually owe, not their
-// own bid — a bidder can be good for the second price and not for their own.
+// own bid - a bidder can be good for the second price and not for their own.
 func TestScreenIsAskedAboutThePriceOwedNotTheBid(t *testing.T) {
 	bids := []Bid{bid(1, "0xaaa", 5100), bid(2, "0xbbb", 9000)}
 	var asked []uint64
@@ -257,7 +257,7 @@ func TestScreenIsAskedAboutThePriceOwedNotTheBid(t *testing.T) {
 		t.Fatalf("ClearScreened: %v", err)
 	}
 	if got.Winner != "0xbbb" {
-		t.Errorf("winner = %q, want 0xbbb — it owes 5100, not its own 9000", got.Winner)
+		t.Errorf("winner = %q, want 0xbbb - it owes 5100, not its own 9000", got.Winner)
 	}
 	if len(asked) != 1 || asked[0] != 5100 {
 		t.Errorf("screen was asked %v, want [5100]", asked)
@@ -272,7 +272,7 @@ func TestScreenDoesNotRevealHowManyWereSkipped(t *testing.T) {
 		t.Fatalf("ClearScreened: %v", err)
 	}
 	if got.BidCount != 3 {
-		t.Errorf("BidCount = %d, want 3 — the recorded set, not the survivors", got.BidCount)
+		t.Errorf("BidCount = %d, want 3 - the recorded set, not the survivors", got.BidCount)
 	}
 }
 

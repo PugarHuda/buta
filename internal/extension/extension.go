@@ -24,7 +24,7 @@ import (
 //
 // There is no balance manager here on purpose. The fork arrived with a vault
 // (deposit, withdraw, per-token balances), but Buta settles the lot and the
-// payment inside ButaInstructionSender itself — that contract has no deposit
+// payment inside ButaInstructionSender itself - that contract has no deposit
 // or withdraw function, so nothing could ever reach those handlers. Custody
 // that cannot be entered is worse than no custody: it reads like a feature.
 type Extension struct {
@@ -38,7 +38,7 @@ type Extension struct {
 	decryptor Decryptor                           // ECIES decrypt; nil = plaintext-only (sim/tests)
 
 	// Solvency screening. Both nil means clearing runs the plain Vickrey rule,
-	// which is what an enclave with no chain access has to do — see solvency.go.
+	// which is what an enclave with no chain access has to do - see solvency.go.
 	funds             Funds
 	instructionSender common.Address // the spender relayClearing pulls through
 }
@@ -122,7 +122,7 @@ func (e *Extension) processInstruction(action teetypes.Action) (int, []byte) {
 	var ar teetypes.ActionResult
 
 	// On this path the payload is what the contract produced with abi.encode,
-	// not the JSON the desk posts. Translate before the handler sees it —
+	// not the JSON the desk posts. Translate before the handler sees it - 
 	// see onchain.go.
 	switch {
 	case df.OPCommand == teeutils.ToHash(config.OPCommandPostRfq):

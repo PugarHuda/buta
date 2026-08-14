@@ -47,7 +47,7 @@ Your extension controls steps 1 (the contract) and 6 (the action handler). Every
 
 ## The Files You Modify
 
-### 1. `internal/config/config.go` — Operation Type Constants
+### 1. `internal/config/config.go` - Operation Type Constants
 
 This file defines the string constants for your operation types. Each constant is hashed to `bytes32` at runtime using `teeutils.ToHash()` and compared against the `OPType` field in incoming actions.
 
@@ -69,7 +69,7 @@ bytes32 constant OP_COMMAND_SAY_HELLO  = bytes32("SAY_HELLO");
 bytes32 constant OP_COMMAND_SAY_GOODBYE = bytes32("SAY_GOODBYE");
 ```
 
-### 2. `pkg/types/types.go` — Request and Response Types
+### 2. `pkg/types/types.go` - Request and Response Types
 
 This file defines the JSON structures for your extension's inputs and outputs.
 
@@ -113,13 +113,13 @@ type State struct {
 }
 ```
 
-### 3. `internal/extension/extension.go` — Action Handlers
+### 3. `internal/extension/extension.go` - Action Handlers
 
 This is the main file. It contains:
 
-- **Extension struct** — your in-memory state fields
-- **processAction()** — routes incoming actions to handlers based on OPType
-- **Your handler functions** — the actual business logic
+- **Extension struct** - your in-memory state fields
+- **processAction()** - routes incoming actions to handlers based on OPType
+- **Your handler functions** - the actual business logic
 
 #### The Extension Struct
 
@@ -137,7 +137,7 @@ type Extension struct {
 }
 ```
 
-#### processAction() — The Router
+#### processAction() - The Router
 
 This function receives every action and routes it. Add a `case` for each operation type. Within a type, a sub-router (e.g. `processGreeting`) dispatches on `OPCommand`:
 
@@ -248,13 +248,13 @@ func (e *Extension) processSayGoodbye(action teetypes.Action, df *instruction.Da
 - `status = 0` → error. The `err` parameter is logged.
 - `status = 1` → success. The `data` parameter is returned to the caller.
 
-### 4. `contracts/InstructionSender.sol` — On-Chain Entry Point
+### 4. `contracts/InstructionSender.sol` - On-Chain Entry Point
 
 This contract is the only address allowed to submit instructions to your extension. You define `bytes32` constants for each operation type (matching your Go constants) and add one send function per operation type. After modifying, run `./scripts/generate-bindings.sh` to regenerate Go bindings.
 
 See the **[InstructionSender Contract Guide](instruction-sender.md)** for a full walkthrough and examples.
 
-### 5. `tools/cmd/run-test/main.go` — E2E Tests
+### 5. `tools/cmd/run-test/main.go` - E2E Tests
 
 The test runner sends instructions through the full pipeline (contract → TEE → proxy) and verifies results. You define test payloads, send them, and assert on your response fields.
 
@@ -312,10 +312,10 @@ buildResult() → JSON response → TEE node → proxy → caller
 ```
 
 Key types in the flow:
-- `teetypes.Action` — the envelope from the TEE node (contains `Data.Message`, `Data.ID`, etc.)
-- `instruction.DataFixed` — parsed from `Action.Data.Message` (contains `OPType`, `OPCommand`, `OriginalMessage`)
-- `df.OriginalMessage` — the raw `_message` bytes from the Solidity contract (your JSON payload)
-- `teetypes.ActionResult` — what you return (contains `Status`, `Data`, `Log`)
+- `teetypes.Action` - the envelope from the TEE node (contains `Data.Message`, `Data.ID`, etc.)
+- `instruction.DataFixed` - parsed from `Action.Data.Message` (contains `OPType`, `OPCommand`, `OriginalMessage`)
+- `df.OriginalMessage` - the raw `_message` bytes from the Solidity contract (your JSON payload)
+- `teetypes.ActionResult` - what you return (contains `Status`, `Data`, `Log`)
 
 ## Using the TEE Signing Port
 
@@ -329,15 +329,15 @@ The sign port is available at `localhost:{SIGN_PORT}` from within the extension.
 
 ## Step-by-Step: Adding a New Operation
 
-1. **Add constants** in `internal/config/config.go` — one `OPType` constant for the operation group and one `OPCommand` constant per individual command
-2. **Define request/response types** in `pkg/types/types.go` — one request/response pair per command, plus any new fields in `State`
-3. **Add a case** in `processAction()` in `internal/extension/extension.go` — route on `OPType` to a sub-router function (e.g. `processGreeting`)
-4. **Write the sub-router** — switch on `OPCommand` and dispatch to individual handler functions
+1. **Add constants** in `internal/config/config.go` - one `OPType` constant for the operation group and one `OPCommand` constant per individual command
+2. **Define request/response types** in `pkg/types/types.go` - one request/response pair per command, plus any new fields in `State`
+3. **Add a case** in `processAction()` in `internal/extension/extension.go` - route on `OPType` to a sub-router function (e.g. `processGreeting`)
+4. **Write the sub-router** - switch on `OPCommand` and dispatch to individual handler functions
 5. **Write each handler function** following the 4-step pattern (decode → validate → execute → build response). Use `structs.DecodeTo` for ABI-encoded messages or `json.Decoder` for JSON messages
 6. **Add any new state fields** to the `Extension` struct and expose them in `stateHandler()` via `types.State`
 7. **Add the Solidity constants and send function** in `contracts/InstructionSender.sol`
 8. **Regenerate bindings**: `./scripts/generate-bindings.sh`
-9. **Update the Go tooling** — in `tools/pkg/utils/instructions.go`, update the import path from `helloworld` to your package, rename type references (e.g. `helloworld.DeployHelloWorldInstructionSender` → `orderbook.DeployOrderbookInstructionSender`, `helloworld.NewHelloWorldInstructionSender` → `orderbook.NewOrderbookInstructionSender`), and rename the send function call (e.g. `sender.SendSayHello` → `sender.SendPlaceOrder`) to match your new Solidity function name
+9. **Update the Go tooling** - in `tools/pkg/utils/instructions.go`, update the import path from `helloworld` to your package, rename type references (e.g. `helloworld.DeployHelloWorldInstructionSender` → `orderbook.DeployOrderbookInstructionSender`, `helloworld.NewHelloWorldInstructionSender` → `orderbook.NewOrderbookInstructionSender`), and rename the send function call (e.g. `sender.SendSayHello` → `sender.SendPlaceOrder`) to match your new Solidity function name
 10. **Add a test case** in `tools/cmd/run-test/main.go`
 
 ## Common Patterns

@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BUTA — THE AUCTIONEER IS BLIND</title>
-<meta name="description" content="Sealed-bid OTC desk on Flare Confidential Compute. Bids are encrypted to an attested enclave. Losing amounts are never revealed — not to the chain, not to the operator, not to the auctioneer.">
+<title>BUTA - THE AUCTIONEER IS BLIND</title>
+<meta name="description" content="Sealed-bid OTC desk on Flare Confidential Compute. Bids are encrypted to an attested enclave. Losing amounts are never revealed - not to the chain, not to the operator, not to the auctioneer.">
 
 <!-- favicon: a red reticle on paper, inline so there is no extra request -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23F4F4F0'/%3E%3Crect x='9' y='9' width='14' height='14' fill='none' stroke='%23CE1414' stroke-width='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='30' stroke='%23CE1414'/%3E%3Cline x1='2' y1='16' x2='30' y2='16' stroke='%23CE1414'/%3E%3C/svg%3E">
 
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://buta-desk.vercel.app">
-<meta property="og:title" content="BUTA — The auctioneer is blind">
-<meta property="og:description" content="A sealed-bid OTC desk on Flare Confidential Compute. Bids are encrypted to an attested enclave — nobody runs the auction. Losing amounts never resolve.">
+<meta property="og:title" content="BUTA - The auctioneer is blind">
+<meta property="og:description" content="A sealed-bid OTC desk on Flare Confidential Compute. Bids are encrypted to an attested enclave - nobody runs the auction. Losing amounts never resolve.">
 <meta property="og:image" content="https://buta-desk.vercel.app/og.svg">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="BUTA — The auctioneer is blind">
+<meta name="twitter:title" content="BUTA - The auctioneer is blind">
 <meta name="twitter:description" content="Sealed-bid OTC on Flare Confidential Compute. The auctioneer itself cannot read the bids.">
 <meta name="twitter:image" content="https://buta-desk.vercel.app/og.svg">
 </head>
@@ -67,7 +67,7 @@
     --hair: 1px;
   }
 
-  /* Forced dark switches the whole interface to the sibling archetype —
+  /* Forced dark switches the whole interface to the sibling archetype - 
      Tactical Telemetry. Substrates are never mixed, only swapped wholesale. */
   :root[data-theme="dark"] {
     --paper:#0A0A0A; --paper-2:#121212;
@@ -86,7 +86,7 @@
     line-height: 1.5;
   }
 
-  /* mechanical noise — a single unified grain over the whole document */
+  /* mechanical noise - a single unified grain over the whole document */
   .grain {
     position: fixed; inset: 0; z-index: 200; pointer-events: none; opacity: .05;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -142,7 +142,7 @@
   .masthead .center { text-align: center; color: var(--ink-3); }
   .masthead .right  { text-align: right; color: var(--ink-3); white-space: nowrap; }
   /* The right-hand meta is nowrap and the grid column is 1fr, which still has
-     min-width:auto — so on a narrow phone the masthead alone forced the whole
+     min-width:auto - so on a narrow phone the masthead alone forced the whole
      page 19px wider than the viewport. Let it shrink and wrap. */
   @media (max-width: 720px) {
     .masthead .center { display: none; }
@@ -317,13 +317,14 @@
     .row .c-bid { display: none; }
   }
 
-  /* On a phone the plate fills the hero *behind* the copy instead of sitting
-     beside it, and the dither at full contrast made the opening paragraph
-     unreadable. Drop it to a texture; the identity survives, the sentence
-     does too. */
-  @media (max-width: 720px) {
-    #plate { opacity: .2; }
-  }
+  /* The plate is a texture behind the copy, at every width.
+     This was scoped to phones, where the dither at full contrast made the
+     opening paragraph unreadable. It does the same thing on a desktop: the
+     dither is densest at the bottom of the hero, which is exactly where the one
+     paragraph explaining the product sits, and black marks run straight through
+     "not the maker, not the taker, not the operator" at 1440. The identity
+     survives the drop; the sentence does not survive without it. */
+  #plate { opacity: .2; }
 </style>
 
 <div class="grain" aria-hidden="true"></div>
@@ -408,7 +409,7 @@
     </div>
 
     <p class="note">
-      Illustrative — this book models the clearing rule client-side. The contract is live on Coston2 at 0xa038…f74d; the desk itself runs the full flow against the extension.
+      Illustrative - this book models the clearing rule client-side. The contract is live on Coston2 at 0xa038…f74d; the desk itself runs the full flow against the extension.
     </p>
   </section>
 
@@ -607,12 +608,12 @@
       <p class="colophon" style="margin:0">
         Sealed-bid OTC <span class="red">///</span> Flare Confidential Compute<br>
         Flare Summer Signal 2026 <span class="red">///</span> Unit D-01 <span class="red">///</span> Rev 0.1<br>
-        Not audited. Not deployed. Do not use with real assets.<span class="red">™</span>
+        Not audited. Coston2 testnet only. Do not use with real assets.<span class="red">™</span>
       </p>
     </div>
     <nav class="links meta">
       <a href="https://dev.flare.network/fcc/overview" rel="noopener">Flare FCC Docs</a>
-      <a href="https://github.com/PugarHuda" rel="noopener">Source</a>
+      <a href="https://github.com/PugarHuda/buta" rel="noopener">Source</a>
       <a href="#top">Top</a>
     </nav>
   </div>
@@ -620,7 +621,7 @@
 
 <!-- ══ PLATE ══════════════════════════════════════════════════════════════
      A ledger plate in perspective: rows of typed records receding to a
-     horizon, every amount struck out. Rendered 1-bit — analytic coverage,
+     horizon, every amount struck out. Rendered 1-bit - analytic coverage,
      then an ordered Bayer threshold, so the far rows dissolve into halftone
      instead of shimmering into mush. No assets, no library; every dot is
      computed. Edges are antialiased with fwidth(), and detail fades out
@@ -663,7 +664,7 @@
       return fract(p.x * p.y);
     }
 
-    // compact ordered dither — 8x8 Bayer without a lookup table
+    // compact ordered dither - 8x8 Bayer without a lookup table
     float bayer2(vec2 a){ a = floor(a); return fract(a.x * 0.5 + a.y * a.y * 0.75); }
     float bayer8(vec2 a){
       return bayer2(0.25 * a) * 0.0625 + bayer2(0.5 * a) * 0.25 + bayer2(a);
@@ -840,7 +841,7 @@
 (() => {
   "use strict";
 
-  // RFQ 007 — sell 250,000 FXRP against USD₮0. Five sealed bids.
+  // RFQ 007 - sell 250,000 FXRP against USD₮0. Five sealed bids.
   // `value` never reaches the DOM as text; it only decides the ranking.
   const BIDS = [
     { addr: "0x7a3f…c091", value: 0.5194, bar: 62 },
@@ -872,7 +873,7 @@
       row.innerHTML =
         '<span class="no">' + pad(i + 1) + '</span>' +
         '<span class="who">' + b.addr + '</span>' +
-        '<span class="c-bid"><i class="bar" style="width:' + b.bar + '%"></i></span>' +
+        '<span class="c-bid"><i class="bar" role="img" aria-label="sealed" style="width:78%"></i></span>' +
         '<span class="st">Sealed</span>';
       return row;
     }));
@@ -896,7 +897,7 @@
     stateEl.textContent = "[ CLEARED /// VICKREY SECOND PRICE ]";
     readout.innerHTML =
       "Winner and clearing price are public. <b>Which bid set that price is not, " +
-      "and the four losing amounts never resolve.</b>";
+      "and the three amounts below it never resolve.</b>";
     clearBtn.disabled = true;
     resetBtn.hidden = false;
   });

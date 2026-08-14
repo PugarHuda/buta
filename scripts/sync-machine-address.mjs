@@ -7,7 +7,7 @@
  * A TEE identity is ephemeral by design, so every replaced container makes the
  * address in SUBMISSION.md and DORAHACKS_FORM.md wrong. That has now happened
  * four times in one day, and each time the fix was a hand-edit in two files plus
- * a short form in a third place — which is exactly the kind of step that gets
+ * a short form in a third place - which is exactly the kind of step that gets
  * skipped at 2am before a deadline, leaving a submission that cites a machine
  * the chain has paused.
  *
@@ -31,7 +31,7 @@ const info = await fetch(`${LOCAL}/info`, { signal: AbortSignal.timeout(8000) })
   .then((r) => (r.ok ? r.json() : null))
   .catch(() => null);
 if (!info) {
-  console.error(`no answer from ${LOCAL}/info — start the stack, or the address cannot be derived from anything trustworthy`);
+  console.error(`no answer from ${LOCAL}/info - start the stack, or the address cannot be derived from anything trustworthy`);
   process.exit(2);
 }
 const pk = info.teeInfo?.publicKey ?? info.machineData?.publicKey;
@@ -49,7 +49,7 @@ const status = Number(
   await pc.readContract({ address: DIAMOND, abi: ABI, functionName: "getTeeMachineStatus", args: [serving] }),
 );
 if (status !== 2) {
-  console.error(`the machine being served (${serving}) is status ${status}, not PRODUCTION — register it before citing it`);
+  console.error(`the machine being served (${serving}) is status ${status}, not PRODUCTION - register it before citing it`);
   process.exit(1);
 }
 const [id] = await pc.readContract({ address: DIAMOND, abi: ABI, functionName: "getTeeMachine", args: [serving] });
@@ -62,8 +62,8 @@ for (const rel of DOCS) {
   const path = fileURLToPath(new URL(rel, import.meta.url));
   const before = fs.readFileSync(path, "utf8");
 
-  // Anchored on the two forms the documents use — the evidence row's full
-  // address and the form's 0x1234…abcd short one — because a bare 40-hex string
+  // Anchored on the two forms the documents use - the evidence row's full
+  // address and the form's 0x1234…abcd short one - because a bare 40-hex string
   // is indistinguishable from the contract, a token, or the deployer, and a
   // blind sweep would rewrite all of them.
   const rowRe = /(\*\*TEE machine in PRODUCTION\*\* \| \[?`)(0x[0-9a-fA-F]{40})(`)/;

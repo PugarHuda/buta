@@ -76,7 +76,7 @@ else
     esac
 
     # docker-compose.yaml interpolates SOURCE_DATE_EPOCH as a build arg. It's
-    # irrelevant on `down`, but compose still warns when it's unset — silence it.
+    # irrelevant on `down`, but compose still warns when it's unset - silence it.
     export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-0}"
 
     log "Stopping Docker Compose services (chain: $CHAIN)..."

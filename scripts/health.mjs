@@ -1,11 +1,11 @@
-// health.mjs — is the machine actually reachable, right now?
+// health.mjs - is the machine actually reachable, right now?
 //
 //   node scripts/health.mjs            once, exit 0 or 1
 //   node scripts/health.mjs --watch    every 60s, shout when it breaks
 //
 // The keeper republishes the hostname when it moves, which is fine until the
 // keeper itself dies. Then nothing moves, nothing complains, and the machine is
-// quietly unreachable — the failure looks exactly like everything being fine,
+// quietly unreachable - the failure looks exactly like everything being fine,
 // because the last thing anyone saw was "machine is reachable again".
 //
 // Four checks, in the order a failure actually propagates. Each one names the
@@ -56,7 +56,7 @@ async function check() {
     teeId = `0x${keccak256(`0x${hex(pk.x)}${hex(pk.y)}`).slice(-40)}`;
     notes.push(`proxy ok, machine ${teeId}`);
   } catch (e) {
-    problems.push(`ext-proxy is not serving ${LOCAL}/info — ${first(e)}. The stack is down, or the indexer is lagging again (docker compose logs ext-proxy | grep "out of sync").`);
+    problems.push(`ext-proxy is not serving ${LOCAL}/info - ${first(e)}. The stack is down, or the indexer is lagging again (docker compose logs ext-proxy | grep "out of sync").`);
     return { problems, notes };
   }
 
@@ -70,7 +70,7 @@ async function check() {
     // There is one way this happens in practice, and it is worth naming rather
     // than making the reader deduce it from a revert. tee-node generates its
     // key at startup and never persists it, so a restarted extension-tee comes
-    // back as a machine the chain has never seen — while the machine it DID
+    // back as a machine the chain has never seen - while the machine it DID
     // register stays PRODUCTION and keeps being handed out by getRandomTeeIds.
     problems.push(
       `the diamond has no record of ${teeId}. The container was almost certainly restarted: ` +
@@ -90,7 +90,7 @@ async function check() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       notes.push("the published url answers");
     } catch (e) {
-      problems.push(`${onChainUrl} does not answer — ${first(e)}. The tunnel moved or died; the keeper should have republished. Is it still running?`);
+      problems.push(`${onChainUrl} does not answer - ${first(e)}. The tunnel moved or died; the keeper should have republished. Is it still running?`);
     }
   }
 
@@ -101,12 +101,12 @@ async function check() {
     if (status !== 2) problems.push(`machine status is ${status} (${names[status] ?? "?"}), not PRODUCTION`);
     else notes.push("status PRODUCTION");
   } catch (e) {
-    problems.push(`could not read machine status — ${first(e)}`);
+    problems.push(`could not read machine status - ${first(e)}`);
   }
 
   // The whole active set, not one draw. A restarted container leaves its old
   // machine PRODUCTION forever, so the set grows and getRandomTeeIds hands out
-  // either — half the instructions go to an address nobody is listening on.
+  // either - half the instructions go to an address nobody is listening on.
   // Nothing reverts, so a single draw can look perfect while half the traffic
   // vanishes. This missed it once: it drew the live machine and said healthy
   // while the dead one was still in the set.
@@ -120,7 +120,7 @@ async function check() {
       }
     }
     if (!active.length) {
-      problems.push("getRandomTeeIds returned nothing — instructions cannot be processed");
+      problems.push("getRandomTeeIds returned nothing - instructions cannot be processed");
     } else {
       const strays = active.filter((a) => a.toLowerCase() !== teeId.toLowerCase());
       if (strays.length) {
@@ -135,7 +135,7 @@ async function check() {
       }
     }
   } catch {
-    problems.push("getRandomTeeIds reverts — no active machine for the extension, so postRfq, commitBid and requestClearing all revert before reaching the diamond");
+    problems.push("getRandomTeeIds reverts - no active machine for the extension, so postRfq, commitBid and requestClearing all revert before reaching the diamond");
   }
 
   return { problems, notes };
@@ -145,7 +145,7 @@ async function once() {
   const { problems, notes } = await check();
   const stamp = new Date().toISOString().slice(11, 19);
   if (!problems.length) {
-    console.log(`[${stamp}] healthy — ${notes.join("; ")}`);
+    console.log(`[${stamp}] healthy - ${notes.join("; ")}`);
     return true;
   }
   // Loud on purpose. A health check nobody notices failing is a health check

@@ -23,8 +23,8 @@ interface IERC20 {
 ///   FORK=1 forge test --match-path test/ButaSettleFork.t.sol
 ///
 /// Skipped without FORK=1, so the suite still runs offline. The public-chain
-/// path needs a registered TEE machine — getRandomTeeIds reverts for our
-/// extension today — which is exactly why the leg is proven here instead.
+/// path needs a registered TEE machine - getRandomTeeIds reverts for our
+/// extension today - which is exactly why the leg is proven here instead.
 contract ButaSettleForkTest is Test {
     // AssetManagerFXRP.fAsset() on Coston2
     address internal constant FXRP = 0x0b6A3645c240605887a5532109323A3E12273dc7;
@@ -115,7 +115,7 @@ contract ButaSettleForkTest is Test {
     function test_RealFXRPAlsoRequiresApproval() public {
         vm.skip(vm.envOr("FORK", uint256(0)) == 0);
 
-        // no approve() — the FAsset's own allowance check has to stop this, not ours
+        // no approve() - the FAsset's own allowance check has to stop this, not ours
         bytes32 digest = buta.commitmentDigest(rfqId);
         vm.expectRevert();
         buta.relayClearing(rfqId, winner, CLEARING, digest, bytes32("f2"), "tag", 1, _sign(winner, CLEARING, digest, bytes32("f2")));

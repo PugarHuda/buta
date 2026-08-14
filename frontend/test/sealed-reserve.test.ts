@@ -3,7 +3,7 @@
  *
  * postRfq takes `bytes encryptedReserve` and the desk was sending `0x`. That
  * cost more than the floor: the PAIR travels in the same envelope, so an
- * on-chain block was recorded with no reserve and no pair name at all — and a
+ * on-chain block was recorded with no reserve and no pair name at all - and a
  * zero floor means a lone bid takes the lot for nothing.
  *
  * Encrypting is easy to get wrong in a way nothing notices, because the failure
@@ -80,7 +80,7 @@ async function instruction(command: string, originalMessage: `0x${string}`) {
 }
 
 /** The enclave's own key. cmd/dev registers nothing, so this is the only place
- *  its key exists — which is exactly why the escape hatch has to exist too. */
+ *  its key exists - which is exactly why the escape hatch has to exist too. */
 async function devKey(): Promise<Buffer> {
   const info = (await (await fetch(`${BASE}/info`)).json()) as {
     machineData: { publicKey: { x: string; y: string } };
@@ -101,7 +101,7 @@ test("the enclave opens a reserve sealed the way the desk seals it", async (t) =
   // Through the INSTRUCTION path, which is the only one that decrypts.
   //
   // The first version of this posted plaintext over the direct rail and then
-  // asserted the plaintext survived — the envelope was never opened by anyone
+  // asserted the plaintext survived - the envelope was never opened by anyone
   // and removing the encryption entirely would not have failed it. The direct
   // rail takes the reserve in the clear; only decodePostRfq calls the Decryptor.
   const rfqId = Date.now() % 1_000_000;
@@ -116,7 +116,7 @@ test("the enclave opens a reserve sealed the way the desk seals it", async (t) =
   assert.equal(ar.status, 1, ar.log);
 
   // What it read back out of the envelope. Getting the key or the envelope
-  // wrong fails above with "opening sealed reserve: ecies: invalid message" —
+  // wrong fails above with "opening sealed reserve: ecies: invalid message" - 
   // on the enclave side, where nothing on the desk would ever see it.
   const state = await call("GET_RFQ_STATE", { rfqId });
   assert.equal(state.status, 1, state.log);

@@ -83,7 +83,7 @@ func RegisterNode(s *support.Support, teeInfo *types.SignedTeeInfoResponse, host
 			if machineErr == nil && machineInfo.TeeId != (common.Address{}) {
 				// Already registered (e.g. a re-run): skip machine pre-registration,
 				// but the original attestation challenge is one-shot and may have
-				// expired, so request a FRESH attestation to get a valid challenge —
+				// expired, so request a FRESH attestation to get a valid challenge - 
 				// otherwise the availability check below reverts with ChallengeExpired.
 				logger.Infof("TEE machine %s already registered on-chain, requesting fresh attestation", teeID.Hex())
 				teeAttestInstructionID, err = RequestTeeAttestation(s, teeID)
@@ -166,7 +166,7 @@ func RegisterNode(s *support.Support, teeInfo *types.SignedTeeInfoResponse, host
 		}
 	}
 
-	// All steps completed — delete state file
+	// All steps completed - delete state file
 	os.Remove(stateFilePath)
 	return nil
 }

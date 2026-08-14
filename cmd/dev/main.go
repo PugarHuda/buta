@@ -4,7 +4,7 @@
 //
 // It exists because the full stack (redis + tee-proxy + indexer DB + chain)
 // is heavy, and the Coston2 FCC round trip is being reworked upstream. The
-// extension code exercised here is exactly what runs behind the real proxy —
+// extension code exercised here is exactly what runs behind the real proxy - 
 // only the transport in front of it is simplified. Dev only; the facade does
 // no signing-policy verification and must never sit on a public port.
 //
@@ -53,14 +53,14 @@ type resultStore struct {
 
 func main() {
 	if !config.AllowDirectAuctionOps {
-		logger.Warnf("BUTA_ALLOW_DIRECT_AUCTION is off — post/commit/clear will be refused; only reads will work")
+		logger.Warnf("BUTA_ALLOW_DIRECT_AUCTION is off - post/commit/clear will be refused; only reads will work")
 	}
 
 	ext := extension.New(config.ExtensionPort, config.SignPort)
 
 	// Simulated enclave key. In production this lives inside the attested node
 	// and the extension reaches it over the sign server; here it sits in this
-	// process, which is exactly what SIMULATED_TEE means — same crypto, no
+	// process, which is exactly what SIMULATED_TEE means - same crypto, no
 	// hardware isolation.
 	teeKey, err := crypto.GenerateKey()
 	if err != nil {
@@ -78,7 +78,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// POST /direct — accepts the same body the real proxy accepts
+	// POST /direct - accepts the same body the real proxy accepts
 	// ({opType, opCommand, message}), wraps it in an Action envelope exactly
 	// the way tee-proxy does for direct instructions, and hands it to the
 	// extension's own HTTP handler in-process.
@@ -123,7 +123,7 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"id": id.Hex()}})
 	})
 
-	// GET /action/result/{id} — the poll side of the contract.
+	// GET /action/result/{id} - the poll side of the contract.
 	mux.HandleFunc("GET /action/result/{id}", func(w http.ResponseWriter, r *http.Request) {
 		cors(w)
 		id := common.HexToHash(strings.TrimPrefix(r.PathValue("id"), "0x"))
@@ -143,7 +143,7 @@ func main() {
 		_, _ = w.Write([]byte(`}`))
 	})
 
-	// GET /info — the frontend reads machineData.publicKey (x, y) from here and
+	// GET /info - the frontend reads machineData.publicKey (x, y) from here and
 	// ECIES-encrypts each bid to it before sending. Mirrors the real proxy's
 	// /info shape closely enough for the client's teePublicKeyToBuffer.
 	mux.HandleFunc("GET /info", func(w http.ResponseWriter, _ *http.Request) {
@@ -180,7 +180,7 @@ func main() {
 		WriteTimeout: 60 * time.Second,
 		IdleTimeout:  120 * time.Second,
 	}
-	logger.Infof("dev facade on http://127.0.0.1:%d — point VITE_TEE_PROXY_URL here", facadePort)
+	logger.Infof("dev facade on http://127.0.0.1:%d - point VITE_TEE_PROXY_URL here", facadePort)
 	if err := srv.ListenAndServe(); err != nil {
 		logger.Fatalf("facade: %v", err)
 	}

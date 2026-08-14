@@ -1,10 +1,10 @@
 # Types Server
 
-The types server is a lightweight HTTP sidecar that decodes raw hex-encoded instruction data into human-readable JSON. It runs alongside your extension and provides a `/decode` endpoint that frontends, dashboards, and debugging tools can call to display instruction payloads and results in structured form — without needing to know the Go types themselves.
+The types server is a lightweight HTTP sidecar that decodes raw hex-encoded instruction data into human-readable JSON. It runs alongside your extension and provides a `/decode` endpoint that frontends, dashboards, and debugging tools can call to display instruction payloads and results in structured form - without needing to know the Go types themselves.
 
 ## Why It Exists
 
-When instructions flow through the TEE pipeline, the `data` field in messages and results is raw bytes (hex-encoded). To display these in a UI or inspect them during development, something needs to know the structure — which Go type to unmarshal into, and whether the data is a message (request) or a result (response).
+When instructions flow through the TEE pipeline, the `data` field in messages and results is raw bytes (hex-encoded). To display these in a UI or inspect them during development, something needs to know the structure - which Go type to unmarshal into, and whether the data is a message (request) or a result (response).
 
 The types server solves this by maintaining a registry of decoders keyed by `(OPType, OPCommand, Kind)`. You register your types once, and any tool can call `/decode` to get structured JSON back.
 
@@ -14,12 +14,12 @@ The types server solves this by maintaining a registry of decoders keyed by `(OP
 pkg/decoder/
 ├── decoder.go      Decoder interface + DataKind type
 ├── registry.go     Thread-safe Registry (Register, Lookup, Keys)
-├── json.go         JSONDecoder[T] — decodes JSON-encoded bytes
-└── abi.go          ABIDecoder[T] — decodes ABI-encoded bytes
+├── json.go         JSONDecoder[T] - decodes JSON-encoded bytes
+└── abi.go          ABIDecoder[T] - decodes ABI-encoded bytes
 
 pkg/types/
 ├── types.go        Your request/response/state structs
-└── register.go     RegisterDecoders() — wires types into the registry
+└── register.go     RegisterDecoders() - wires types into the registry
 
 internal/typesserver/
 └── server.go       HTTP server (POST /decode, GET /registry, GET /health)
@@ -35,13 +35,13 @@ pkg/server/
 
 The types server runs in two modes:
 
-**Embedded (default)** — started automatically inside the Docker container alongside your extension. The `cmd/docker/main.go` entry point calls `StartTypesServer()` in a goroutine:
+**Embedded (default)** - started automatically inside the Docker container alongside your extension. The `cmd/docker/main.go` entry point calls `StartTypesServer()` in a goroutine:
 
 ```go
 go extserver.StartTypesServer(config.TypesServerPort)
 ```
 
-**Standalone** — for local development or running the types server independently:
+**Standalone** - for local development or running the types server independently:
 
 ```bash
 TYPES_SERVER_PORT=8100 go run ./cmd/types-server
@@ -281,7 +281,7 @@ You should see `GREETING` (SAY_HELLO and SAY_GOODBYE) and `PLACE_ORDER` entries.
 
 The `pkg/decoder` package provides two decoder implementations:
 
-### `JSONDecoder[T]` — for JSON-encoded payloads
+### `JSONDecoder[T]` - for JSON-encoded payloads
 
 Use this when your Solidity contract passes a JSON string as the message bytes. This is the common case for most extensions.
 
@@ -289,7 +289,7 @@ Use this when your Solidity contract passes a JSON string as the message bytes. 
 decoder.NewJSONDecoder[SayHelloRequest]()
 ```
 
-### `ABIDecoder[T]` — for ABI-encoded payloads
+### `ABIDecoder[T]` - for ABI-encoded payloads
 
 Use this when your Solidity contract passes ABI-encoded data (e.g. `abi.encode(arg1, arg2)`). This uses `structs.Decode` from `go-flare-common` to decode the ABI bytes.
 

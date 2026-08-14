@@ -32,7 +32,7 @@ func TestDeploy_ZeroRegistryAddress(t *testing.T) {
 		if !strings.Contains(err.Error(), "zero address") && !strings.Contains(err.Error(), "TeeExtensionRegistry") {
 			t.Errorf("expected error to mention zero address or TeeExtensionRegistry, got: %v", err)
 		}
-		t.Log("Note: DecodeRevertReason returned empty — revert data may not be available from this RPC node")
+		t.Log("Note: DecodeRevertReason returned empty - revert data may not be available from this RPC node")
 		return
 	}
 
@@ -59,7 +59,7 @@ func TestDeploy_ZeroMachineRegistryAddress(t *testing.T) {
 		if !strings.Contains(err.Error(), "zero address") && !strings.Contains(err.Error(), "TeeMachineRegistry") {
 			t.Errorf("expected error to mention zero address or TeeMachineRegistry, got: %v", err)
 		}
-		t.Log("Note: DecodeRevertReason returned empty — revert data may not be available from this RPC node")
+		t.Log("Note: DecodeRevertReason returned empty - revert data may not be available from this RPC node")
 		return
 	}
 
@@ -70,7 +70,7 @@ func TestDeploy_ZeroMachineRegistryAddress(t *testing.T) {
 }
 
 func TestDeploy_EOAAsRegistry(t *testing.T) {
-	// Generate a random EOA address — it has no code deployed
+	// Generate a random EOA address - it has no code deployed
 	randomKey, err := crypto.GenerateKey()
 	if err != nil {
 		t.Fatalf("failed to generate key: %v", err)
@@ -93,7 +93,7 @@ func TestDeploy_EOAAsRegistry(t *testing.T) {
 		if !strings.Contains(deployErr.Error(), "no code") && !strings.Contains(deployErr.Error(), "TeeExtensionRegistry") {
 			t.Errorf("expected error to mention 'no code' or TeeExtensionRegistry, got: %v", deployErr)
 		}
-		t.Log("Note: DecodeRevertReason returned empty — revert data may not be available from this RPC node")
+		t.Log("Note: DecodeRevertReason returned empty - revert data may not be available from this RPC node")
 		return
 	}
 

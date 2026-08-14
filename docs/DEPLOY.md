@@ -1,7 +1,7 @@
 # Deploying Buta to Coston2
 
 Turnkey once the deployer is funded. The deployer keypair is in
-`buta/.env.deployer` (gitignored — the private key never leaves your machine).
+`buta/.env.deployer` (gitignored - the private key never leaves your machine).
 
 ## 1. Fund the deployer
 
@@ -34,7 +34,7 @@ registry and machine registry roles. If Flare cuts a newer diamond, override:
 TEE_MANAGER=0x… forge script script/Deploy.s.sol …
 ```
 
-> Do **not** point at the old `0x004224fa…` diamond — it predates the
+> Do **not** point at the old `0x004224fa…` diamond - it predates the
 > `ExtensionGovernance` facet and registration reverts with `FunctionNotFound`
 > / `only reward offers manager`. This is the single most common failure.
 
@@ -70,15 +70,15 @@ password = sGKvCAM6gCU2IvsbEv6JDHRO
 account, but it is shared by every team and reached `max_user_connections=100`
 on 12 August. That matters more than it sounds: `ext-proxy` **panics** on a
 database it cannot open rather than starting degraded, so a saturated account
-takes the whole stack down at the next restart — and the restart is usually the
+takes the whole stack down at the next restart - and the restart is usually the
 thing you were doing to fix something else.
 
-For the hackathon demo you do **not** need this step — Flare accepts the
+For the hackathon demo you do **not** need this step - Flare accepts the
 simulated-TEE path (`BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev`). Registration
 gives you a real attested `teeAddress` to pass to `setTeeAddress()`; until then,
 `setTeeAddress()` can take the simulated node's address.
 
-## 4. After deploy — flip the landing page
+## 4. After deploy - flip the landing page
 
 Three spots still say "undeployed"; update them once addresses exist:
 - masthead pill (`landing/index.html`)

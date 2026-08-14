@@ -4,7 +4,7 @@
  *   node scripts/settle-from-browser.mjs
  *
  * scripts/onchain-loop.ts already settles on Coston2, and it shares libraries
- * with the desk — which is exactly why it does not prove the desk works. It
+ * with the desk - which is exactly why it does not prove the desk works. It
  * calls the same functions with arguments it builds itself. A button that never
  * fires, a field that never reaches the encoder, a rail wired to the wrong
  * outcome: none of that shows up in a script that bypasses the UI.
@@ -43,7 +43,7 @@ const head = (m) => console.log(`\n[${++step}] ${m}`);
 const check = (name, ok, detail = "") => {
   if (ok) console.log(`  ok    ${name}`);
   else {
-    console.log(`  FAIL  ${name}${detail ? ` — ${detail}` : ""}`);
+    console.log(`  FAIL  ${name}${detail ? ` - ${detail}` : ""}`);
     failures.push(name);
   }
 };
@@ -61,7 +61,7 @@ const bidderRaw = fs.existsSync(path.join(root, ".bidder.key"))
   ? fs.readFileSync(path.join(root, ".bidder.key"), "utf8").trim()
   : null;
 if (!makerKey || !bidderRaw) {
-  console.error("need DEPLOYMENT_PRIVATE_KEY (.env) and .bidder.key — two wallets, because FXRP refuses a self-transfer");
+  console.error("need DEPLOYMENT_PRIVATE_KEY (.env) and .bidder.key - two wallets, because FXRP refuses a self-transfer");
   process.exit(2);
 }
 const bidderKey = norm(bidderRaw);
@@ -84,7 +84,7 @@ const SENDER = await pc.readContract({
 });
 
 head("the stack the desk will talk to");
-// VITE_TEE_PROXY_URL is deliberately empty — the desk reaches the enclave
+// VITE_TEE_PROXY_URL is deliberately empty - the desk reaches the enclave
 // through vite's same-origin proxy, because the enclave sends no CORS headers.
 // The upstream is what this script checks directly.
 const proxyUrl = envValue("frontend/.env.local", "VITE_PROXY_UPSTREAM") || "http://127.0.0.1:6674";
@@ -101,7 +101,7 @@ for (const [who, a] of [["maker", maker.address], ["bidder", bidder.address]]) {
 }
 if (failures.length) process.exit(1);
 
-head(`serve the desk on :${PORT} — the real bundle, with the proxy url it ships with`);
+head(`serve the desk on :${PORT} - the real bundle, with the proxy url it ships with`);
 // --host 127.0.0.1 on purpose: left to itself vite binds "localhost", which on
 // this machine resolves to ::1 only, and every fetch to 127.0.0.1 gets nothing
 // while the port looks taken.
@@ -121,7 +121,7 @@ const stop = () => { try { dev.kill(); } catch { /* already gone */ } };
 process.on("exit", stop);
 if (!up) { stop(); process.exit(1); }
 
-// Playwright and the wallet harness both live in the undelayed repo — that is
+// Playwright and the wallet harness both live in the undelayed repo - that is
 // where the QA suites are. Resolve them from there rather than adding a second
 // copy of a browser download to this one.
 const qaDir = path.join(root, "..", "undelayed", "qa");
@@ -145,7 +145,7 @@ async function desk(privateKey, address, seedClearing) {
   await installWallet(ctx, { privateKey, broadcast: true });
   if (seedClearing) {
     // Exactly what the desk writes when a clearing arrives. Seeding it is how a
-    // signature produced in an earlier session is settled — which is the whole
+    // signature produced in an earlier session is settled - which is the whole
     // reason lib/clearings.ts exists, since the enclave answers
     // "auction: already cleared" and never issues it a second time.
     await ctx.addInitScript((c) => {
@@ -169,7 +169,7 @@ const fill = async (page, label, value) => {
   await i.fill(value);
   return true;
 };
-/** Wait for a sentence to appear, rather than a fixed sleep — a transaction
+/** Wait for a sentence to appear, rather than a fixed sleep - a transaction
  *  takes as long as the chain takes. */
 async function until(page, re, seconds = 180) {
   for (let i = 0; i < seconds; i++) {
@@ -184,7 +184,7 @@ async function until(page, re, seconds = 180) {
  *
  *   RFQ_ID=10 node scripts/settle-from-browser.mjs
  *
- * The waiting is the expensive part — six minutes of blocks — and a run that
+ * The waiting is the expensive part - six minutes of blocks - and a run that
  * dies during it has already escrowed a lot and sealed a bid. Re-posting throws
  * both away and strands the lot. This resumes at the deadline instead.
  */
@@ -194,7 +194,7 @@ let mp, rfqId, row;
 let skipClearing = false;
 
 if (RESUME) {
-  head(`resume RFQ ${RESUME} — it is already posted and bid on`);
+  head(`resume RFQ ${RESUME} - it is already posted and bid on`);
   rfqId = BigInt(RESUME);
   row = await pc.readContract({ address: SENDER, abi: ABI, functionName: "rfqs", args: [rfqId] });
   check("that auction exists on the contract", row[0] !== "0x0000000000000000000000000000000000000000");
@@ -203,7 +203,7 @@ if (RESUME) {
     address: SENDER, abi: parseAbi(["function hasBid(uint256, address) view returns (bool)"]),
     functionName: "hasBid", args: [rfqId, bidder.address],
   }).catch(() => false);
-  check("and the bidder's bid is recorded", bid, "no bid from that wallet — nothing to clear");
+  check("and the bidder's bid is recorded", bid, "no bid from that wallet - nothing to clear");
   if (failures.length) { stop(); process.exit(1); }
   say(`RFQ ${rfqId}, lot ${formatUnits(row[3], 6)} FXRP, deadline block ${row[4]}`);
 
@@ -289,7 +289,7 @@ const bp = await desk(bidderKey, bidder.address);
 // separator, so the boundary after the digits never exists. Look ahead for a
 // non-digit instead, which is what "not RFQ-0080" actually means.
 const rowBtn = bp.locator("button", { hasText: new RegExp(`RFQ.?0*${rfqId}(?![0-9])`) }).first();
-// The auction exists on the contract before the enclave has heard of it — that
+// The auction exists on the contract before the enclave has heard of it - that
 // ordering is the point of the design, and it means the book does not show it
 // the instant the transaction confirms. Wait for the instruction to arrive
 // rather than reading the book once and calling it missing.
@@ -315,12 +315,12 @@ check("the bid field is there", await fill(bp, /your bid/i, BID));
 // The label moved when the on-chain rail became the primary one, and the
 // swallowed .catch() meant a missing button was silent: the click did nothing
 // and the run failed three checks later with "the desk says the bid is sealed"
-// — which reads like the desk lying rather than like this script clicking
+// - which reads like the desk lying rather than like this script clicking
 // nothing. Assert the control exists before pressing it.
 const sealChain = bp.locator("button", { hasText: /^seal bid on-chain$/i }).first();
 check("the on-chain seal control is on the form", (await sealChain.count()) > 0, "no on-chain seal button");
 await sealChain.click().catch(() => {});
-// A transaction hash, not the word "commitment" — which is in the static copy
+// A transaction hash, not the word "commitment" - which is in the static copy
 // beside the button and made this pass without a bid ever being sent.
 const sealed = await until(bp, /sealed on-chain: 0x[0-9a-f]{64}/i, 240);
 check("the desk says the bid is sealed on-chain", sealed, (await receipts(bp)).slice(-200));
@@ -340,7 +340,7 @@ check("and the CONTRACT recorded a bid from that wallet", onChainBid);
 
 } // end of the post-and-bid path; a resumed run joins here
 
-head(`wait for block ${row[4]} — nobody may clear before it`);
+head(`wait for block ${row[4]} - nobody may clear before it`);
 for (;;) {
   const h = await pc.getBlockNumber();
   if (h > row[4]) break;
@@ -351,8 +351,8 @@ console.log("\r  deadline passed          ");
 
 head(
   skipClearing
-    ? "the clearing is already signed — the desk picks it up from storage"
-    : "the maker asks the enclave to clear it — from the desk",
+    ? "the clearing is already signed - the desk picks it up from storage"
+    : "the maker asks the enclave to clear it - from the desk",
 );
 await mp.reload({ waitUntil: "networkidle" });
 await mp.waitForTimeout(6000);
@@ -364,8 +364,8 @@ if (!skipClearing) {
   check("the desk offers to request the clearing on-chain", (await reqBtn.count()) > 0);
   // Ask again, because that is what the desk tells a person to do.
   //
-  // The FIRST dispatch is the unreliable one — a round can pass producing
-  // nothing for the id asked about — and the desk says so in as many words. A
+  // The FIRST dispatch is the unreliable one - a round can pass producing
+  // nothing for the id asked about - and the desk says so in as many words. A
   // repeat is answered from the enclave's memory in seconds. Pressing once and
   // failing meant this check reported "the enclave never signed" for a rail
   // that had signed perfectly well, minutes before somebody pressed record.
@@ -373,7 +373,7 @@ if (!skipClearing) {
   for (let attempt = 1; attempt <= 3 && !signed; attempt++) {
     const btn = mp.locator("button", { hasText: /request clearing on-chain|ask again for the signed outcome/i }).first();
     if (!(await btn.count())) break;
-    if (attempt > 1) say(`nothing came back — asking again (attempt ${attempt} of 3)`);
+    if (attempt > 1) say(`nothing came back - asking again (attempt ${attempt} of 3)`);
     await btn.click();
     // The enclave has to open the bids and sign; that is minutes, not seconds.
     signed = await until(mp, /signed by the enclave/i, attempt === 1 ? 420 : 150);
@@ -381,10 +381,10 @@ if (!skipClearing) {
   check("the enclave signed an outcome and the desk shows it", signed, (await receipts(mp)).slice(-260));
 }
 
-head("settle — the only transaction that moves money");
+head("settle - the only transaction that moves money");
 // The SETTLEMENT token, not FXRP. The maker is paid in the quote asset and
 // gives FXRP away as the lot, so watching their FXRP showed a flat line through
-// a settlement that had worked perfectly — a check that could only ever fail.
+// a settlement that had worked perfectly - a check that could only ever fail.
 // row[1] is settleToken, taken from the contract rather than from config.
 const quote = row[1];
 const mBefore = await pc.readContract({ address: quote, abi: ABI, functionName: "balanceOf", args: [maker.address] });
@@ -409,7 +409,7 @@ const wLotAfter = await pc.readContract({ address: FXRP, abi: ABI, functionName:
 check("the CONTRACT records it cleared", finalRow[6] === true);
 check("the winner is the wallet that sealed the bid", finalRow[7].toLowerCase() === bidder.address.toLowerCase(), finalRow[7]);
 check(
-  "the winner paid the reserve, not their own bid — second price",
+  "the winner paid the reserve, not their own bid - second price",
   finalRow[8] === BigInt(RESERVE),
   `paid ${formatUnits(finalRow[8], 6)}`,
 );

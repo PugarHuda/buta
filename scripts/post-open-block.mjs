@@ -4,7 +4,7 @@
  *   node scripts/post-open-block.mjs [minutes]     default: 180
  *
  * The deployed desk reads its book from the enclave, and the enclave's book is
- * memory — it starts empty after every container replacement, and auctions that
+ * memory - it starts empty after every container replacement, and auctions that
  * have cleared stay on it as receipts. So a visitor could arrive at a desk with
  * nothing open on it, which reads as a product with nothing to do rather than
  * as a quiet market. Fourteen of the desk's own flow checks failed for the same
@@ -13,7 +13,7 @@
  *
  * This posts one real auction: the lot goes into escrow on the contract, and
  * the instruction reaches the enclave the way any other does. Nothing here is
- * seeded into memory — a row that exists only in the enclave would look real on
+ * seeded into memory - a row that exists only in the enclave would look real on
  * the desk and revert the moment somebody sealed a bid against it on-chain.
  *
  * The reserve is ECIES-encrypted to the key the DIAMOND publishes for our
@@ -39,7 +39,7 @@ const RESERVE = 500_000n;    // the floor a lone bidder pays
 const FEE = 1_000_000_000n;  // what the diamond charges to forward one instruction
 // Measured over 20,000 Coston2 blocks on 14 August: 2.059s each, so 29 a
 // minute. The 1.8s the chain targets would have made every deadline here 14%
-// shorter than asked for — unnoticeable on a demo block, four hours out on one
+// shorter than asked for - unnoticeable on a demo block, four hours out on one
 // meant to stay open across a judging window.
 const BLOCKS_PER_MINUTE = 29n;
 
@@ -104,7 +104,7 @@ const deadline = head + minutes * BLOCKS_PER_MINUTE;
 
 // An explicit ceiling rather than an estimate. postRfq pulls the lot with an
 // FAsset transferFrom, and the cost of that shifts between the block the
-// estimate is made in and the block it executes in — twice it reverted at a
+// estimate is made in and the block it executes in - twice it reverted at a
 // gasUsed BELOW the estimate, which reads like a contract bug and is not one.
 const hash = await wc.writeContract({
   address: INSTRUCTION_SENDER, abi: senderAbi, functionName: "postRfq",

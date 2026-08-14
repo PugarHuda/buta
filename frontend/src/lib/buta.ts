@@ -59,7 +59,14 @@ export function randomNonce(): Hex {
 
 async function call<T>(opCommand: string, payload: unknown): Promise<T> {
   const id = await postDirect(opCommand, payload, OP_TYPE);
-  const res = await pollResult(id);
+  // Five tries, not the default fifteen.
+  //
+  // These are reads, and the desk asks for them again on a timer — so a slow
+  // one does not need thirty seconds of retries, it needs to give up and let
+  // the next poll ask. At the default a single book refresh could become
+  // sixteen requests through the tunnel, and it did that precisely when the
+  // enclave was already struggling.
+  const res = await pollResult(id, 5, 1500);
   if (res.result.status !== 1) {
     throw new Error(res.result.log || `${opCommand} failed`);
   }

@@ -23,7 +23,7 @@ import (
 // ever appears in anything the enclave hands back. If a future refactor starts
 // echoing amounts into a response, this test fails.
 //
-// Bids are signed with real keys — commitBid recovers the signature and refuses
+// Bids are signed with real keys - commitBid recovers the signature and refuses
 // a sender that doesn't match, so the tests have to do what a wallet does.
 
 func newAuctionExtension() *Extension {
@@ -165,7 +165,7 @@ func TestCommitBidRejectsForgedSender(t *testing.T) {
 	bob, mallory := newBidder(t, 2), newBidder(t, 9)
 	id := post(t, e, postRfqRequest{Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
 
-	// mallory signs, but the request claims bob is the bidder — and the
+	// mallory signs, but the request claims bob is the bidder - and the
 	// commitment is honestly bob's, so only the signature check can catch it.
 	req := sealedBid(t, id, mallory, 1, 500)
 	honest := sealedBid(t, id, bob, 1, 500)
@@ -208,9 +208,9 @@ func TestClearTwiceReturnsTheSameOutcome(t *testing.T) {
 	}
 
 	// This used to be "the second clear must fail", which was wrong in the one
-	// way that mattered. A single requestClearing is delivered more than once —
+	// way that mattered. A single requestClearing is delivered more than once - 
 	// under a `threshold` tag and an `end` tag, over the main and backup queues
-	// — and only the threshold result carries the ABI outcome relayClearing can
+	// - and only the threshold result carries the ABI outcome relayClearing can
 	// settle. Failing every delivery after the first meant that whenever `end`
 	// arrived first, the settleable result came back as an error and the auction
 	// could not be settled at all.
@@ -265,13 +265,13 @@ func TestDirectRailRejectsUninvited(t *testing.T) {
 
 // The contract assigns the rfq id, and relayClearing and commitmentDigest are
 // both keyed by it. An enclave that numbers auctions on its own agrees with the
-// chain only by coincidence — and stops agreeing the moment this process
+// chain only by coincidence - and stops agreeing the moment this process
 // restarts, because the book is in volatile memory.
 func TestPostRfqUsesTheContractsId(t *testing.T) {
 	e := newAuctionExtension()
 	id := post(t, e, postRfqRequest{RfqID: 4211, Maker: "0xm", Pair: "P", Lot: 1, Reserve: 1, Deadline: 1})
 	if id != 4211 {
-		t.Fatalf("id = %d, want 4211 — the enclave renumbered the auction", id)
+		t.Fatalf("id = %d, want 4211 - the enclave renumbered the auction", id)
 	}
 	if _, err := e.rfqs.get(4211); err != nil {
 		t.Fatalf("rfq 4211 not stored: %v", err)
@@ -306,7 +306,7 @@ func TestPostRfqRejectsADuplicateId(t *testing.T) {
 		t.Fatal(err)
 	}
 	if r.Lot != 1 {
-		t.Errorf("lot = %d, want 1 — the original auction was overwritten", r.Lot)
+		t.Errorf("lot = %d, want 1 - the original auction was overwritten", r.Lot)
 	}
 }
 
@@ -384,7 +384,7 @@ func TestOversizedCiphertextIsRefused(t *testing.T) {
 }
 
 // Pins the exact bytes a wallet signs. Go and the frontend build this payload
-// independently, so nothing else stops them drifting — and a drift does not
+// independently, so nothing else stops them drifting - and a drift does not
 // throw, it silently rejects every bid as a forged sender.
 func TestBidSigPayloadIsPinned(t *testing.T) {
 	var c auction.Commitment
@@ -411,7 +411,7 @@ func TestBidSigPayloadIsPinned(t *testing.T) {
 	bidChainID = 19 // Songbird
 	defer func() { bidChainID = 114 }()
 	if bidSigPayload(7, c) == got {
-		t.Fatal("changing the chain id did not change the payload — it is not bound")
+		t.Fatal("changing the chain id did not change the payload - it is not bound")
 	}
 }
 
@@ -423,7 +423,7 @@ func padU64(v uint64) []byte {
 
 // After clearing, the enclave keeps no bid amount and no nonce. The auction is
 // decided, the second price is public, and everything else is a secret it can
-// only leak — including the winner's own bid, which Vickrey never reveals.
+// only leak - including the winner's own bid, which Vickrey never reveals.
 func TestClearingWipesTheAmounts(t *testing.T) {
 	e := newAuctionExtension()
 	alice, bob, carol := newBidder(t, 1), newBidder(t, 2), newBidder(t, 3)
@@ -448,7 +448,7 @@ func TestClearingWipesTheAmounts(t *testing.T) {
 		}
 	}
 	if held != 3 {
-		t.Fatalf("only %d of 3 amounts were held before clearing — the wipe check would prove nothing", held)
+		t.Fatalf("only %d of 3 amounts were held before clearing - the wipe check would prove nothing", held)
 	}
 
 	body, _ := json.Marshal(clearAuctionRequest{RfqID: id})
@@ -485,8 +485,8 @@ func TestClearingWipesTheAmounts(t *testing.T) {
 	}
 }
 
-// The commitments are public — the contract records every one of them on-chain
-// before anyone knows what is in it — so the desk may as well show them. "3
+// The commitments are public - the contract records every one of them on-chain
+// before anyone knows what is in it - so the desk may as well show them. "3
 // bids" is a number you take on trust; three commitment hashes, each marked as
 // an amount nobody can read, is the thing itself.
 func TestRfqStateReturnsTheRecordedCommitments(t *testing.T) {
@@ -510,7 +510,7 @@ func TestRfqStateReturnsTheRecordedCommitments(t *testing.T) {
 		t.Fatalf("got %d commitments, want 2", len(st.Commitments))
 	}
 	if st.BidCount != len(st.Commitments) {
-		t.Errorf("bidCount %d disagrees with %d commitments — the desk would show a count it cannot back", st.BidCount, len(st.Commitments))
+		t.Errorf("bidCount %d disagrees with %d commitments - the desk would show a count it cannot back", st.BidCount, len(st.Commitments))
 	}
 
 	// They must be the set the contract recorded, in that order, not a
@@ -530,7 +530,7 @@ func TestRfqStateReturnsTheRecordedCommitments(t *testing.T) {
 }
 
 // One bid per address, because that is what the contract enforces. Only the
-// commitment was checked, and the nonce is random — so the same bidder could
+// commitment was checked, and the nonce is random - so the same bidder could
 // seal any number of bids on the direct rail, and the enclave would build a set
 // the contract will not accept. The digest then never matches and the clearing
 // reverts permanently.
@@ -571,6 +571,6 @@ func TestOneBidPerAddress(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(bids) != 1 {
-		t.Fatalf("alice has %d bids on record for one auction — a disclosure cannot say which is hers", len(bids))
+		t.Fatalf("alice has %d bids on record for one auction - a disclosure cannot say which is hers", len(bids))
 	}
 }

@@ -1,4 +1,4 @@
-# DoraHacks submission form — ready to paste
+# DoraHacks submission form - ready to paste
 
 Fill the Summer Signal form with these. Order follows the "Submission
 Requirements" list on the hackathon page. Full detail lives in `SUBMISSION.md`;
@@ -10,7 +10,7 @@ this is the trimmed, field-by-field version.
 Buta
 
 **Selected bounty**
-Bounty 2 — Confidential Compute Apps
+Bounty 2 - Confidential Compute Apps
 
 **Short product description**
 Buta is a sealed-bid OTC desk on Flare Confidential Compute where the auctioneer
@@ -23,13 +23,13 @@ becoming public.
 
 **Target user**
 OTC desks, treasuries, and market makers clearing block trades in FXRP and other
-Flare assets — anyone for whom leaking order size before settlement is
+Flare assets - anyone for whom leaking order size before settlement is
 unacceptable.
 
 **Demo link / video / working app**
-- Live: https://buta-desk.vercel.app — landing at /, working desk at /dashboard
-- The deployed desk talks to the enclave. Connect a Coston2 wallet and you can post a block, seal a bid and settle it yourself — every one of those is a contract call signed by your wallet. A read-only serverless proxy carries the book and the enclave's public key, because the extension proxy sends no CORS header and its API key cannot ship in a bundle. If the machine is down the desk falls back to a demo book and says so on the page.
-- Demo video: _[paste your recorded link — script in DEMO_SCRIPT.md]_
+- Live: https://buta-desk.vercel.app - landing at /, working desk at /dashboard
+- The deployed desk talks to the enclave. Connect a Coston2 wallet and you can post a block, seal a bid and settle it yourself - every one of those is a contract call signed by your wallet. A read-only serverless proxy carries the book and the enclave's public key, because the extension proxy sends no CORS header and its API key cannot ship in a bundle. If the machine is down the desk falls back to a demo book and says so on the page.
+- Demo video: _[paste your recorded link - script in DEMO_SCRIPT.md]_
 - Run locally: `BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev` then `npm run dev`
   in `frontend/`. A TEE machine is registered and PRODUCTION for extension 66009, so instructions reach the diamond; the enclave itself runs the simulated-TEE path Flare accepts for this hackathon.
 
@@ -39,10 +39,12 @@ https://github.com/PugarHuda/buta
 **How the project uses Flare**
 Flare Confidential Compute (FCC) is load-bearing, not namechecked. The clearing
 runs inside a TEE (the `pkg/auction` engine); bids are ECIES-encrypted to the
-enclave's key from `GET /info`; the on-chain `ButaInstructionSender` records the
+enclave key the diamond publishes - read from the chain, not from the operator's
+`/info`, so the party relaying a bid cannot substitute the key it is sealed to;
+the on-chain `ButaInstructionSender` records the
 commitment set, verifies the enclave's signature over the result with a
 domain-separated `ecrecover`, and refuses any clearing whose set-digest doesn't
-match the commitments it recorded — so the auctioneer cannot drop a bid to move
+match the commitments it recorded - so the auctioneer cannot drop a bid to move
 the price. Settlement is in FXRP (FAssets), with an XRPL delivery leg on the
 roadmap. The project forks Flare's own `fce-orderbook` reference for the TEE
 signing path and extension plumbing.
@@ -65,12 +67,12 @@ loses it on restart).
 
 Prior work, declared: we built this same sealed-bid thesis five times before, on
 five other chains (Diam/iExec, Segel/Stellar, Sealed Pair/Sui, Samar/Zama,
-Bisik/Canton). Each left the same open problem — the settler still sees the bids.
+Bisik/Canton). Each left the same open problem - the settler still sees the bids.
 Buta is the build where an attested enclave finally removes that reader.
 
 **Smart contract addresses / deployment details**
-- Network: Coston2 (chain 114). TEE machine `0x2F59C4cc…E83a` is registered and PRODUCTION for extension 66009 — `getRandomTeeIds` resolves instead of reverting `TooMany()`. Enclave on the simulated-TEE path.
-- `ButaInstructionSender`: `0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D` — https://coston2-explorer.flare.network/address/0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D
+- Network: Coston2 (chain 114). TEE machine `0x2F59C4cc…E83a` is registered and PRODUCTION for extension 66009 - `getRandomTeeIds` resolves instead of reverting `TooMany()`. Enclave on the simulated-TEE path.
+- `ButaInstructionSender`: `0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D` - https://coston2-explorer.flare.network/address/0xa03821ADE58EfC07bcB1Eacd4D96ced9C7cDF74D
 - Deploy runbook: `docs/DEPLOY.md`.
 
 **Short roadmap / next steps**
@@ -80,7 +82,7 @@ Buta is the build where an attested enclave finally removes that reader.
 2. Settle in real FXRP and add the XRPL delivery leg via Protocol Managed
    Wallets, so the winner takes the lot as native XRP.
 3. Proof-of-funds via FDC to replace full escrow.
-4. MPC clearing — the honest long-term answer to "the settler sees the openings."
+4. MPC clearing - the honest long-term answer to "the settler sees the openings."
 
 ---
 
@@ -88,4 +90,4 @@ Buta is the build where an attested enclave finally removes that reader.
 
 **Deployed on** Coston2. Machine registered and PRODUCTION; enclave simulated.
 **Traction / testing** _[e.g. posted in the Flare hackathon Telegram, feedback
-from …]_ — see the mentor-engagement pattern; do this before submitting.
+from …]_ - see the mentor-engagement pattern; do this before submitting.

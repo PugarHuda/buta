@@ -4,7 +4,7 @@
  *   node scripts/assemble.mjs        (runs from `npm run build`)
  *
  * Vite builds the desk with base=/dashboard/, so its assets already resolve
- * from there — this only has to put the HTML where the URL says it is and drop
+ * from there - this only has to put the HTML where the URL says it is and drop
  * the landing page in at the root.
  *
  * It lives inside frontend/ because Vercel only uploads the project root: a
@@ -24,7 +24,7 @@ const dist = path.join(root, "dist");
 const landing = path.join(root, "landing");
 
 if (!fs.existsSync(path.join(dist, "index.html"))) {
-  console.error("no dist/index.html — run vite build first");
+  console.error("no dist/index.html - run vite build first");
   process.exit(1);
 }
 
@@ -48,8 +48,25 @@ for (const name of fs.readdirSync(landing)) {
   copied++;
 }
 
+// The pitch deck at /deck. Copied, not built, for the same reason as the
+// landing: one self-contained file with inline CSS and no script at all, so a
+// bundler would add ways for it to break and nothing else.
+const deck = path.join(root, "deck");
+if (fs.existsSync(deck)) {
+  fs.mkdirSync(path.join(dist, "deck"), { recursive: true });
+  for (const name of fs.readdirSync(deck)) {
+    const from = path.join(deck, name);
+    if (name.startsWith(".") || !fs.statSync(from).isFile()) continue;
+    fs.copyFileSync(from, path.join(dist, "deck", name));
+  }
+  if (!fs.existsSync(path.join(dist, "deck", "index.html"))) {
+    console.error("deck/ exists but produced no dist/deck/index.html");
+    process.exit(1);
+  }
+}
+
 if (!fs.existsSync(path.join(dist, "index.html"))) {
-  console.error("the landing page did not land at the root — dist/index.html is missing");
+  console.error("the landing page did not land at the root - dist/index.html is missing");
   process.exit(1);
 }
 /**
@@ -63,7 +80,7 @@ if (!fs.existsSync(path.join(dist, "index.html"))) {
  * This looks for the values themselves rather than the variable names, because
  * what ends up in the bundle is the value.
  */
-// BUTA_DIRECT_API_KEY is the same key under a name vite will not inline — it
+// BUTA_DIRECT_API_KEY is the same key under a name vite will not inline - it
 // belongs to the serverless proxy in api/, and it is present in the build
 // environment on Vercel, so this check can actually see it there. A rename is
 // exactly the kind of thing that would quietly turn the guard off.
@@ -78,7 +95,7 @@ const bundle = [];
 })(dist);
 
 /**
- * The value as vite would have seen it — read from the env files, not from
+ * The value as vite would have seen it - read from the env files, not from
  * process.env.
  *
  * This script runs as its own process after `vite build`, so it inherits none
@@ -105,7 +122,7 @@ for (const key of secrets) {
   if (!value || value.length < 12) continue;
   if (bundle.some((f) => f.includes(value))) {
     console.error(
-      `${key} is in the built bundle. Move it to .env.development.local — ` +
+      `${key} is in the built bundle. Move it to .env.development.local - ` +
         "vite reads .env.local for production builds too, and this would have been published.",
     );
     process.exit(1);

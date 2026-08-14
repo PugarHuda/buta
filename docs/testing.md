@@ -1,4 +1,4 @@
-# Orderbook Extension — Testing Guide
+# Orderbook Extension - Testing Guide
 
 ## Prerequisites
 
@@ -114,7 +114,7 @@ If you've sourced your env files (see "Setup your shell" above), the values come
 
 > **Note on paths:** These commands run from the `tools/` directory. If `ADDRESSES_FILE` is a relative path like `./config/coston2/deployed-addresses.json` (relative to the project root), the tooling will automatically resolve it from the parent directory. Using `scripts/test-all.sh` avoids this entirely since it resolves all paths to absolute before running. Alternatively you could run the command with ` -a "../$ADDRESSES_FILE"`
 
-#### extension-setup.sh — Deploy tokens and configure test environment
+#### extension-setup.sh - Deploy tokens and configure test environment
 
 ```bash
 ./scripts/extension-setup.sh
@@ -135,7 +135,7 @@ This runs automatically as part of `full-setup.sh` (Phase 1.5), but can also be 
 
 **Run once, before Docker.** This must run before `docker compose up` so the extension loads the correct `pairs.json` at startup. Re-running deploys fresh tokens (requires restarting Docker to pick up new addresses).
 
-#### test-deposit — Test the on-chain deposit flow
+#### test-deposit - Test the on-chain deposit flow
 
 ```bash
 cd tools && go run ./cmd/test-deposit -a "$ADDRESSES_FILE" -c "$CHAIN_URL" -p "$EXT_PROXY_URL" -instructionSender "$INSTRUCTION_SENDER"
@@ -146,9 +146,9 @@ What it does:
 2. Deposits base token (TFLR), polls for result
 3. Sends GET_MY_STATE direct instruction to verify both balances were credited
 
-**Safe to re-run.** Each run deposits more tokens (cumulative). Will fail when the approved allowance runs out — re-run `test-setup` or manually approve more.
+**Safe to re-run.** Each run deposits more tokens (cumulative). Will fail when the approved allowance runs out - re-run `test-setup` or manually approve more.
 
-#### test-orders — Test the order lifecycle via direct instructions
+#### test-orders - Test the order lifecycle via direct instructions
 
 ```bash
 cd tools && go run ./cmd/test-orders -a "$ADDRESSES_FILE" -c "$CHAIN_URL" -p "$EXT_PROXY_URL"
@@ -156,17 +156,17 @@ cd tools && go run ./cmd/test-orders -a "$ADDRESSES_FILE" -c "$CHAIN_URL" -p "$E
 
 What it does:
 1. Verifies balances exist via GET_MY_STATE
-2. Places a sell limit order — verifies status=resting
-3. Checks `/state` — verifies the ask appears in the book
-4. Places a matching buy — verifies status=filled with a match
-5. Checks `/state` — verifies the book cleared
+2. Places a sell limit order - verifies status=resting
+3. Checks `/state` - verifies the ask appears in the book
+4. Places a matching buy - verifies status=filled with a match
+5. Checks `/state` - verifies the book cleared
 6. Verifies balances changed after the trade
-7. Places an order and cancels it — verifies funds released
-8. Tests partial fill: sell 10, buy 5 — verifies remainder on book
+7. Places an order and cancels it - verifies funds released
+8. Tests partial fill: sell 10, buy 5 - verifies remainder on book
 
 **Safe to re-run** as long as you have enough balance. Cleans up after itself (cancels leftover orders).
 
-#### test-withdraw — Test the 2-step withdrawal flow
+#### test-withdraw - Test the 2-step withdrawal flow
 
 ```bash
 cd tools && go run ./cmd/test-withdraw -a "$ADDRESSES_FILE" -c "$CHAIN_URL" -p "$EXT_PROXY_URL" -instructionSender "$INSTRUCTION_SENDER"
@@ -189,7 +189,7 @@ extension-setup.sh → docker compose up → post-build.sh → test-deposit → 
 
 - `extension-setup.sh` must run before Docker (writes `pairs.json`)
 - `test-deposit` must run before `test-orders` or `test-withdraw` (they need balances)
-- `test-orders` and `test-withdraw` are independent — either order works
+- `test-orders` and `test-withdraw` are independent - either order works
 - `test-deposit` can be re-run to top up balances
 
 ---
@@ -230,11 +230,11 @@ The InstructionSender contract needs to know its extension ID from the registry.
 cast send $INSTRUCTION_SENDER "setExtensionId()" --rpc-url $CHAIN_URL --private-key $DEPLOYMENT_PRIVATE_KEY
 ```
 
-### 4.1 — Deploy test tokens
+### 4.1 - Deploy test tokens
 
 The addresses in `config/pairs.json` are placeholders. You need real ERC20 tokens on your target chain.
 
-A minimal mintable ERC20 is included at `contracts/TestToken.sol`. Anyone can call `mint()` — it's for testing only.
+A minimal mintable ERC20 is included at `contracts/TestToken.sol`. Anyone can call `mint()` - it's for testing only.
 
 ```bash
 # Deploy a mock USDT (quote token)
@@ -244,11 +244,11 @@ forge create --broadcast --rpc-url $CHAIN_URL --private-key $DEPLOYMENT_PRIVATE_
 forge create --broadcast --rpc-url $CHAIN_URL --private-key $DEPLOYMENT_PRIVATE_KEY contracts/TestToken.sol:TestToken --constructor-args "TestFLR" "TFLR"
 ```
 
-Each `forge create` prints `Deployed to: 0x...` — copy those addresses.
+Each `forge create` prints `Deployed to: 0x...` - copy those addresses.
 
 > **Alternative:** Use existing testnet tokens if you already have some on Coston2.
 
-### 4.2 — Configure token addresses
+### 4.2 - Configure token addresses
 
 Update `config/pairs.json` with the deployed token addresses:
 ```json
@@ -270,7 +270,7 @@ QUOTE_TOKEN="0x..."  # USDT address from pairs.json quoteToken
 BASE_TOKEN="0x..."   # FLR address from pairs.json baseToken
 ```
 
-### 4.3 — Mint tokens to your deployer
+### 4.3 - Mint tokens to your deployer
 
 The test tokens start with zero supply. Mint some to your deployer so you can deposit them:
 
@@ -286,7 +286,7 @@ cast call $QUOTE_TOKEN "balanceOf(address)(uint256)" $DEPLOYER_ADDRESS --rpc-url
 cast call $BASE_TOKEN "balanceOf(address)(uint256)" $DEPLOYER_ADDRESS --rpc-url $CHAIN_URL
 ```
 
-### 4.4 — Approve the InstructionSender
+### 4.4 - Approve the InstructionSender
 
 The contract needs ERC20 approval to pull tokens during deposit:
 
@@ -296,10 +296,10 @@ cast send $QUOTE_TOKEN "approve(address,uint256)" $INSTRUCTION_SENDER 1000000 --
 cast send $BASE_TOKEN "approve(address,uint256)" $INSTRUCTION_SENDER 1000000 --rpc-url $CHAIN_URL --private-key $DEPLOYMENT_PRIVATE_KEY
 ```
 
-### 4.5 — Deposit tokens
+### 4.5 - Deposit tokens
 
 ```bash
-# Deposit 10000 USDT (quote token) — payable with instruction fee
+# Deposit 10000 USDT (quote token) - payable with instruction fee
 cast send $INSTRUCTION_SENDER "deposit(address,uint256)" $QUOTE_TOKEN 10000 --value 1000000 --rpc-url $CHAIN_URL --private-key $DEPLOYMENT_PRIVATE_KEY
 ```
 
@@ -310,7 +310,7 @@ cd tools && go run ./cmd/run-test -a "$ADDRESSES_FILE" -c "$CHAIN_URL" -p "$EXT_
 
 The TEE processes the deposit and credits your in-memory balance. Verify with GET_MY_STATE (section 4.7).
 
-### 4.6 — Check public state
+### 4.6 - Check public state
 
 ```bash
 curl -s "$EXT_PROXY_URL/state" | jq
@@ -318,7 +318,7 @@ curl -s "$EXT_PROXY_URL/state" | jq
 
 Returns orderbook depth for all pairs and recent matches. Works anytime, no auth.
 
-### 4.7 — Send direct instructions
+### 4.7 - Send direct instructions
 
 Direct instructions go to `POST /direct` on the proxy. The payload format uses bytes32 hashes for opType/opCommand and hex-encoded JSON for the message.
 
@@ -373,31 +373,31 @@ The response from `/direct` is the queued action with an `id` field. To get the 
 curl -s "$EXT_PROXY_URL/action/result/$ACTION_ID" | jq
 ```
 
-### 4.8 — Test order matching
+### 4.8 - Test order matching
 
-To properly test matching, you need two different users (or use the same user as both buyer and seller — the orderbook doesn't prevent self-trading).
+To properly test matching, you need two different users (or use the same user as both buyer and seller - the orderbook doesn't prevent self-trading).
 
 1. Deposit USDT for the buyer and FLR for the seller
 2. Place a **sell** limit order first (rests on the book)
 3. Place a **buy** at the same or higher price (triggers match)
-4. Check the buy response — should show `"status":"filled"` with match details
-5. Check `/state` — the price level should be cleared
-6. Check GET_MY_STATE — buyer should now have FLR available, seller should have USDT
+4. Check the buy response - should show `"status":"filled"` with match details
+5. Check `/state` - the price level should be cleared
+6. Check GET_MY_STATE - buyer should now have FLR available, seller should have USDT
 
 **Partial fill test:** Place a sell for qty=10, then buy for qty=5. The buy fills completely, the sell has remaining=5 on the book.
 
 **Multi-level sweep:** Place sells at price 100 (qty=5) and 101 (qty=5), then buy at 101 (qty=8). Should sweep both levels.
 
-### 4.9 — Test withdrawal
+### 4.9 - Test withdrawal
 
 After trading, withdraw tokens back on-chain:
 
 ```bash
-# Request withdrawal — TEE signs it
+# Request withdrawal - TEE signs it
 cast send $INSTRUCTION_SENDER "withdraw(address,uint256,address)" $QUOTE_TOKEN 500 $DEPLOYER_ADDRESS --value 1000000 --rpc-url $CHAIN_URL --private-key $DEPLOYMENT_PRIVATE_KEY
 ```
 
-Poll the result — it returns `token`, `amount`, `to`, `withdrawalId`, and `signature`.
+Poll the result - it returns `token`, `amount`, `to`, `withdrawalId`, and `signature`.
 
 Then execute the withdrawal using the TEE-signed params:
 ```bash
@@ -406,7 +406,7 @@ cast send $INSTRUCTION_SENDER "executeWithdrawal(address,uint256,address,bytes32
 
 This actually transfers ERC20 tokens from the contract vault to the recipient.
 
-> The TEE address must already be set on the contract (`setTeeAddress`) — this happens during `scripts/extension-post-setup.sh`, which runs as Phase 3.5 of `full-setup.sh` (after post-build has registered the TEE). If you ran `post-build.sh` directly, invoke `extension-post-setup.sh` manually before calling `executeWithdrawal`.
+> The TEE address must already be set on the contract (`setTeeAddress`) - this happens during `scripts/extension-post-setup.sh`, which runs as Phase 3.5 of `full-setup.sh` (after post-build has registered the TEE). If you ran `post-build.sh` directly, invoke `extension-post-setup.sh` manually before calling `executeWithdrawal`.
 
 ---
 
@@ -433,9 +433,9 @@ This actually transfers ERC20 tokens from the contract vault to the recipient.
 | Deposit | `InstructionSender.deposit(token, amount)` | On-chain tx (KYC-gated) |
 | Withdraw request | `InstructionSender.withdraw(token, amount, to)` | On-chain tx |
 | Execute withdrawal | `InstructionSender.executeWithdrawal(...)` | TEE signature required |
-| Place order | `POST /direct` — PLACE_ORDER | Direct instruction |
-| Cancel order | `POST /direct` — CANCEL_ORDER | Direct instruction |
-| Get my state | `POST /direct` — GET_MY_STATE | Direct instruction |
-| Export history | `POST /direct` — EXPORT_HISTORY | Direct instruction (admin) |
+| Place order | `POST /direct` - PLACE_ORDER | Direct instruction |
+| Cancel order | `POST /direct` - CANCEL_ORDER | Direct instruction |
+| Get my state | `POST /direct` - GET_MY_STATE | Direct instruction |
+| Export history | `POST /direct` - EXPORT_HISTORY | Direct instruction (admin) |
 | Public book depth | `GET /state` | None |
 | Poll result | `GET /action/result/<id>` | None |

@@ -4,7 +4,7 @@
  *   import { EXT_ID, SENDER } from "./ext-config.mjs";
  *
  * Every script here used to pin both as constants. That is fine until the day a
- * contract is redeployed — and then nothing fails loudly. A stale sender is a
+ * contract is redeployed - and then nothing fails loudly. A stale sender is a
  * live contract that answers every call about auctions nobody is looking at, and
  * a stale extension id reads the active set of an extension nobody serves. Both
  * report confidently, and both are wrong.
@@ -19,7 +19,7 @@ const text = fs.readFileSync(path, "utf8");
 
 function value(key) {
   const line = text.split(/\r?\n/).find((l) => l.startsWith(`${key}=`));
-  if (!line) throw new Error(`${key} missing from config/extension.env — run scripts/pre-build.sh`);
+  if (!line) throw new Error(`${key} missing from config/extension.env - run scripts/pre-build.sh`);
   return line.slice(key.length + 1).trim();
 }
 

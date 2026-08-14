@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-/// @title TestToken — Minimal mintable ERC20 for testing.
+/// @title TestToken - Minimal mintable ERC20 for testing.
 /// @dev Anyone can mint. Do NOT use in production.
 contract TestToken {
     string public name;

@@ -82,7 +82,7 @@ func TestSignServerTimeoutIsBounded(t *testing.T) {
 		t.Fatal("a hung sign server was treated as success")
 	}
 	if elapsed := time.Since(start); elapsed > 2*time.Second {
-		t.Errorf("waited %v — the timeout is not being applied", elapsed)
+		t.Errorf("waited %v - the timeout is not being applied", elapsed)
 	}
 }
 

@@ -20,7 +20,7 @@ import (
 // The node derives its governanceHash from the SAME (signers, threshold) pair
 // (see governanceFromEnv in tee-node, fed by GOVERNANCE_SIGNERS /
 // GOVERNANCE_THRESHOLD). MachineManager.register only accepts a TEE machine
-// whose signed governanceHash matches the one registered here — so this MUST be
+// whose signed governanceHash matches the one registered here - so this MUST be
 // kept consistent with the node's env. The scaffold reads both from .env to
 // guarantee that.
 //

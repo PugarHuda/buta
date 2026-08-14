@@ -6,7 +6,7 @@
  * The desk is not the landing page.
  *
  * The landing is a poster: one screen, print language, read once. The desk is
- * a tool somebody works in, and it had inherited the poster's rules — 10px
+ * a tool somebody works in, and it had inherited the poster's rules - 10px
  * type, hairlines for everything, controls that look exactly like labels, and
  * `overflow: hidden` on the body, left over from the CLOB kit's fixed-height
  * terminal layout. That last one meant the page could not scroll AT ALL:
@@ -14,13 +14,13 @@
  * while the content was 990 tall, so the bottom of every screen was simply
  * unreachable. With a full book most of the rows were.
  *
- * So this file keeps the substrate — same paper, same ink, same one red — and
+ * So this file keeps the substrate - same paper, same ink, same one red - and
  * changes what a working surface needs: it scrolls, text is big enough to
  * read, and anything you can click looks like it.
  */
 
 :root {
-  /* Swiss Industrial Print — same substrate as the landing page.
+  /* Swiss Industrial Print - same substrate as the landing page.
      Variable NAMES are kept so every component keeps working. */
   --bg: #F4F4F0;
   --bg-1: #EFEEE9;
@@ -68,7 +68,7 @@ html, body {
 
 /* Figures, ids, hashes and addresses.
    `font-variant-numeric: tabular-nums` on the body rescues a column of digits,
-   and does nothing at all for the letters a–f — so a hash or an address in a
+   and does nothing at all for the letters a-f - so a hash or an address in a
    proportional face goes ragged no matter what. Those surfaces say font-mono
    for themselves; this covers the markup ones. */
 code, kbd, samp { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }

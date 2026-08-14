@@ -32,3 +32,13 @@ node_modules/
 package-lock.json
 tunnel.log
 .bidder.key
+
+# Built binaries. 15 MB of unsigned exe in a hackathon repo reads as an
+# unpruned tree, and nobody should run one from a clone anyway.
+dev.exe
+*.exe
+
+# Agent harness. Useful locally, but it is scaffolding for how the work was
+# done, not part of the product a reader is here to judge.
+.claude/
+testing/agents/

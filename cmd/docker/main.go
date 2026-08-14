@@ -1,6 +1,6 @@
 // Package main provides a combined entry point for Docker that starts both the
 // tee-node server and the extension in a single process. Unlike tools/cmd/start-tee,
-// this avoids importing extension-e2e — Docker sets PROXY_URL as an env var which
+// this avoids importing extension-e2e - Docker sets PROXY_URL as an env var which
 // tee-node reads directly via settings.init().
 package main
 
@@ -29,7 +29,7 @@ func main() {
 	// Start tee-node in extension mode.
 	go teeServer.StartServerExtension(configPort, signPort, extensionPort)
 
-	// Start extension server — fail fast if port binding fails.
+	// Start extension server - fail fast if port binding fails.
 	extErrCh := extserver.StartExtension(extensionPort, signPort)
 
 	// Give server a moment to bind, then check for early failures.

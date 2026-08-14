@@ -9,7 +9,7 @@
  * and nothing would have said so.
  *
  * This does not parse prose. It pulls the specific identifiers out of the
- * markdown — contract, machine, extension id, transaction hashes — and asks the
+ * markdown - contract, machine, extension id, transaction hashes - and asks the
  * chain whether each claim still holds. A claim that cannot be checked from a
  * public RPC does not belong in the table.
  */
@@ -41,7 +41,7 @@ const check = (name, ok, detail = "") => {
   checks++;
   if (ok) console.log(`  ok    ${name}`);
   else {
-    console.log(`  FAIL  ${name}${detail ? ` — ${detail}` : ""}`);
+    console.log(`  FAIL  ${name}${detail ? ` - ${detail}` : ""}`);
     failures.push(name);
   }
 };
@@ -57,8 +57,8 @@ function claimed(re, what) {
 }
 
 // ---- the contract -----------------------------------------------------------
-// Anchored on the LABEL, not on the address. It matched /0x20d9…/ — the
-// prefix of the first deployment — so redeploying made the check report that
+// Anchored on the LABEL, not on the address. It matched /0x20d9…/ - the
+// prefix of the first deployment - so redeploying made the check report that
 // the claim was missing rather than checking the new one.
 const sender = claimed(
   /\*\*Contract \(Coston2, verified\):?\*\*[^`]*`(0x[0-9a-fA-F]{40})`/,
@@ -87,7 +87,7 @@ if (sender) {
 }
 
 // ---- the TEE machine --------------------------------------------------------
-// The address may be a plain code span or a linked one — both forms have been
+// The address may be a plain code span or a linked one - both forms have been
 // in this row, and anchoring on one of them made a formatting change read as
 // "the claim is gone from the document".
 const machine = claimed(/\*\*TEE machine in PRODUCTION\*\* \| \[?`(0x[0-9a-fA-F]{40})`/, "a TEE machine in production");
@@ -97,7 +97,7 @@ if (machine) {
   );
   check("that machine is PRODUCTION", status === 2, `status ${status}`);
 
-  // The whole active set, not one draw — see health.mjs. A stale machine left
+  // The whole active set, not one draw - see health.mjs. A stale machine left
   // active is invisible to a single read and eats half the instructions.
   let active = [];
   for (let n = 1n; n <= 8n; n++) {
@@ -115,14 +115,14 @@ if (machine) {
 
   // The invariant that actually broke. A machine can be PRODUCTION and alone in
   // the set while the contract still trusts a predecessor that no longer exists,
-  // and every read above passes in that state — the only thing that fails is
+  // and every read above passes in that state - the only thing that fails is
   // relayClearing, with BadTeeSignature, at the moment money should move.
   if (sender) {
     const trusted = await pc.readContract({ address: sender, abi: ABI, functionName: "teeAddress" });
     check(
       "the contract trusts the machine that is actually serving",
       trusted.toLowerCase() === machine.toLowerCase(),
-      `contract trusts ${trusted}, the live machine is ${machine} — rotate with setTeeAddress`,
+      `contract trusts ${trusted}, the live machine is ${machine} - rotate with setTeeAddress`,
     );
   }
 }
@@ -132,7 +132,7 @@ for (const [label, re] of [
   ["the postRfq transaction", /\*\*`postRfq` executed on-chain\*\* \| tx \[`(0x[0-9a-f]{64})`\]/],
   ["the updateTeeMachineSettings transaction", /updateTeeMachineSettings.*?`(0x[0-9a-f]{64})`/],
   // The rotation. Without it the desk is one container replacement away from a
-  // contract that can never settle again, which is not a hypothetical — it is
+  // contract that can never settle again, which is not a hypothetical - it is
   // what the predecessor deployment ended as.
   ["the rotation transaction", /\*\*The enclave the desk trusts can be rotated\*\*[^)]*\/tx\/(0x[0-9a-f]{64})\)/],
   ["the settlement after the rotation", /Settled again after the rotation[^)]*\/tx\/(0x[0-9a-f]{64})\)/],

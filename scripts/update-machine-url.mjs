@@ -1,4 +1,4 @@
-// update-machine-url.mjs — point the registered TEE machine at a new host URL.
+// update-machine-url.mjs - point the registered TEE machine at a new host URL.
 //
 //   node scripts/update-machine-url.mjs https://your-host
 //
@@ -6,14 +6,14 @@
 //
 // Data providers push the availability check to the URL stored on-chain. Once a
 // machine is registered, re-running post-build.sh does NOT change that URL:
-// RegisterNode sees the machine already exists, skips PreRegistration — which is
-// the only thing that writes the URL — and goes straight to requesting a fresh
+// RegisterNode sees the machine already exists, skips PreRegistration - which is
+// the only thing that writes the URL - and goes straight to requesting a fresh
 // attestation. So "update EXT_PROXY_URL and re-run post-build", which is the
 // advice in circulation, cannot work for a machine that is already registered.
 // The check keeps being sent to the old hostname and keeps coming back 404.
 //
 // MachineManagerFacet.updateTeeMachineSettings is the function that does work.
-// It is owner-only, and it also rewrites the proxy id — which matters here,
+// It is owner-only, and it also rewrites the proxy id - which matters here,
 // because changing PROXY_PRIVATE_KEY (as we did, to stop sharing the scaffold's
 // published devnet key) changes the proxy identity the check is verified against.
 //
@@ -35,7 +35,7 @@ if (!url || !/^https?:\/\//.test(url)) {
 
   The host has to be one that survives a restart. Data providers push to
   whatever is written on-chain, so a hostname that changes leaves the machine
-  unreachable — which is what INITIALIZED with a dead URL means.
+  unreachable - which is what INITIALIZED with a dead URL means.
 `);
   process.exit(2);
 }
@@ -59,7 +59,7 @@ const key = deployer.DEPLOYER_PRIVATE_KEY?.startsWith("0x")
   : `0x${deployer.DEPLOYER_PRIVATE_KEY}`;
 const account = privateKeyToAccount(key);
 
-// The proxy id is the address of PROXY_PRIVATE_KEY — the identity the
+// The proxy id is the address of PROXY_PRIVATE_KEY - the identity the
 // availability check is verified against, so it has to be the key the proxy is
 // actually running with.
 const proxyKey = stack.PROXY_PRIVATE_KEY?.startsWith("0x")
@@ -77,10 +77,10 @@ const pc = createPublicClient({ chain: flareTestnet, transport: http(RPC) });
 const wallet = createWalletClient({ account, chain: flareTestnet, transport: http(RPC) });
 
 // The tee id is derived from the running node's public key, so read it rather
-// than hard-code it — a rebuilt node is a different machine.
+// than hard-code it - a rebuilt node is a different machine.
 const info = await (await fetch(process.env.EXT_PROXY_URL ?? "http://localhost:6674/info")).json();
 const pk = info.teeInfo?.publicKey ?? info.machineData?.publicKey;
-if (!pk) throw new Error("the proxy did not return a public key — is the stack up?");
+if (!pk) throw new Error("the proxy did not return a public key - is the stack up?");
 const { keccak256 } = await import("viem");
 const hex = (v) => BigInt(v).toString(16).padStart(64, "0");
 const teeId = `0x${keccak256(`0x${hex(pk.x)}${hex(pk.y)}`).slice(-40)}`;

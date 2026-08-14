@@ -60,7 +60,7 @@ func main() {
 	logger.Infof("Extension ID: %s", teeInfo.MachineData.ExtensionID.Big().String())
 	logger.Infof("TEE ID:       %s", teeID.Hex())
 	logger.Infof("Version:      %s", *versionF)
-	logger.Warnf("NOTE: Code hash is from proxy /info response — not independently verified against attestation")
+	logger.Warnf("NOTE: Code hash is from proxy /info response - not independently verified against attestation")
 
 	// Idempotency: skip if this codeHash+platform combo is already registered and active.
 	// Avoids sending a tx that would revert with VersionAlreadyExists() on re-runs.

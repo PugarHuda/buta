@@ -18,7 +18,7 @@ services:
       - ./config/proxy/extension_proxy.docker.toml:/app/config/config.toml:ro
     environment:
       # No default. That constant is the scaffold's published devnet key, so
-      # every fork that leaves it alone shares one proxy identity — and ours was
+      # every fork that leaves it alone shares one proxy identity - and ours was
       # written on-chain as this machine's proxyId. Generate one:
       #   PROXY_PRIVATE_KEY=$(openssl rand -hex 32)
       - PROXY_PRIVATE_KEY=${PROXY_PRIVATE_KEY:?set PROXY_PRIVATE_KEY, do not reuse the scaffold default}
@@ -55,7 +55,7 @@ services:
       - MODE=${MODE:-1}
       - INITIAL_OWNER=${INITIAL_OWNER:-0xF4E021377420Afe90c1A7D2b8968904946633a64}
       # The node derives its governanceHash from these two. set-governance writes
-      # the same pair on-chain, and register-tee compares them — if the defaults
+      # the same pair on-chain, and register-tee compares them - if the defaults
       # here and there ever diverge, registration fails with InvalidGovernanceHash
       # and the message says nothing about why. Same defaults on both sides.
       - GOVERNANCE_SIGNERS=${GOVERNANCE_SIGNERS:-${INITIAL_OWNER:-0xF4E021377420Afe90c1A7D2b8968904946633a64}}
@@ -67,7 +67,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     # Not `condition: service_healthy`. The proxy fetches TEE info from the node
     # at startup and panics if it cannot, while the node waited for the proxy to
-    # report healthy — so a cold start deadlocked, and it only ever appeared to
+    # report healthy - so a cold start deadlocked, and it only ever appeared to
     # work when a node from a previous run happened to still be up. Start both
     # and let them find each other.
     depends_on:

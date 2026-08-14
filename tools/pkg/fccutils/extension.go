@@ -136,7 +136,7 @@ func registerExtension(
 
 	if len(receipt.Logs) < 2 {
 		return nil, nil, errors.Errorf(
-			"expected at least 2 logs from Register() transaction, got %d — "+
+			"expected at least 2 logs from Register() transaction, got %d - "+
 				"the registry contract may have changed or be behind a proxy",
 			len(receipt.Logs),
 		)
@@ -148,7 +148,7 @@ func registerExtension(
 	}
 
 	if extensionRegistered.ExtensionId == nil || extensionRegistered.ExtensionId.Sign() == 0 {
-		logger.Warnf("WARNING: extension ID is 0 — this may cause issues with setExtensionId() sentinel logic")
+		logger.Warnf("WARNING: extension ID is 0 - this may cause issues with setExtensionId() sentinel logic")
 	}
 
 	extensionContractsSet, err := s.TeeExtensionRegistry.ParseTeeExtensionContractsSet(*receipt.Logs[1])
@@ -171,7 +171,7 @@ func allowTeeMachineOwners(s *support.Support, opts *bind.TransactOpts, extensio
 	}
 
 	if len(receipt.Logs) == 0 {
-		return nil, errors.New("no logs in AddAllowedTeeMachineOwners transaction — unexpected")
+		return nil, errors.New("no logs in AddAllowedTeeMachineOwners transaction - unexpected")
 	}
 
 	ownersAdded, err := s.TeeOwnerAllowlist.ParseAllowedTeeMachineOwnersAdded(*receipt.Logs[0])
@@ -194,7 +194,7 @@ func allowTeeProjectManagerOwners(s *support.Support, opts *bind.TransactOpts, e
 	}
 
 	if len(receipt.Logs) == 0 {
-		return nil, errors.New("no logs in AddAllowedTeeWalletProjectOwners transaction — unexpected")
+		return nil, errors.New("no logs in AddAllowedTeeWalletProjectOwners transaction - unexpected")
 	}
 
 	ownersAdded, err := s.TeeOwnerAllowlist.ParseAllowedTeeWalletProjectOwnersAdded(*receipt.Logs[0])

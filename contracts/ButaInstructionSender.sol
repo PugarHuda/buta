@@ -16,8 +16,8 @@ interface IERC20 {
 /// The load-bearing idea is `_commitments`. Every sealed bid appends a 32-byte
 /// commitment here, on-chain, before anyone knows what is inside it. At
 /// settlement the enclave signs over a digest of THAT set. A caller who hands
-/// the enclave a subset — the classic way to suppress the Vickrey uplift, since
-/// the winner then clears at its own ask — produces a digest this contract will
+/// the enclave a subset - the classic way to suppress the Vickrey uplift, since
+/// the winner then clears at its own ask - produces a digest this contract will
 /// not accept. Trimming stops being a policy promise and becomes an arithmetic
 /// impossibility.
 ///
@@ -142,7 +142,7 @@ contract ButaInstructionSender {
     /// A TEE identity is ephemeral on purpose: `tee-node` mints a signing key at
     /// startup and never persists it, so every restart is a new machine that has
     /// to be re-attested. An address pinned once at deployment therefore names a
-    /// machine that is guaranteed to stop existing, and settlement dies with it —
+    /// machine that is guaranteed to stop existing, and settlement dies with it - 
     /// permanently, if the setter can only ever run once.
     ///
     /// So it rotates. The registry is what makes that safe to allow: the argument
@@ -250,7 +250,7 @@ contract ButaInstructionSender {
     ///         no bids, or none clearing the reserve. Anyone may call after the
     ///         deadline; the lot only ever goes back to its maker.
     ///
-    /// This is the counterpart to relayClearing's happy path — a maker's
+    /// This is the counterpart to relayClearing's happy path - a maker's
     /// collateral is never stranded because bidding came in soft. The enclave
     /// is not consulted: "the deadline passed and nothing was awarded" is a
     /// fact the contract already knows from its own `cleared` flag.
@@ -324,7 +324,7 @@ contract ButaInstructionSender {
     /// @notice keccak256 over the commitment set, sorted bytewise ascending.
     /// @dev Order-independent and collision-resistant. Must stay byte-identical
     ///      to pkg/auction digest(); both sides pin the same test vector.
-    ///      Insertion sort in memory — the set is small by construction.
+    ///      Insertion sort in memory - the set is small by construction.
     function commitmentDigest(uint256 rfqId) public view returns (bytes32) {
         bytes32[] memory cs = _commitments[rfqId];
         for (uint256 i = 1; i < cs.length; i++) {

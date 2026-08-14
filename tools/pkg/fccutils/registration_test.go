@@ -133,7 +133,7 @@ func TestSaveState_OverwritesExisting(t *testing.T) {
 		t.Fatalf("second save failed: %v", err)
 	}
 
-	// Read back — should see "rR", not "r" or "rrR"
+	// Read back - should see "rR", not "r" or "rrR"
 	loaded, err := loadState(path)
 	if err != nil {
 		t.Fatalf("loadState failed: %v", err)

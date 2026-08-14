@@ -12,12 +12,13 @@
  * winner and the clearing price are what settlement writes on-chain, and the
  * losing amounts were zeroed inside the enclave before this ever existed.
  */
-import { forward, headers, upstream } from "../../../_forward.js";
+import { forward, headers, throttled, upstream } from "../../../_forward.js";
 
 export default async function handler(req, res) {
   const base = upstream();
   if (!base) return res.status(503).json({ error: "no enclave configured for this deployment" });
   if (req.method !== "GET") return res.status(405).json({ error: "read only" });
+  if (throttled(req, res)) return;
 
   const id = String(req.query.id ?? "");
   const tag = String(req.query.submissionTag ?? "threshold");

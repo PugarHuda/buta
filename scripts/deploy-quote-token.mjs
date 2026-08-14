@@ -4,7 +4,7 @@
  *   node scripts/deploy-quote-token.mjs [--to 0xaddr ...]
  *
  * The desk posts every on-chain auction with USDT0 as the settlement token, and
- * the address it used — 0xe7cd86e1…C82D — has no code on Coston2. Nothing is
+ * the address it used - 0xe7cd86e1…C82D - has no code on Coston2. Nothing is
  * deployed there. So every block the desk has ever posted was unsettleable from
  * the moment it was posted: relayClearing calls transferFrom on an address that
  * is not a contract, and the pre-flight reported it as "the winner has approved
@@ -15,7 +15,7 @@
  * were FXRP/FXRP, posted by scripts/onchain-loop.ts, which never touches this
  * address.
  *
- * TestToken is mintable by anyone on purpose — it is a testnet quote asset, not
+ * TestToken is mintable by anyone on purpose - it is a testnet quote asset, not
  * a claim to be a real USD₮0.
  */
 import { createPublicClient, createWalletClient, formatUnits, http, parseAbi } from "viem";

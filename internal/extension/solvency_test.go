@@ -87,13 +87,13 @@ func TestAFailedReadAllowsRatherThanDisqualifies(t *testing.T) {
 	f := &fakeFunds{token: addr(0x0b), failFor: map[string]bool{addr(0x33).Hex(): true}}
 	screen := withFunds(f).solvencyScreen(1)
 	if !screen(addr(0x33).Hex(), 5000) {
-		t.Fatal("an RPC failure disqualified a bidder — that hands the auction to whoever can break our RPC")
+		t.Fatal("an RPC failure disqualified a bidder - that hands the auction to whoever can break our RPC")
 	}
 }
 
 // The screen has to come up for the process that actually settles, not only for
 // the local facade. It was wired in cmd/dev and nowhere else, so the enclave in
-// the container ran without it — tested, documented, and unreachable. New() is
+// the container ran without it - tested, documented, and unreachable. New() is
 // the one constructor both paths go through, which is why the env is read there
 // and why this test calls New() rather than the helper above.
 func TestNewTurnsTheScreenOnFromTheEnvironment(t *testing.T) {

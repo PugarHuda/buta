@@ -2,9 +2,9 @@
 
 ## What It Is
 
-The InstructionSender is the **only on-chain address allowed to submit instructions** to your extension's TEE machines. It acts as the gateway between end users and the TEE — users call functions on your InstructionSender, which routes those calls through the `TeeExtensionRegistry`.
+The InstructionSender is the **only on-chain address allowed to submit instructions** to your extension's TEE machines. It acts as the gateway between end users and the TEE - users call functions on your InstructionSender, which routes those calls through the `TeeExtensionRegistry`.
 
-This is enforced at the protocol level. When you register an extension, you provide your InstructionSender's address. From that point on, the registry rejects any `sendInstructions` call where `msg.sender` doesn't match that address. No EOA, no other contract — only your InstructionSender can submit instructions for your extension.
+This is enforced at the protocol level. When you register an extension, you provide your InstructionSender's address. From that point on, the registry rejects any `sendInstructions` call where `msg.sender` doesn't match that address. No EOA, no other contract - only your InstructionSender can submit instructions for your extension.
 
 ## How It Fits Into the System
 
@@ -30,24 +30,24 @@ TEE Machine picks up instruction off-chain and executes it
 
 Any InstructionSender contract must:
 
-1. **Know its extension ID** — needed to look up which TEE machines serve your extension. The scaffold handles this via `setExtensionId()`, which scans the registry after registration.
+1. **Know its extension ID** - needed to look up which TEE machines serve your extension. The scaffold handles this via `setExtensionId()`, which scans the registry after registration.
 
-2. **Call `sendInstructions` on `TeeExtensionRegistry`** — this is the only way to submit instructions. The call must include:
-   - `teeIds` — at least one TEE machine address (use `teeMachineRegistry.getRandomTeeIds()` to pick one)
-   - `opType` — a `bytes32` identifying the action (must match your Go handler)
-   - `opCommand` — a `bytes32` identifying the specific command within the operation type (e.g., `bytes32("SAY_HELLO")` or `bytes32("SAY_GOODBYE")`)
-   - `message` — the payload (typically JSON-encoded, non-empty)
-   - `cosigners` / `cosignersThreshold` — for multi-sig scenarios (usually empty/0)
+2. **Call `sendInstructions` on `TeeExtensionRegistry`** - this is the only way to submit instructions. The call must include:
+   - `teeIds` - at least one TEE machine address (use `teeMachineRegistry.getRandomTeeIds()` to pick one)
+   - `opType` - a `bytes32` identifying the action (must match your Go handler)
+   - `opCommand` - a `bytes32` identifying the specific command within the operation type (e.g., `bytes32("SAY_HELLO")` or `bytes32("SAY_GOODBYE")`)
+   - `message` - the payload (typically JSON-encoded, non-empty)
+   - `cosigners` / `cosignersThreshold` - for multi-sig scenarios (usually empty/0)
 
-3. **Forward `msg.value`** — the registry charges a fee per instruction. Your send functions should be `payable` and forward the full value.
+3. **Forward `msg.value`** - the registry charges a fee per instruction. Your send functions should be `payable` and forward the full value.
 
-4. **Be deployed before registration** — you register the extension by passing the InstructionSender's address to `TeeExtensionRegistry.register()`. The address must exist at registration time.
+4. **Be deployed before registration** - you register the extension by passing the InstructionSender's address to `TeeExtensionRegistry.register()`. The address must exist at registration time.
 
 There are no other constraints. The registry doesn't inspect your contract's code, doesn't require specific function signatures, and doesn't care how you structure your internal logic. As long as the registered address calls `sendInstructions` with valid parameters, it works.
 
 ## Using the Scaffold
 
-The provided `InstructionSender.sol` is a ready-to-use starting point. It handles all the boilerplate — registry references, extension ID discovery, TEE machine selection — and gives you a single place to define your actions:
+The provided `InstructionSender.sol` is a ready-to-use starting point. It handles all the boilerplate - registry references, extension ID discovery, TEE machine selection - and gives you a single place to define your actions:
 
 **Define your operation types and commands** as `bytes32` constants:
 ```solidity
@@ -89,7 +89,7 @@ function sendSayGoodbye(string calldata _name, string calldata _reason) external
 }
 ```
 
-Each `OP_TYPE` string must match what your Go extension expects. On the Go side, use `teeutils.ToHash("GREETING")` to produce the matching `bytes32`. The `opCommand` field lets you route multiple actions under the same operation type — your Go handler can switch on both values to dispatch to the right logic.
+Each `OP_TYPE` string must match what your Go extension expects. On the Go side, use `teeutils.ToHash("GREETING")` to produce the matching `bytes32`. The `opCommand` field lets you route multiple actions under the same operation type - your Go handler can switch on both values to dispatch to the right logic.
 
 After modifying the contract, run `./scripts/generate-bindings.sh` to regenerate the Go bindings.
 
@@ -97,11 +97,11 @@ After modifying the contract, run `./scripts/generate-bindings.sh` to regenerate
 
 You don't have to use the scaffold. You can write an InstructionSender from scratch as long as it satisfies the requirements above. Some reasons you might want to:
 
-- **Custom access control** — restrict who can submit instructions (e.g., only whitelisted callers, token holders, DAO governance)
-- **On-chain validation** — verify message format, check balances, or enforce rate limits before submitting
-- **Multi-TEE routing** — send the same instruction to multiple TEE machines (`getRandomTeeIds(extensionId, n)` with n > 1)
-- **Cosigner workflows** — require multiple parties to co-sign an instruction before it's executed
-- **Batching** — accept multiple instructions in one transaction
+- **Custom access control** - restrict who can submit instructions (e.g., only whitelisted callers, token holders, DAO governance)
+- **On-chain validation** - verify message format, check balances, or enforce rate limits before submitting
+- **Multi-TEE routing** - send the same instruction to multiple TEE machines (`getRandomTeeIds(extensionId, n)` with n > 1)
+- **Cosigner workflows** - require multiple parties to co-sign an instruction before it's executed
+- **Batching** - accept multiple instructions in one transaction
 
 A minimal custom InstructionSender looks like this:
 
@@ -127,4 +127,4 @@ contract MinimalInstructionSender {
 }
 ```
 
-This is valid — it will work as long as this contract's address is registered as the InstructionSender for the extension. The scaffold just adds the convenience of `setExtensionId()` (auto-discovers the ID from the registry) and typed send functions (one per action).
+This is valid - it will work as long as this contract's address is registered as the InstructionSender for the extension. The scaffold just adds the convenience of `setExtensionId()` (auto-discovers the ID from the registry) and typed send functions (one per action).

@@ -2,7 +2,7 @@
 # First-time setup for the testing VM
 # Usage: bash testing/scripts/setup.sh
 #
-# This script is interactive — it prompts for configuration values.
+# This script is interactive - it prompts for configuration values.
 # Run it once on a fresh GCP VM.
 
 set -euo pipefail

@@ -45,7 +45,7 @@ func DecodeRevertReason(err error) string {
 
 // SimulateAndDecodeRevert replays a call via eth_call and attempts to decode
 // the revert reason. Use this as a fallback when DecodeRevertReason on the
-// original error returns empty — some RPC nodes strip revert data from
+// original error returns empty - some RPC nodes strip revert data from
 // eth_estimateGas errors but include it in eth_call responses.
 func SimulateAndDecodeRevert(
 	client *ethclient.Client,
@@ -113,7 +113,7 @@ func decodeRevertHex(hexStr string) string {
 		return ""
 	}
 
-	// Try to decode as Error(string) — selector 0x08c379a2
+	// Try to decode as Error(string) - selector 0x08c379a2
 	if reason, unpackErr := abi.UnpackRevert(decoded); unpackErr == nil {
 		return reason
 	}

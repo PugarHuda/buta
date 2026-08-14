@@ -1,7 +1,7 @@
 # Running the enclave on GCP Confidential Space
 
 Real attestation instead of the simulated path. Flare have said twice in writing
-that this is not required for the bounties — so this is here because it is worth
+that this is not required for the bounties - so this is here because it is worth
 doing on its own terms, not because judging needs it.
 
 What changes: `MODE=0` and `SIMULATED_TEE=false` make the node fetch an
@@ -14,7 +14,7 @@ provider can actually verify.
 ## What it costs, honestly
 
 A `c3-standard-4` runs roughly $0.15/hour, so leaving it up for the rest of the
-program is about $50. Budget half a day the first time — most of it is IAM and
+program is about $50. Budget half a day the first time - most of it is IAM and
 image permissions, not our code.
 
 ---
@@ -58,7 +58,7 @@ docker build --build-arg NETWORK=coston2 --build-arg SOURCE_DATE_EPOCH=$SDE \
 docker push <REGION>-docker.pkg.dev/<PROJECT_ID>/buta/extension-tee:$(git rev-parse --short HEAD)
 ```
 
-**Record the digest.** `docker inspect --format='{{index .RepoDigests 0}}'` — the
+**Record the digest.** `docker inspect --format='{{index .RepoDigests 0}}'` - the
 code hash registered on-chain derives from the image, so a tag that moves is a
 machine whose attestation stops matching.
 
@@ -115,7 +115,7 @@ Three things that bite here:
   looks exactly like the value being wrong.
 - **`CHAIN_ID` is on that list for a reason.** Without it the node fails every
   signature inside `signer.ChainID()`, and the proxy reports it as "signature
-  must be 65 bytes, got 0" — a message about the proxy, for a fault in the node.
+  must be 65 bytes, got 0" - a message about the proxy, for a fault in the node.
   This cost an afternoon locally; it will cost more on a VM you cannot attach to.
 - **Pin by digest, not tag.** The attested code hash comes from the image.
 
@@ -124,7 +124,7 @@ Three things that bite here:
 ## 4. The proxy stays where it is
 
 Only the enclave needs Confidential Space. `ext-proxy` is a plain VM (or your
-laptop) — it holds no secret worth attesting, and it needs the indexer database
+laptop) - it holds no secret worth attesting, and it needs the indexer database
 which is reachable from anywhere.
 
 `docker/gcp-coston2/gcp-ext-proxy/` has that side. Keep the proxy's
@@ -135,7 +135,7 @@ as the machine's proxy id, and the availability check is verified against it.
 
 ## 5. Register the attested machine
 
-The machine is new — different key, therefore different `teeId`. It is a
+The machine is new - different key, therefore different `teeId`. It is a
 registration, not an update.
 
 ```bash
@@ -168,7 +168,7 @@ node scripts/onchain-status.mjs
   buta-tee --zone=<ZONE>` shows the launcher's own complaint.
 - **Runs, but every signature is empty.** `CHAIN_ID`. See above.
 - **Registers, then availability 404s.** The host URL on-chain is not reachable
-  from a data provider. Same failure as locally, same fix —
+  from a data provider. Same failure as locally, same fix - 
   `scripts/update-machine-url.mjs`, because re-running post-build does not move
   that field once the machine exists.
 
@@ -176,7 +176,7 @@ node scripts/onchain-status.mjs
 
 ## Is it worth it?
 
-For the bounties: no, and Flare said so. For the product: yes, eventually — a
+For the bounties: no, and Flare said so. For the product: yes, eventually - a
 simulated enclave protects against the operator by construction and against
 nothing by attestation, and the whole claim of this desk is that nobody can read
 a bid. Real attestation is what turns that from a design property into something

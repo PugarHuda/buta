@@ -16,7 +16,7 @@ import (
 // Decryptor turns an ECIES ciphertext back into plaintext. In production this
 // is the TEE node's own key, reached over the sign server; the extension never
 // holds the key itself. The interface exists so the clearing engine and the
-// handlers never care where the key lives — only that they get plaintext.
+// handlers never care where the key lives - only that they get plaintext.
 type Decryptor interface {
 	Decrypt(ciphertext []byte) ([]byte, error)
 }
@@ -72,7 +72,7 @@ func (d *teeNodeDecryptor) Decrypt(ciphertext []byte) ([]byte, error) {
 
 // sealedOpening is the plaintext that rides inside the ECIES envelope: the bid
 // amount, its blinding nonce, and the bidder's wallet signature. None of it is
-// ever visible on the wire — the operator sees only ciphertext in transit and
+// ever visible on the wire - the operator sees only ciphertext in transit and
 // a commitment on-chain.
 type sealedOpening struct {
 	Amount uint64 `json:"amount"`
@@ -86,7 +86,7 @@ func (e *Extension) SetDecryptor(d Decryptor) { e.decryptor = d }
 
 // LocalDecryptor holds an ECIES key in-process. This is what "simulated TEE"
 // means: the same decryption CODE the node runs, but without hardware
-// isolation — the key lives in this process. Dev only; never a real enclave.
+// isolation - the key lives in this process. Dev only; never a real enclave.
 type LocalDecryptor struct{ key *ecies.PrivateKey }
 
 // NewLocalDecryptor imports an ECDSA private key for ECIES decryption.

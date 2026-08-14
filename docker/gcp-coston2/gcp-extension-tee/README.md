@@ -1,7 +1,7 @@
-# VM 2 — orderbook extension-tee on GCP Confidential VM
+# VM 2 - orderbook extension-tee on GCP Confidential VM
 
 This is the orderbook business logic. It signs match-engine instructions as a
-TEE and is the component that **requires genuine attestation** — deploy it
+TEE and is the component that **requires genuine attestation** - deploy it
 on a GCP Confidential VM, not a plain GCE instance.
 
 ## Confidential VM requirements
@@ -9,14 +9,14 @@ on a GCP Confidential VM, not a plain GCE instance.
 - Machine type: `n2d-standard-*` (AMD SEV-SNP) or `c3-standard-*` (Intel TDX).
 - `--confidential-compute-type=SEV_SNP` (or `TDX`) on `gcloud compute instances create`.
 - Boot disk image: a Confidential-Space-compatible Ubuntu or Container-Optimized OS.
-- `SIMULATED_TEE=false` in the env file — without a real TEE, the attestation
+- `SIMULATED_TEE=false` in the env file - without a real TEE, the attestation
   call will fail and the on-chain registration will be rejected.
 
 ## Files to copy onto the VM
 
 - `docker-compose.yaml` (this directory)
-- `pairs.json` — copy from `extension-examples/orderbook/config/pairs.json`
-- `.env` — populated from `../.env.example`
+- `pairs.json` - copy from `extension-examples/orderbook/config/pairs.json`
+- `.env` - populated from `../.env.example`
 
 ## Networking
 
@@ -34,7 +34,7 @@ on a GCP Confidential VM, not a plain GCE instance.
 3. `INITIAL_OWNER` set to an address in the extension's owner allowlist.
 4. `SIMULATED_TEE=false`.
 5. `MODE` set correctly for remote build (confirm with extension code what
-   `MODE=1` vs `MODE=0` means — the e2e `tee-node` uses `Mode=0` for remote).
+   `MODE=1` vs `MODE=0` means - the e2e `tee-node` uses `Mode=0` for remote).
 6. TEE version has been allowed on-chain by the extension owner (the hash
    must match the image being run).
 

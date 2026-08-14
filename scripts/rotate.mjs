@@ -16,7 +16,7 @@
  * Missing step 2 leaves every read healthy and only settlement broken, with
  * BadTeeSignature, at the moment money should move. Missing step 3 leaves two
  * machines in the active set, so getRandomTeeIds hands out either and half the
- * instructions go to an address nobody is listening on — nothing reverts, the
+ * instructions go to an address nobody is listening on - nothing reverts, the
  * run just dies at "no signed outcome came back". Both have happened here, more
  * than once, which is the whole argument for this file.
  *
@@ -55,7 +55,7 @@ const ABI = parseAbi([
 function deployerKey() {
   const line = fs.readFileSync(path.join(root, ".env"), "utf8")
     .split(/\r?\n/).find((l) => l.startsWith("DEPLOYMENT_PRIVATE_KEY="));
-  if (!line) die("DEPLOYMENT_PRIVATE_KEY is not in .env — the rotation is an admin call");
+  if (!line) die("DEPLOYMENT_PRIVATE_KEY is not in .env - the rotation is an admin call");
   const k = line.slice("DEPLOYMENT_PRIVATE_KEY=".length).trim();
   return k.startsWith("0x") ? k : `0x${k}`;
 }
@@ -73,7 +73,7 @@ head("read the machine the proxy is serving");
 const info = await fetch(`${LOCAL}/info`, { signal: AbortSignal.timeout(8000) })
   .then((r) => (r.ok ? r.json() : null))
   .catch(() => null);
-if (!info) die(`nothing answered ${LOCAL}/info — start the stack first`);
+if (!info) die(`nothing answered ${LOCAL}/info - start the stack first`);
 const pk = info.teeInfo?.publicKey ?? info.machineData?.publicKey;
 const hex = (v) => BigInt(v).toString(16).padStart(64, "0");
 const serving = `0x${keccak256(`0x${hex(pk.x)}${hex(pk.y)}`).slice(-40)}`;
@@ -91,19 +91,19 @@ try {
 // Flare's own guidance is that a machine needs an availability check newer than
 // about six hours before data providers will deliver to it. Nothing on-chain
 // that we read says how old ours is: status stays 2, the active set stays
-// correct, the published URL keeps answering — and delivery stops anyway, with
+// correct, the published URL keeps answering - and delivery stops anyway, with
 // no revert and nothing to look at. Skipping the step because "the chain
 // already says PRODUCTION" is right for a rotation and wrong before a demo.
 // --reattest was meant to refresh that check in place. It cannot, and finding
 // out cost an on-chain attestation: register-tee happily requests a fresh
-// attestation, reaches "availability check proof obtained" — and then reverts,
+// attestation, reaches "availability check proof obtained" - and then reverts,
 // because ToProduction is the ONLY call that submits the proof and it will not
 // run for a machine already in production. The proof is computed and thrown
 // away. So the flag now says that instead of pretending, and names the only
 // refresh that exists: a new identity.
 const reattest = process.argv.includes("--reattest");
 if (status === 2) {
-  say("already PRODUCTION — nothing to register");
+  say("already PRODUCTION - nothing to register");
   if (reattest) {
     say("  --reattest cannot refresh this machine's availability check in place:");
     say("  the proof is only accepted by toProduction(), which reverts once a machine is in production.");
@@ -120,13 +120,13 @@ if (status === 2) {
   let host = process.argv.slice(2).find((a) => a.startsWith("http"));
   if (!host) {
     // What the chain already advertises for this machine. On a re-attest that
-    // is exactly right — the reserved domain has not moved — and it means the
+    // is exactly right - the reserved domain has not moved - and it means the
     // common case needs no argument at all.
     host = await pc
       .readContract({ address: DIAMOND, abi: ABI, functionName: "getTeeMachine", args: [serving] })
       .then((m) => m[2])
       .catch(() => undefined);
-    if (host) say(`no host given — using the one already published on-chain: ${host}`);
+    if (host) say(`no host given - using the one already published on-chain: ${host}`);
   }
   if (!host) die("no public host: pass the https URL your tunnel serves as an argument");
   say(`registering against ${host}`);
@@ -139,7 +139,7 @@ if (status === 2) {
     REGISTER_COMMAND: "rRap",
     SKIP_ALLOW_VERSION: "true",
   });
-  if (!ok) die("registration failed — see the output above");
+  if (!ok) die("registration failed - see the output above");
 }
 
 // ---- 2. the contract has to trust it ----------------------------------------
@@ -148,7 +148,7 @@ const trusted = await pc.readContract({ address: SENDER, abi: ABI, functionName:
 if (trusted.toLowerCase() === serving.toLowerCase()) {
   say("the contract already trusts this machine");
 } else {
-  say(`contract trusts ${trusted} — rotating`);
+  say(`contract trusts ${trusted} - rotating`);
   const account = privateKeyToAccount(deployerKey());
   const wc = createWalletClient({ account, chain: flareTestnet, transport: http(RPC) });
   const hash = await wc.writeContract({ address: SENDER, abi: ABI, functionName: "setTeeAddress", args: [serving] });
@@ -179,6 +179,6 @@ if (!run("node", ["scripts/sync-machine-address.mjs"])) die("could not update th
 head("check all of it from the chain");
 const healthy = run("node", ["scripts/health.mjs"]);
 const claims = run("node", ["scripts/verify-submission.mjs"]);
-if (!healthy || !claims) die("rotation finished but the checks disagree — read the output above");
+if (!healthy || !claims) die("rotation finished but the checks disagree - read the output above");
 
 console.log("\n  rotated, registered, trusted, alone in the set, and documented.\n");

@@ -26,7 +26,7 @@ import (
 // coincidence is a check that will be silenced the first time it cries wolf.
 //
 // And the search happens on the DECODED result. ActionResult.Data is
-// hexutil.Bytes, so it comes back as "0x7b2272..." — searching the raw response
+// hexutil.Bytes, so it comes back as "0x7b2272..." - searching the raw response
 // for a decimal number finds nothing whatever the enclave put in there. The
 // first version of this test did exactly that and would have passed against a
 // handler returning every bid in the book.
@@ -85,7 +85,7 @@ func TestNoCommandEverReturnsABidAmount(t *testing.T) {
 			{config.OPCommandGetMyBids, map[string]any{"bidder": bob.hex()}},
 			{config.OPCommandGetMyBids, map[string]any{"bidder": carol.hex()}},
 			// The maker asking about their own auction must not get the reserve
-			// back either — they know it, but the response is not private to
+			// back either - they know it, but the response is not private to
 			// them, and a field that is populated for one caller is populated
 			// for all of them.
 			{config.OPCommandGetMyBids, map[string]any{"bidder": "0xMAKER"}},
@@ -111,9 +111,9 @@ func TestNoCommandEverReturnsABidAmount(t *testing.T) {
 		t.Fatalf("clear returned %d: %s", code, body)
 	}
 	// The clearing response itself. It carries the second price, which is
-	// public — but the winner's own bid never is, and neither is the reserve.
+	// public - but the winner's own bid never is, and neither is the reserve.
 	// The clearing result is ABI-encoded now, so a decimal search over its bytes
-	// finds nothing either way — decode it and search the numbers themselves.
+	// finds nothing either way - decode it and search the numbers themselves.
 	_, _, clearedPrice, _, derr := decodeClearingResultData(mustData(t, body))
 	if derr != nil {
 		t.Fatal(derr)
@@ -127,10 +127,10 @@ func TestNoCommandEverReturnsABidAmount(t *testing.T) {
 	// And the premise: the second price IS in there, so a handler that returned
 	// an empty body could not pass this test by saying nothing at all.
 	if clearedPrice != uint64(bobBid) {
-		t.Fatalf("cleared at %d, not the runner-up's %d — this test proves nothing", clearedPrice, bobBid)
+		t.Fatalf("cleared at %d, not the runner-up's %d - this test proves nothing", clearedPrice, bobBid)
 	}
 
-	// After clearing, bob's number is public — it IS the clearing price, which is
+	// After clearing, bob's number is public - it IS the clearing price, which is
 	// what a second-price auction pays. That is the mechanism working, not a
 	// leak, and the distinction is the whole point: the runner-up's bid becomes
 	// a price, and every other bid stays sealed forever, the winner's included.

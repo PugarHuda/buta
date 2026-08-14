@@ -20,7 +20,7 @@ set -euo pipefail
 GO_VERSION="1.25.1"
 GO_ARCH="linux-amd64"
 
-echo "=== Flare TEE Testing VM — Dependency Installer ==="
+echo "=== Flare TEE Testing VM - Dependency Installer ==="
 echo "Ubuntu version: $(lsb_release -rs)"
 echo ""
 

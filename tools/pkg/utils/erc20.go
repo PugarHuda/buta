@@ -36,8 +36,8 @@ const (
 )
 
 // IsRetryableTxError returns true for errors that indicate a transient nonce
-// or mempool race — typical on load-balanced public RPCs where the node that
-// sees our next tx hasn't yet observed the previous one being mined — and for
+// or mempool race - typical on load-balanced public RPCs where the node that
+// sees our next tx hasn't yet observed the previous one being mined - and for
 // rate-limit (HTTP 429) errors from the RPC, which are common when many
 // concurrent stress-test runs share a public endpoint.
 // Exported for reuse by callers that wrap their own contract bindings.

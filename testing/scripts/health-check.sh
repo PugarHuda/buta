@@ -1,5 +1,5 @@
 #!/bin/bash
-# Watchdog script — checks if testing agents are alive, restarts dead ones
+# Watchdog script - checks if testing agents are alive, restarts dead ones
 # Run via system cron every 5 minutes:
 #   */5 * * * * /absolute/path/to/testing/scripts/health-check.sh
 
@@ -10,7 +10,7 @@ HEALTH_LOG="$PROJECT_DIR/summary/health-check.log"
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') - health check" >> "$HEALTH_LOG"
 
-# Respect intentional shutdown — don't restart anything if stop.sh was run
+# Respect intentional shutdown - don't restart anything if stop.sh was run
 if [ -f /tmp/flare-testing-shutdown ]; then
   echo "$(date '+%Y-%m-%d %H:%M:%S') - shutdown flag present, skipping" >> "$HEALTH_LOG"
   exit 0

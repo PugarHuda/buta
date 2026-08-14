@@ -60,7 +60,7 @@ func TestDecodeRevertHex_CustomError(t *testing.T) {
 }
 
 func TestDecodeRevertHex_TooShort(t *testing.T) {
-	// Only 2 bytes — less than the 4-byte minimum
+	// Only 2 bytes - less than the 4-byte minimum
 	result := decodeRevertHex("abcd")
 	if result != "" {
 		t.Errorf("expected empty string for short input, got %q", result)
@@ -181,7 +181,7 @@ func TestDecodeRevertReason_WrappedError(t *testing.T) {
 		msg:  "execution reverted",
 		data: revertHex,
 	}
-	// Wrap the error — errors.As should unwrap and find ErrorData
+	// Wrap the error - errors.As should unwrap and find ErrorData
 	wrappedErr := errors.Join(errors.New("outer context"), innerErr)
 	result := DecodeRevertReason(wrappedErr)
 	if result != "insufficient funds" {
@@ -190,7 +190,7 @@ func TestDecodeRevertReason_WrappedError(t *testing.T) {
 }
 
 func TestDecodeRevertReason_CustomErrorSelector(t *testing.T) {
-	// Custom error with unknown selector — should return hex
+	// Custom error with unknown selector - should return hex
 	err := &mockDataError{
 		msg:  "execution reverted",
 		data: "0xdeadbeef0000000000000000000000000000000000000000000000000000000000000042",

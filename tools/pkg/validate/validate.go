@@ -50,7 +50,7 @@ func AddressHasCode(client *ethclient.Client, addr common.Address, label string)
 		return fmt.Errorf(
 			"%s at %s has no deployed code. "+
 				"This address will be set as immutable in the contract constructor and cannot be changed. "+
-				"Check your deployed-addresses.json file — are you on the right network?",
+				"Check your deployed-addresses.json file - are you on the right network?",
 			label, addr.Hex(),
 		)
 	}

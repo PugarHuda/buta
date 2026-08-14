@@ -170,10 +170,10 @@ func TestReport_FprintJSON_OmitsEmptyFields(t *testing.T) {
 	// because they use omitempty
 	raw := buf.String()
 	if strings.Contains(raw, `"fix"`) {
-		t.Error("JSON contains 'fix' field for PASS result — should be omitted")
+		t.Error("JSON contains 'fix' field for PASS result - should be omitted")
 	}
 	if strings.Contains(raw, `"message"`) {
-		t.Error("JSON contains 'message' field for PASS result — should be omitted")
+		t.Error("JSON contains 'message' field for PASS result - should be omitted")
 	}
 }
 
