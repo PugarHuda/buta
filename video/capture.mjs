@@ -22,6 +22,36 @@ const out = path.join(root, "public", "clips");
 const DESK = process.argv[2] ?? "https://buta-desk.vercel.app/dashboard/";
 const DECK = "https://buta-desk.vercel.app/deck";
 
+/**
+ * Where things are on screen, measured rather than guessed.
+ *
+ * The composition draws boxes and zooms over these clips. Hardcoding pixel
+ * coordinates for that would be a second copy of the desk's layout, wrong the
+ * first time a column moves. So the capture measures the real elements while it
+ * has the page open, and the video reads the numbers back.
+ */
+const marks = {};
+/**
+ * When each clip stops being a loading screen, in seconds from the first frame.
+ *
+ * Playwright starts recording when the context is created, so every clip opens
+ * with a blank page and several seconds of waiting for the enclave. A twelve
+ * second beat playing from frame zero is twelve seconds of that. The composition
+ * skips to these offsets instead.
+ */
+const starts = {};
+let clock = 0;
+async function mark(page, name, locator) {
+  const box = await locator.boundingBox().catch(() => null);
+  if (!box) return;
+  marks[name] = {
+    x: Math.round(box.x),
+    y: Math.round(box.y),
+    width: Math.round(box.width),
+    height: Math.round(box.height),
+  };
+}
+
 fs.mkdirSync(out, { recursive: true });
 
 /** A visible pointer, because a screen recording with no cursor reads as a slideshow. */
@@ -69,6 +99,10 @@ async function press(page, locator) {
  * product with nothing on it. A clip should start when the page is ready to be
  * looked at.
  */
+function beginsHere(name) {
+  starts[name] = Math.max(0, (Date.now() - clock) / 1000);
+}
+
 async function settled(page) {
   await page.waitForFunction(
     () => !/reading the book from the enclave/i.test(document.body.innerText),
@@ -81,6 +115,7 @@ async function settled(page) {
 
 async function record(name, width, height, fn) {
   const browser = await chromium.launch();
+  clock = Date.now();
   const ctx = await browser.newContext({
     viewport: { width, height },
     deviceScaleFactor: 2,
@@ -111,12 +146,15 @@ console.log("recording the live desk");
 await record("arrive", 1440, 900, async (page) => {
   await page.goto(DESK, { waitUntil: "load" });
   await settled(page);
+  beginsHere("arrive");
   await page.addScriptTag({ content: CURSOR });
   await page.waitForTimeout(900);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
   await page.waitForTimeout(1400);
   await page.evaluate(() => window.scrollTo({ top: 260, behavior: "smooth" }));
   await page.waitForTimeout(2200);
+  await mark(page, "claims", page.locator("text=Why this takes an enclave").locator("xpath=../.."));
+  await mark(page, "tryit", page.locator("text=Try it yourself").locator("xpath=../.."));
 });
 
 // 2. The book, and opening a live auction. The row is real: it came from the
@@ -124,6 +162,7 @@ await record("arrive", 1440, 900, async (page) => {
 await record("book", 1440, 900, async (page) => {
   await page.goto(DESK, { waitUntil: "load" });
   await settled(page);
+  beginsHere("book");
   await page.addScriptTag({ content: CURSOR });
   await page.evaluate(() => window.scrollTo({ top: 300, behavior: "smooth" }));
   await page.waitForTimeout(1200);
@@ -131,6 +170,10 @@ await record("book", 1440, 900, async (page) => {
   const n = await rows.count();
   if (n > 1) await press(page, rows.nth(1));
   await page.waitForTimeout(2600);
+  await mark(page, "bookHeader", page.locator("text=Open blocks").locator("xpath=../.."));
+  await mark(page, "firstRow", rows.first());
+  await mark(page, "reserveBar", rows.first().locator("span[role=img]").first());
+  await mark(page, "deadline", rows.first().locator("span", { hasText: /^blk/ }).first());
 });
 
 // 3. The sealing form: the preconditions list ticking, and the redaction bar
@@ -138,6 +181,7 @@ await record("book", 1440, 900, async (page) => {
 await record("seal", 1440, 900, async (page) => {
   await page.goto(DESK, { waitUntil: "load" });
   await settled(page);
+  beginsHere("seal");
   await page.addScriptTag({ content: CURSOR });
   const rows = page.locator("button", { hasText: /FXRP\// });
   if (await rows.count()) await press(page, rows.first());
@@ -149,7 +193,9 @@ await record("seal", 1440, 900, async (page) => {
     await field.click({ timeout: 4000 }).catch(() => {});
     await field.type("130450", { delay: 110 });
     await page.waitForTimeout(1800);
+    await mark(page, "bidField", field);
   }
+  await mark(page, "preconditions", page.locator("text=Before it leaves this browser").locator("xpath=.."));
   await page.waitForTimeout(1200);
 });
 
@@ -158,20 +204,27 @@ await record("seal", 1440, 900, async (page) => {
 await record("audit", 1440, 900, async (page) => {
   await page.goto(DESK, { waitUntil: "load" });
   await settled(page);
+  beginsHere("audit");
   await page.addScriptTag({ content: CURSOR });
   const tab = page.locator("button", { hasText: /^▸? ?audit$/i }).first();
   if (await tab.count()) await press(page, tab);
   await page.waitForTimeout(3200);
+  await mark(page, "auditRows", page.locator("text=Instruction sender").locator("xpath=../.."));
 });
 
 // 5. The deck itself, advancing by keyboard.
 await record("deck", 1440, 900, async (page) => {
   await page.goto(DECK, { waitUntil: "load" });
   await page.waitForTimeout(2200);
+  beginsHere("deck");
   for (let i = 0; i < 5; i++) {
     await page.keyboard.press("ArrowDown");
     await page.waitForTimeout(1500);
   }
 });
 
+fs.writeFileSync(path.join(root, "src", "marks.json"), JSON.stringify({ marks, starts }, null, 2));
+
+console.log(`marks: ${Object.keys(marks).join(", ")}`);
+console.log(`starts: ${Object.entries(starts).map(([k, v]) => `${k} ${v.toFixed(1)}s`).join(", ")}`);
 console.log("clips written to video/public/clips");

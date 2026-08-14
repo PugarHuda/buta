@@ -28,6 +28,7 @@ import {
   useVideoConfig,
 } from "remotion";
 import { BEATS, FPS, TIMELINE, type Beat } from "./script";
+import MARKS from "./marks.json";
 
 const PAPER = "#F4F4F0";
 const PAPER_1 = "#EFEEE9";
@@ -138,11 +139,110 @@ const Card: React.FC<{ head: string; children: React.ReactNode; delay: number }>
  * asking a browser to play in real time, which is what stops a screen capture
  * from drifting against the words describing it.
  */
-const Clip: React.FC<{ src: string; caption?: string }> = ({ src, caption }) => {
+/** The viewport the clips were recorded at. Marks are in this space. */
+const SHOT = { w: 1440, h: 900 };
+
+type Mark = { x: number; y: number; width: number; height: number };
+const marks = (MARKS as { marks: Record<string, Mark> }).marks;
+/** Seconds of loading to skip at the head of each clip. See capture.mjs. */
+const starts = (MARKS as { starts: Record<string, number> }).starts;
+
+/** A mark as percentages, so it survives whatever size the clip is drawn at. */
+const asPercent = (m: Mark) => ({
+  left: `${(m.x / SHOT.w) * 100}%`,
+  top: `${(m.y / SHOT.h) * 100}%`,
+  width: `${(m.width / SHOT.w) * 100}%`,
+  height: `${(m.height / SHOT.h) * 100}%`,
+});
+
+/**
+ * A box drawn around the thing being talked about.
+ *
+ * The coordinates are measured during the recording rather than written here:
+ * hardcoding them would be a second copy of the desk's layout, wrong the first
+ * time a column moves. capture.mjs writes src/marks.json while it has the real
+ * page open.
+ *
+ * Boxes appear in the second half of a shot on purpose. The page is still
+ * scrolling early on, and a box pinned to a rectangle the page has moved past
+ * points at nothing.
+ */
+const Box: React.FC<{ mark: string; label: string; delay: number; above?: boolean }> = ({
+  mark,
+  label,
+  delay,
+  above,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const m = marks[mark];
+  if (!m || m.y < 0) return null;
+  const s = spring({ frame: frame - delay, fps, config: { damping: 200, mass: 0.5 } });
+  if (s < 0.01) return null;
+  const box = asPercent(m);
+  const rightHalf = (m.x + m.width / 2) / SHOT.w > 0.55;
+  return (
+    <div style={{ position: "absolute", ...box, opacity: s }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: -6,
+          border: `3px solid ${RED}`,
+          boxShadow: `0 0 0 9999px rgba(10,10,10,${0.34 * s})`,
+          transform: `scale(${interpolate(s, [0, 1], [1.08, 1])})`,
+        }}
+      />
+      {/* The label hangs off whichever side has room. Anchored left it ran
+          off the frame for anything in the right half of the page, which is
+          where the reserve column and the deadline both live. */}
+      <div
+        style={{
+          position: "absolute",
+          ...(rightHalf ? { right: 0 } : { left: 0 }),
+          ...(above ? { bottom: "100%", marginBottom: 12 } : { top: "100%", marginTop: 12 }),
+          backgroundColor: RED,
+          color: "#fff",
+          fontFamily: UI,
+          fontSize: 24,
+          fontWeight: 600,
+          padding: "8px 14px",
+          whiteSpace: "nowrap",
+          transform: `translateY(${interpolate(s, [0, 1], [above ? 8 : -8, 0])}px)`,
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+};
+
+const Clip: React.FC<{
+  src: string;
+  caption?: string;
+  /** Zoom in on this mark, so a detail is legible at a glance. */
+  focus?: string;
+  boxes?: { mark: string; label: string; delay: number; above?: boolean }[];
+}> = ({ src, caption, focus, boxes }) => {
+  const frame = useCurrentFrame();
+  const { fps, durationInFrames } = useVideoConfig();
   const s = spring({ frame, fps, config: { damping: 200, mass: 0.7 } });
   const scale = interpolate(s, [0, 1], [1.04, 1]);
+
+  // The zoom holds off until the shot has established itself, then eases in and
+  // stays. A push that starts on the cut reads as a mistake rather than as
+  // attention being directed.
+  const fm = focus ? marks[focus] : undefined;
+  const zoomStart = Math.round(durationInFrames * 0.34);
+  const z = fm
+    ? interpolate(frame, [zoomStart, zoomStart + 26], [1, 1.26], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+        easing: Easing.inOut(Easing.quad),
+      })
+    : 1;
+  const origin = fm
+    ? `${((fm.x + fm.width / 2) / SHOT.w) * 100}% ${((fm.y + fm.height / 2) / SHOT.h) * 100}%`
+    : "50% 50%";
   return (
     <AbsoluteFill style={{ backgroundColor: INK, justifyContent: "center", alignItems: "center" }}>
       <div
@@ -174,7 +274,22 @@ const Clip: React.FC<{ src: string; caption?: string }> = ({ src, caption }) => 
             buta-desk.vercel.app/dashboard
           </span>
         </div>
-        <OffthreadVideo src={staticFile(`clips/${src}`)} style={{ width: "100%", display: "block" }} muted />
+        <div style={{ position: "relative", overflow: "hidden" }}>
+          <div style={{ transform: `scale(${z})`, transformOrigin: origin }}>
+            {/* startFrom skips the loading. Every recording opens on a blank
+                page and several seconds of waiting for the enclave, and a beat
+                playing from frame zero was that and nothing else. */}
+            <OffthreadVideo
+              src={staticFile(`clips/${src}`)}
+              startFrom={Math.round((starts[src.replace(".webm", "")] ?? 0) * FPS)}
+              style={{ width: "100%", display: "block" }}
+              muted
+            />
+            {(boxes ?? []).map((b) => (
+              <Box key={b.mark} mark={b.mark} label={b.label} delay={b.delay} above={b.above} />
+            ))}
+          </div>
+        </div>
       </div>
       {caption ? (
         <div
@@ -277,11 +392,35 @@ const Scene: React.FC<{ beat: Beat }> = ({ beat }) => {
     case "clip-arrive":
       return <Clip src="arrive.webm" caption="the deployed desk, live" />;
     case "clip-book":
-      return <Clip src="book.webm" caption="lot and deadline public, reserve sealed" />;
+      return (
+        <Clip
+          src="book.webm"
+          caption="lot and deadline public, reserve sealed"
+          focus="firstRow"
+          boxes={[
+            { mark: "reserveBar", label: "the maker's floor, sealed", delay: 150 },
+            { mark: "deadline", label: "deadline block, public", delay: 200, above: true },
+          ]}
+        />
+      );
     case "clip-seal":
-      return <Clip src="seal.webm" caption="sealed in the browser, signed by your wallet" />;
+      return (
+        <Clip
+          src="seal.webm"
+          caption="sealed in the browser, signed by your wallet"
+          focus="preconditions"
+          boxes={[{ mark: "preconditions", label: "checked here, before anything leaves", delay: 165 }]}
+        />
+      );
     case "clip-audit":
-      return <Clip src="audit.webm" caption="every line a public read" />;
+      return (
+        <Clip
+          src="audit.webm"
+          caption="every line a public read"
+          focus="auditRows"
+          boxes={[{ mark: "auditRows", label: "read from the chain by your browser", delay: 130 }]}
+        />
+      );
 
     case "trim":
       return (
