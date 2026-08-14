@@ -29,7 +29,12 @@ unacceptable.
 **Demo link / video / working app**
 - Live: https://buta-desk.vercel.app - landing at /, working desk at /dashboard
 - The deployed desk talks to the enclave. Connect a Coston2 wallet and you can post a block, seal a bid and settle it yourself - every one of those is a contract call signed by your wallet. A read-only serverless proxy carries the book and the enclave's public key, because the extension proxy sends no CORS header and its API key cannot ship in a bundle. If the machine is down the desk falls back to a demo book and says so on the page.
-- Demo video: _[paste your recorded link - script in DEMO_SCRIPT.md]_
+- Demo video: PASTE_THE_YOUTUBE_LINK_HERE
+  Built with Remotion from `video/`. The desk footage is a recording of the
+  deployed product driving a real Coston2 run: a wallet connects, a block is
+  posted and the lot escrowed, a second wallet seals a bid, the enclave signs
+  after the deadline, and the contract settles. Subtitles are burned in, so it
+  reads with the sound off.
 - Run locally: `BUTA_ALLOW_DIRECT_AUCTION=1 go run ./cmd/dev` then `npm run dev`
   in `frontend/`. A TEE machine is registered and PRODUCTION for extension 66009, so instructions reach the diamond; the enclave itself runs the simulated-TEE path Flare accepts for this hackathon.
 
@@ -89,5 +94,19 @@ Buta is the build where an attested enclave finally removes that reader.
 ## Encouraged extras (fill if true at submit time)
 
 **Deployed on** Coston2. Machine registered and PRODUCTION; enclave simulated.
-**Traction / testing** _[e.g. posted in the Flare hackathon Telegram, feedback
-from …]_ - see the mentor-engagement pattern; do this before submitting.
+**Traction / testing**
+No external users yet, and we are not going to dress up a testnet as adoption.
+What there is:
+
+- **25 auctions on the live contract**, posted from scripts and from the desk
+  itself, with settlements, reclaimed lots and a deliberate enclave rotation
+  among them. `rfqCount()` reads 25 right now.
+- **A judge can run the whole rail themselves.** The deployed desk talks to the
+  live enclave, so a Coston2 wallet plus the faucet is enough to post a block,
+  seal a bid and settle it. That was not true until 14 August.
+- **Tested where it is deployed, not only where it is built:** 24 Foundry tests,
+  a Go suite including a leak test that drives every read command against a full
+  book, 99 browser flow checks against the production URL, a hostile-operator
+  suite that substitutes the enclave key and asserts the desk refuses it, and 15
+  on-chain claims in this submission verified against Coston2 by
+  `npm run verify:submission`.

@@ -13,6 +13,8 @@
  * take runs long, change the number here rather than trimming the audio.
  */
 
+import VO from "./vo.json";
+
 export interface Beat {
   /** What is on screen. See Scene in Demo.tsx. */
   scene:
@@ -135,10 +137,23 @@ export const BEATS: Beat[] = [
 ];
 
 /** Frame ranges, derived once so the composition and the subtitles agree. */
+/**
+ * Measured narration lengths, when there are any.
+ *
+ * `seconds` on each beat is a guess at reading pace. Once real audio exists,
+ * vo-sync.mjs measures it and the beat becomes exactly as long as the sentence
+ * describing it, so no shot can outlive or outrun its own line.
+ */
+
+export const VO_BEATS: { file: string; seconds: number }[] | null = VO.beats.length ? VO.beats : null;
+
+const durationOf = (beat: Beat, i: number) =>
+  Math.round((VO_BEATS?.[i]?.seconds ?? beat.seconds) * FPS);
+
 export const TIMELINE = BEATS.reduce<{ beat: Beat; from: number; durationInFrames: number }[]>(
   (acc, beat) => {
     const from = acc.length ? acc[acc.length - 1].from + acc[acc.length - 1].durationInFrames : 0;
-    acc.push({ beat, from, durationInFrames: Math.round(beat.seconds * FPS) });
+    acc.push({ beat, from, durationInFrames: durationOf(beat, acc.length) });
     return acc;
   },
   [],

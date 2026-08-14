@@ -27,7 +27,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { BEATS, FPS, TIMELINE, type Beat } from "./script";
+import { BEATS, FPS, TIMELINE, VO_BEATS, type Beat } from "./script";
 import MARKS from "./marks.json";
 
 const PAPER = "#F4F4F0";
@@ -600,6 +600,24 @@ const Progress: React.FC = () => {
   );
 };
 
+const Narration: React.FC = () => {
+  const beats = VO_BEATS;
+  if (!beats) return <Audio src={staticFile("vo.wav")} />;
+  return (
+    <>
+      {TIMELINE.map(({ from, durationInFrames }, i) => {
+        const clip = beats[i];
+        if (!clip) return null;
+        return (
+          <Sequence key={`vo-${i}`} from={from} durationInFrames={durationInFrames}>
+            <Audio src={staticFile(`vo/${clip.file}`)} />
+          </Sequence>
+        );
+      })}
+    </>
+  );
+};
+
 export const Demo: React.FC<{ withVoice?: boolean }> = ({ withVoice = false }) => {
   return (
     <AbsoluteFill style={{ backgroundColor: PAPER }}>
@@ -611,7 +629,13 @@ export const Demo: React.FC<{ withVoice?: boolean }> = ({ withVoice = false }) =
       ))}
       <Progress />
       {/* Drop a recording of your own voice at public/vo.wav and set withVoice. */}
-      {withVoice ? <Audio src={staticFile("vo.wav")} /> : null}
+      {/* Narration, one file per beat.
+          A single track forces every shot to match a number typed by hand, and
+          one line running long pushes every later subtitle out of step with its
+          own picture. Per beat, each shot is exactly as long as the sentence
+          under it, and a retake costs one file. Falls back to a single vo.wav
+          if that is what exists. */}
+      {withVoice ? <Narration /> : null}
     </AbsoluteFill>
   );
 };
