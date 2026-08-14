@@ -146,6 +146,8 @@ type Mark = { x: number; y: number; width: number; height: number };
 const marks = (MARKS as { marks: Record<string, Mark> }).marks;
 /** Seconds of loading to skip at the head of each clip. See capture.mjs. */
 const starts = (MARKS as { starts: Record<string, number> }).starts;
+/** Seconds into the live recording where each step actually happened. */
+const live = ((MARKS as { live?: Record<string, number> }).live ?? {}) as Record<string, number>;
 
 /** A mark as percentages, so it survives whatever size the clip is drawn at. */
 const asPercent = (m: Mark) => ({
@@ -222,7 +224,9 @@ const Clip: React.FC<{
   /** Zoom in on this mark, so a detail is legible at a glance. */
   focus?: string;
   boxes?: { mark: string; label: string; delay: number; above?: boolean }[];
-}> = ({ src, caption, focus, boxes }) => {
+  /** Seconds into the file to start at, when one recording feeds several beats. */
+  startAt?: number;
+}> = ({ src, caption, focus, boxes, startAt }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const s = spring({ frame, fps, config: { damping: 200, mass: 0.7 } });
@@ -281,7 +285,7 @@ const Clip: React.FC<{
                 playing from frame zero was that and nothing else. */}
             <OffthreadVideo
               src={staticFile(`clips/${src}`)}
-              startFrom={Math.round((starts[src.replace(".webm", "")] ?? 0) * FPS)}
+              startFrom={Math.round((startAt ?? starts[src.replace(".webm", "")] ?? 0) * FPS)}
               style={{ width: "100%", display: "block" }}
               muted
             />
@@ -403,13 +407,31 @@ const Scene: React.FC<{ beat: Beat }> = ({ beat }) => {
           ]}
         />
       );
+    // Three beats cut out of one real run, at the seconds it actually happened.
+    case "clip-post":
+      return (
+        <Clip
+          src="live.webm"
+          caption="posting a block, for real"
+          // Start 13s before the receipt, so the beat runs from typing through
+          // the signature to the row appearing in the book.
+          startAt={Math.max(0, (live.posted ?? 27) - 13)}
+        />
+      );
     case "clip-seal":
       return (
         <Clip
-          src="seal.webm"
-          caption="sealed in the browser, signed by your wallet"
-          focus="preconditions"
-          boxes={[{ mark: "preconditions", label: "checked here, before anything leaves", delay: 165 }]}
+          src="live-bid.webm"
+          caption="a second wallet seals a bid"
+          startAt={20}
+        />
+      );
+    case "clip-settle":
+      return (
+        <Clip
+          src="live.webm"
+          caption="the enclave signs, the contract settles"
+          startAt={Math.max(0, (live.cleared ?? 200) - 8)}
         />
       );
     case "clip-audit":

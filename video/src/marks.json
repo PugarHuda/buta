@@ -53,6 +53,18 @@
       "y": 395,
       "width": 896,
       "height": 344
+    },
+    "postForm": {
+      "x": 203,
+      "y": 784,
+      "width": 588,
+      "height": 82
+    },
+    "newRow": {
+      "x": 192,
+      "y": 114,
+      "width": 1157,
+      "height": 52
     }
   },
   "starts": {
@@ -61,5 +73,15 @@
     "seal": 4.857,
     "audit": 5.618,
     "deck": 2.577
-  }
+  },
+  "live": {
+    "connected": 8.881,
+    "postFilled": 17.039,
+    "posted": 26.887,
+    "bookGrew": 29.607,
+    "waiting": 306.624,
+    "cleared": 622.131,
+    "settled": 631.121
+  },
+  "rfqId": 25
 }

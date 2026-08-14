@@ -23,7 +23,9 @@ export interface Beat {
     | "flow"
     | "clip-arrive"
     | "clip-book"
+    | "clip-post"
     | "clip-seal"
+    | "clip-settle"
     | "trim"
     | "solvency"
     | "clip-audit"
@@ -81,9 +83,19 @@ export const BEATS: Beat[] = [
     seconds: 12,
   },
   {
+    scene: "clip-post",
+    say: "So here it is happening. A maker fills in a lot, a hidden floor and a deadline in minutes, presses post, and signs. The lot is escrowed on the contract and the book grows a row.",
+    seconds: 16,
+  },
+  {
     scene: "clip-seal",
-    say: "Sealing a bid happens in your browser. The amount is encrypted to the key the chain publishes, the commitment is computed here, and your wallet signs it.",
-    seconds: 12,
+    say: "A second wallet opens that auction and seals a bid. The amount is encrypted in the browser, the commitment is computed here, the wallet signs, and what reaches the chain is a hash.",
+    seconds: 16,
+  },
+  {
+    scene: "clip-settle",
+    say: "After the deadline, the enclave opens the bids and signs the outcome. The contract checks that signature against the set it recorded, then pays the maker and moves the lot in one transaction. That is a real settlement on Coston2, from this desk.",
+    seconds: 18,
   },
   {
     scene: "trim",
