@@ -13,11 +13,11 @@
 <meta property="og:url" content="https://buta-desk.vercel.app">
 <meta property="og:title" content="BUTA - The auctioneer is blind">
 <meta property="og:description" content="A sealed-bid OTC desk on Flare Confidential Compute. Bids are encrypted to an attested enclave - nobody runs the auction. Losing amounts never resolve.">
-<meta property="og:image" content="https://buta-desk.vercel.app/og.svg">
+<meta property="og:image" content="https://buta-desk.vercel.app/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="BUTA - The auctioneer is blind">
 <meta name="twitter:description" content="Sealed-bid OTC on Flare Confidential Compute. The auctioneer itself cannot read the bids.">
-<meta name="twitter:image" content="https://buta-desk.vercel.app/og.svg">
+<meta name="twitter:image" content="https://buta-desk.vercel.app/og.png">
 </head>
 <body>
 <!-- impeccable-disable all-caps-body: the three remaining hits are 32-40 char
@@ -362,6 +362,10 @@
            style="display:inline-block; background:var(--red); color:var(--paper); font-family:var(--mono); font-size:.8rem; letter-spacing:.1em; text-transform:uppercase; padding:.8rem 1.6rem; text-decoration:none;">
           Open the desk &#8250;&#8250;&#8250;
         </a>
+        <a href="/deck" rel="noopener"
+           style="display:inline-block; border:1px solid var(--ink); color:var(--ink); font-family:var(--mono); font-size:.8rem; letter-spacing:.1em; text-transform:uppercase; padding:.8rem 1.6rem; text-decoration:none;">
+          The pitch
+        </a>
         <a href="https://github.com/PugarHuda/buta" rel="noopener"
            style="display:inline-block; border:1px solid var(--ink); color:var(--ink); font-family:var(--mono); font-size:.8rem; letter-spacing:.1em; text-transform:uppercase; padding:.8rem 1.6rem; text-decoration:none;">
           View the code
@@ -591,9 +595,9 @@
       <li><b>The clearing price is public by design</b>Vickrey pays the second price, so that
           number lands on-chain. What stays sealed is which bid produced it, and every amount
           that lost.</li>
-      <li><b>Flare Confidential Compute is pre-production</b>It reached a Songbird governance
-          vote in July 2026; mainnet is targeted for Q3. Buta is built against Coston2 with
-          simulated attestation.</li>
+      <li><b>Flare Confidential Compute is pre-production</b>Flare's own documentation calls it not yet a
+          fully public production system. Buta is built against Coston2 with simulated
+          attestation.</li>
     </ul>
   </section>
 
@@ -909,6 +913,10 @@
     readout.innerHTML = "Move the reticle across the plate.";
     clearBtn.disabled = false;
     resetBtn.hidden = true;
+    // Without this the instruction above is a dead end: `seen` latched on the
+    // first hover and never cleared, so after a reseal the reticle did nothing
+    // for the rest of the session while the page kept asking for it.
+    seen = false;
   });
 
   render();

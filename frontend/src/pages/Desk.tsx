@@ -442,7 +442,12 @@ export function Desk() {
         refresh();
       }
     },
-    [sender, writeContractAsync, say, refresh, rowIsReal],
+    // `send` belongs here. It closes over `address`, and without it reclaim
+    // kept the first render's copy, where address was undefined - so
+    // gasForWrite estimated with no `from`, the estimate for reclaimLot's inner
+    // transfer reverted, and the doubled ceiling was skipped. On the one call
+    // whose comment records it reverting twice at a gasUsed below its estimate.
+    [sender, send, writeContractAsync, say, refresh, rowIsReal],
   );
 
   // Post a block as a transaction: escrow the lot, forward the instruction.
@@ -833,6 +838,15 @@ export function Desk() {
           </span>
         </div>
 
+        {/* A way back out. The desk had two links in the whole page and neither
+            went to the landing, the pitch or the source, so a reader who landed
+            here first had nowhere to go for the argument behind it. */}
+        <div className="hidden md:flex gap-3 px-4 pt-3 pb-1 text-[11.5px] tracking-[0.1em] uppercase text-fg-mute">
+          <a className="hover:text-accent" href="/" rel="noopener">Landing</a>
+          <a className="hover:text-accent" href="/deck" rel="noopener">Pitch</a>
+          <a className="hover:text-accent" href="https://github.com/PugarHuda/buta" target="_blank" rel="noopener">Source</a>
+        </div>
+
         {/* The one move that starts everything, and the only one that needs no
             auction selected. It was a tab, then a button in a strip; it belongs
             at the top of the sidebar where a primary action is looked for. */}
@@ -932,7 +946,7 @@ export function Desk() {
         // second to the Audit panel, which links it to the explorer.
         <div className="px-4 py-1.5 bg-accent text-bg text-[11.5px] tracking-[0.12em] uppercase">
           Demo book <span className="opacity-70"> - no enclave reachable from this browser.</span>{" "}
-          <span className="opacity-70">Start it with <span className="opacity-100">go run ./cmd/dev</span> for the live flow;{" "}
+          <span className="opacity-70">Start it with <span className="opacity-100">VITE_ALLOW_UNVERIFIED_TEE_KEY=1 go run ./cmd/dev</span> for the live flow (the flag matters: cmd/dev registers nothing, so without it the desk seals to the registered machine's key and the local facade cannot open it);{" "}
           the machine itself is registered - see Audit.</span>
         </div>
       )}
@@ -1140,6 +1154,8 @@ export function Desk() {
                         look like that on every row. */}
                     <span className="hidden sm:block">
                       <span
+                        role="img"
+                        aria-label="Reserve sealed, encrypted to the enclave"
                         className="inline-block w-10 md:w-14 h-[11px] bg-fg align-middle"
                         title="The maker's floor is ECIES-encrypted to the enclave key. Nobody else can read it - not the operator, not us."
                       />
