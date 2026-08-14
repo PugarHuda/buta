@@ -166,10 +166,8 @@ function RequestClearingBlock(props: { busy: boolean; onRequest: () => void; sig
       <p className="mt-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[34ch]">
         {props.signedAlready ? (
           <>
-            The enclave opened this one already and will not open it twice — but it kept the outcome
-            it produced, and a repeat request is answered from that memory, usually in seconds. This
-            is the button to press when the first dispatch came back with nothing. The lot stays
-            escrowed until a signed outcome is settled.
+            Opened once and kept. A repeat is answered from the enclave's memory in seconds — press
+            this when the first dispatch came back with nothing.
           </>
         ) : (
           <>
@@ -901,6 +899,7 @@ export function Desk() {
       </p>
 
       <Claims />
+      <TryIt live={!demo && !offline} />
 
       {/* On a phone the sidebar's counts are hidden, so they belong here. */}
       <div className="md:hidden flex flex-wrap items-stretch border-t border-line">
@@ -1120,9 +1119,11 @@ export function Desk() {
                   {/* The action is on the row it acts on. It used to be a panel
                       on the other side of the screen that you had to look at
                       after clicking, which is why the desk read as two things. */}
-                  {/* The action on the row, at the weight of an action. An
-                      outlined 10px label in the same ink as the figures beside
-                      it is the reason a reader has to guess where to click. */}
+                  {/* The action on the row, at the weight of an action — and
+                      naming the action that is actually available. An auction
+                      past its deadline takes no more bids, and this said "Bid"
+                      on it anyway; the only thing left to do there is clear it,
+                      which is what the panel underneath offers. */}
                   <button
                     onClick={() => { setSelected(r.rfqId); setPanel("auto"); }}
                     className={
@@ -1132,7 +1133,11 @@ export function Desk() {
                         : "bg-accent text-white border-accent hover:bg-[var(--accent-deep)] hover:border-[var(--accent-deep)]")
                     }
                   >
-                    {r.cleared ? "View" : "Bid →"}
+                    {r.cleared
+                      ? "View"
+                      : block !== null && countdown(r.deadline, block).passed
+                        ? "Clear"
+                        : "Bid →"}
                   </button>
                 </div>
 
@@ -1226,6 +1231,21 @@ export function Desk() {
                       // max-w on the form: a bid is one number, and the field
                       // was stretching the full width of the panel for it.
                       <div className="grid lg:grid-cols-[minmax(0,34rem)_20rem] gap-6">
+                        {/* No bid form past the deadline. commitBid is refused
+                            after it, so the form was a page of controls that
+                            could only fail — and the longest thing on screen
+                            for a row whose only remaining move is to clear. */}
+                        {block !== null && countdown(r.deadline, block).passed ? (
+                          <div>
+                            <Lbl>Bidding closed</Lbl>
+                            <p className="mt-1 text-[11.5px] text-fg-mute leading-relaxed max-w-[40ch]">
+                              Block {r.deadline.toLocaleString()} has passed, so no further bid can be
+                              sealed on this one. {r.bidCount === 0
+                                ? "Nothing was bid; clearing it returns the lot to the maker."
+                                : `${r.bidCount} sealed ${r.bidCount === 1 ? "bid is" : "bids are"} waiting to be opened.`}
+                            </p>
+                          </div>
+                        ) : (
                         <BidForm
                           sel={r}
                           address={address}
@@ -1233,6 +1253,7 @@ export function Desk() {
                           onChain={(amount) => bidOnChain(r.rfqId, amount)}
                           onDone={(m) => { say(m); refresh(); }}
                         />
+                        )}
                         <div className="lg:border-l lg:border-line lg:pl-6">
                           {/* This used to ask "Past the deadline?" — a question
                               the desk can answer from one eth_blockNumber, and
@@ -1257,8 +1278,7 @@ export function Desk() {
                           {block !== null && !countdown(r.deadline, block).passed ? (
                             <p className="mt-2 text-[11.5px] text-fg-mute max-w-[30ch] leading-relaxed">
                               Clearing opens at that block, for anyone — liveness never depends on the
-                              maker. Until then there is nothing to press: the contract refuses a
-                              clearing before the deadline, and so does the enclave.
+                              maker. Nothing to press until then.
                             </p>
                           ) : (
                             <>
@@ -1291,9 +1311,7 @@ export function Desk() {
                                   Clear over the direct rail
                                 </Btn>
                                 <span className="text-[11.5px] text-fg-mute max-w-[30ch] leading-relaxed">
-                                  Shows the mechanism without a transaction. The outcome it returns
-                                  carries no enclave signature on the dev facade, and the deployed
-                                  desk refuses this rail — only a signed outcome can settle.
+                                  No signature, so it cannot settle. Refused on the deployed desk.
                                 </span>
                               </div>
                             </>
@@ -1391,31 +1409,28 @@ export function Desk() {
  * it.
  */
 function Claims() {
+  // One line each.
+  //
+  // These were a paragraph apiece, and three paragraphs of argument above a
+  // table is an essay, not a desk. The reasoning did not get worse for being
+  // cut — it moved to where reasoning belongs, which is the code and
+  // SUBMISSION.md. What a reader needs on the page is the claim and where it
+  // bites.
   const claims: [string, React.ReactNode][] = [
     [
       "The auctioneer is blind",
-      <>
-        Your amount is encrypted in this browser to a key that exists only inside the enclave. The
-        operator relays ciphertext it cannot open, and the desk refuses to encrypt to any key the
-        chain has not published — a relay serving its own key is the attack this exists to stop.
-      </>,
+      <>Encrypted to a key that exists only inside the enclave. The operator relays ciphertext it cannot open.</>,
     ],
     [
       "The set cannot be trimmed",
       <>
-        The enclave signs its outcome over the commitments <b className="text-fg">the contract
-        recorded</b>, not the ones it was handed. Drop an inconvenient bid and the digest stops
-        matching and the settlement reverts. Commit-reveal cannot do this: a loser who declines to
-        reveal stalls the auction, and revealing is the one thing that never happens here.
+        The enclave signs over the commitments <b className="text-fg">the contract recorded</b>. Drop
+        a bid and the settlement reverts.
       </>,
     ],
     [
       "Solvency, without disclosure",
-      <>
-        The enclave already holds the decrypted amounts, so it drops a bidder who could not pay what
-        they would owe — without telling anyone what they bid. The only party that can read the bids
-        is the one party that never repeats them.
-      </>,
+      <>Bidders who could not pay are dropped — without anyone learning what they bid.</>,
     ],
   ];
 
@@ -1434,6 +1449,66 @@ function Claims() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Run the whole thing yourself, in about three minutes.
+ *
+ * The desk assumed a reader who already knew what to press. Somebody arriving
+ * cold — a judge, say — could read every claim on the page and still have no
+ * route to testing one, because the only auctions on the book were ours and
+ * they close when they close.
+ *
+ * The route was there all along: the post form takes its deadline in MINUTES,
+ * so anyone can put up a two-minute block and watch it through post, seal,
+ * clear and settle in one sitting. Saying so costs six lines. Not saying it
+ * left the product's only self-service path invisible.
+ */
+function TryIt({ live }: { live: boolean }) {
+  const steps: [string, React.ReactNode][] = [
+    [
+      "Fund a wallet",
+      <>
+        <a className="text-accent hover:underline" href="https://faucet.flare.network/coston2" target="_blank" rel="noopener">
+          Coston2 faucet
+        </a>{" "}
+        — gas and FXRP, once a day per address.
+      </>,
+    ],
+    ["Post a block", <>Set the deadline in minutes. Two is enough.</>],
+    ["Seal a bid", <>Encrypted here, signed by your wallet. The chain gets a commitment.</>],
+    [
+      "Clear, then settle",
+      <>
+        Winner pays the runner-up's price. Check it on <b className="text-fg">Audit</b>, not on our
+        word.
+      </>,
+    ],
+  ];
+
+  return (
+    <div className="border-t border-line px-4 py-3">
+      <Lbl>Try it yourself — about three minutes</Lbl>
+      {!live && (
+        <p className="mt-1 text-[11.5px] leading-relaxed text-accent max-w-[70ch]">
+          The enclave is not answering this browser right now, so the book below is demo data and
+          steps 2 to 4 will not go through. The contract and every settlement it has already made
+          are on Coston2 and stay checkable — see Audit.
+        </p>
+      )}
+      <ol className="mt-2 grid gap-x-6 gap-y-2 md:grid-cols-4 max-w-[76rem]">
+        {steps.map(([title, body], i) => (
+          <li key={title} className="text-[11.5px] leading-relaxed text-fg-dim">
+            <span className="text-fg font-semibold">
+              <Red>{i + 1}.</Red> {title}
+            </span>
+            <br />
+            {body}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -1560,7 +1635,7 @@ function BidForm(props: {
         {[
           [/^\d+$/.test(amount.trim()) && BigInt(amount.trim() || "0") > 0n,
             "A whole, positive number of quote units"],
-          [!!bidder, "A wallet to bind the bid to — the enclave recovers the signer"],
+          [!!bidder, "A wallet to bind the bid to"],
           // The signature is domain-separated by chain id, so a wallet on the
           // wrong network produces one the enclave cannot match and the bid is
           // rejected as a forgery. Nothing said so: the connect button hides the
@@ -1568,16 +1643,16 @@ function BidForm(props: {
           [chainId === coston2.id,
             chainId === coston2.id
               ? "Your wallet is on Coston2, which the signature is bound to"
-              : `Your wallet is on chain ${chainId}, not Coston2 (${coston2.id}) — the enclave would reject this bid`],
+              : `Your wallet is on chain ${chainId}, not Coston2 (${coston2.id}) — this bid would be rejected`],
           // The one line that must never be quietly true. Encrypting to a key
           // the relay handed over means the relay can read the bid, and that is
           // the whole thing this desk claims not to do.
           [!env.allowUnverifiedTeeKey,
             env.allowUnverifiedTeeKey
               ? "UNVERIFIED KEY: this build encrypts to whatever the relay serves, so the relay can read your bid"
-              : "Encrypted to the enclave key registered on-chain, which the relay cannot substitute"],
+              : "Encrypted to the key the chain published — the relay cannot substitute it"],
           [true, "keccak256(amount ‖ nonce ‖ your address) computed here, not sent"],
-          [true, "The amount is ECIES-encrypted to the enclave key; the operator relays ciphertext"],
+          [true, "The operator relays ciphertext"],
         ].map(([ok, text]) => (
           <div key={String(text)} className="flex items-baseline gap-2 text-[11.5px] leading-relaxed">
             <span className={ok ? "text-accent" : "text-fg-mute"}>{ok ? "✓" : "○"}</span>
@@ -1599,8 +1674,7 @@ function BidForm(props: {
             )}
           </ConnectButton.Custom>
           <span className="text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
-            The bid is sealed in this browser and signed by your wallet — the enclave recovers the
-            signer, so a bid cannot be made in somebody else's name.
+            Sealed here, signed by your wallet — so nobody can bid in your name.
           </span>
         </div>
       ) : (
@@ -1628,8 +1702,8 @@ function BidForm(props: {
             Seal bid on-chain
           </Btn>
           <p className="text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
-            A transaction, so the commitment lands in the set the clearing has to match.
-            One bid per address, enforced by the contract as well as the enclave.
+            A transaction. The commitment lands in the set the clearing has to match. One bid per
+            address.
           </p>
         </div>
         <div className="pt-3 border-t border-line">
@@ -1676,11 +1750,8 @@ function BidForm(props: {
           Seal over the direct rail
         </Btn>
         <p className="mt-2 text-[11.5px] text-fg-mute leading-relaxed max-w-[44ch]">
-          The same sealed envelope, handed straight to the enclave instead of to the chain.
-          It proves the mechanism — the amount is encrypted here and the enclave recovers your
-          signature — but the commitment lives only in the enclave's memory, so a clearing can
-          never settle against it. The deployed desk refuses this rail outright: nothing
-          unauthenticated may write to an auction.
+          Same envelope, straight to the enclave. Memory only, so it can never settle — and the
+          deployed desk refuses it.
         </p>
         </div>
         </>

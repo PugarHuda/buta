@@ -12,9 +12,13 @@
 import { createPublicClient, http } from "viem";
 import { coston2 } from "../config/chain";
 
-/** Coston2 targets ~1.8s blocks. Close enough to say "about an hour", which is
- *  all this is for — nothing settles on the strength of this estimate. */
-const SECONDS_PER_BLOCK = 1.8;
+/** Measured over 20,000 Coston2 blocks on 14 August: 2.059s, not the 1.8s the
+ *  target suggests and this used to assume. A 14% error is invisible on "about
+ *  an hour" and lands four hours out on a two-day auction, which is the length
+ *  a block posted to stay open across a judging window actually has. Nothing
+ *  settles on the strength of this estimate — the contract compares block
+ *  numbers — but people plan around it. */
+const SECONDS_PER_BLOCK = 2.06;
 
 export function readBlockNumber(): Promise<bigint | null> {
   return createPublicClient({ chain: coston2, transport: http() })

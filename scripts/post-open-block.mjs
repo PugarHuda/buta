@@ -37,9 +37,11 @@ const ZERO = "0x0000000000000000000000000000000000000000";
 const LOT = 2_000_000n;      // 2 FXRP, six decimals
 const RESERVE = 500_000n;    // the floor a lone bidder pays
 const FEE = 1_000_000_000n;  // what the diamond charges to forward one instruction
-// Coston2 runs about 1.8s a block. Long enough that a judge who opens the desk
-// hours after we posted still finds something they can bid on.
-const BLOCKS_PER_MINUTE = 33n;
+// Measured over 20,000 Coston2 blocks on 14 August: 2.059s each, so 29 a
+// minute. The 1.8s the chain targets would have made every deadline here 14%
+// shorter than asked for — unnoticeable on a demo block, four hours out on one
+// meant to stay open across a judging window.
+const BLOCKS_PER_MINUTE = 29n;
 
 const minutes = BigInt(Number.parseInt(process.argv[2] ?? "180", 10));
 if (!Number.isFinite(Number(minutes)) || minutes <= 0n) {
