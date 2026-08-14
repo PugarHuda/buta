@@ -1,0 +1,24 @@
+{
+  "name": "buta-video",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The Buta demo video. Slides and subtitles are code; the desk footage is a real recording of the deployed product.",
+  "scripts": {
+    "capture": "node capture.mjs",
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Demo out/buta-demo.mp4 --concurrency 2",
+    "render:fast": "remotion render src/index.ts Demo out/buta-demo-draft.mp4 --concurrency 2 --jpeg-quality 60 --scale 0.5",
+    "still": "remotion still src/index.ts Demo out/poster.png --frame 60"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.290",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.290"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "typescript": "5.7.2"
+  }
+}

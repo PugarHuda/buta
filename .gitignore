@@ -42,3 +42,11 @@ dev.exe
 # done, not part of the product a reader is here to judge.
 .claude/
 testing/agents/
+
+# The video project pulls a large dependency tree and writes big artefacts.
+# The script, the scenes and the capture script are the source; the clips and
+# the renders are output.
+video/node_modules/
+video/out/
+video/public/clips/
+video/public/vo.wav
