@@ -235,23 +235,34 @@ const Clip: React.FC<{
   // The zoom holds off until the shot has established itself, then eases in and
   // stays. A push that starts on the cut reads as a mistake rather than as
   // attention being directed.
+  // The push both scales AND moves the target to the middle. Zooming about the
+  // target keeps the target exactly where it was, which is useless when what is
+  // being explained sits near an edge of the page.
   const fm = focus ? marks[focus] : undefined;
   const zoomStart = Math.round(durationInFrames * 0.34);
-  const z = fm
-    ? interpolate(frame, [zoomStart, zoomStart + 26], [1, 1.26], {
+  const p = fm
+    ? interpolate(frame, [zoomStart, zoomStart + 26], [0, 1], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
         easing: Easing.inOut(Easing.quad),
       })
-    : 1;
-  const origin = fm
-    ? `${((fm.x + fm.width / 2) / SHOT.w) * 100}% ${((fm.y + fm.height / 2) / SHOT.h) * 100}%`
-    : "50% 50%";
+    : 0;
+  const z = 1 + 0.26 * p;
+  const cx = fm ? (fm.x + fm.width / 2) / SHOT.w : 0.5;
+  const cy = fm ? (fm.y + fm.height / 2) / SHOT.h : 0.5;
+  const shift = fm ? `translate(${(0.5 - cx) * 100 * p}%, ${(0.46 - cy) * 100 * p}%)` : "";
   return (
-    <AbsoluteFill style={{ backgroundColor: INK, justifyContent: "center", alignItems: "center" }}>
+    <AbsoluteFill style={{ backgroundColor: INK, justifyContent: "flex-start", alignItems: "center", paddingTop: 18 }}>
       <div
         style={{
-          width: 1640,
+          // 1320, not 1640, and pinned to the top.
+          //
+          // At full width the clip is 1025px tall in a 1080 frame, so the bottom
+          // of the page always landed exactly where the subtitle goes: receipts,
+          // verdicts and settle buttons were covered by the words describing
+          // them. The frame now reserves a band for the subtitle and the clip
+          // lives above it. Smaller picture, nothing hidden.
+          width: 1320,
           transform: `scale(${scale})`,
           opacity: s,
           border: `1px solid #2A2A28`,
@@ -279,7 +290,7 @@ const Clip: React.FC<{
           </span>
         </div>
         <div style={{ position: "relative", overflow: "hidden" }}>
-          <div style={{ transform: `scale(${z})`, transformOrigin: origin }}>
+          <div style={{ transform: `scale(${z}) ${shift}`, transformOrigin: "50% 50%" }}>
             {/* startFrom skips the loading. Every recording opens on a blank
                 page and several seconds of waiting for the enclave, and a beat
                 playing from frame zero was that and nothing else. */}
@@ -557,7 +568,7 @@ const Subtitle: React.FC<{ text: string }> = ({ text }) => {
     extrapolateLeft: "clamp",
   });
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 62 }}>
+    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 34 }}>
       <div
         style={{
           opacity: Math.min(inOp, outOp),
@@ -565,9 +576,9 @@ const Subtitle: React.FC<{ text: string }> = ({ text }) => {
           backgroundColor: "rgba(10,10,10,.88)",
           color: "#F4F4F0",
           fontFamily: UI,
-          fontSize: 36,
-          lineHeight: 1.35,
-          padding: "20px 30px",
+          fontSize: 32,
+          lineHeight: 1.3,
+          padding: "16px 26px",
           textAlign: "center",
           borderLeft: `6px solid ${RED}`,
         }}
