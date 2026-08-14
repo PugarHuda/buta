@@ -61,6 +61,24 @@ async function press(page, locator) {
   return true;
 }
 
+/**
+ * Wait for the book, not for a number of seconds.
+ *
+ * The first recording was made with a fixed 7s wait and caught the desk before
+ * its first book request came back, so the flagship shot of the video was a
+ * product with nothing on it. A clip should start when the page is ready to be
+ * looked at.
+ */
+async function settled(page) {
+  await page.waitForFunction(
+    () => !/reading the book from the enclave/i.test(document.body.innerText),
+    null,
+    { timeout: 45000 },
+  ).catch(() => {});
+  await page.waitForSelector("button:has-text('FXRP/')", { timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+}
+
 async function record(name, width, height, fn) {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({
@@ -92,7 +110,7 @@ console.log("recording the live desk");
 // 1. Arrival. What a judge sees, and the claims strip they read first.
 await record("arrive", 1440, 900, async (page) => {
   await page.goto(DESK, { waitUntil: "load" });
-  await page.waitForTimeout(7000);
+  await settled(page);
   await page.addScriptTag({ content: CURSOR });
   await page.waitForTimeout(900);
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
@@ -105,7 +123,7 @@ await record("arrive", 1440, 900, async (page) => {
 //    enclave, and the countdown is the chain's head minus the deadline block.
 await record("book", 1440, 900, async (page) => {
   await page.goto(DESK, { waitUntil: "load" });
-  await page.waitForTimeout(7000);
+  await settled(page);
   await page.addScriptTag({ content: CURSOR });
   await page.evaluate(() => window.scrollTo({ top: 300, behavior: "smooth" }));
   await page.waitForTimeout(1200);
@@ -119,7 +137,7 @@ await record("book", 1440, 900, async (page) => {
 //    in the book. This is the product's whole argument on one screen.
 await record("seal", 1440, 900, async (page) => {
   await page.goto(DESK, { waitUntil: "load" });
-  await page.waitForTimeout(7000);
+  await settled(page);
   await page.addScriptTag({ content: CURSOR });
   const rows = page.locator("button", { hasText: /FXRP\// });
   if (await rows.count()) await press(page, rows.first());
@@ -139,7 +157,7 @@ await record("seal", 1440, 900, async (page) => {
 //    answer to "why should I believe the page".
 await record("audit", 1440, 900, async (page) => {
   await page.goto(DESK, { waitUntil: "load" });
-  await page.waitForTimeout(7000);
+  await settled(page);
   await page.addScriptTag({ content: CURSOR });
   const tab = page.locator("button", { hasText: /^▸? ?audit$/i }).first();
   if (await tab.count()) await press(page, tab);

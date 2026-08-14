@@ -238,6 +238,9 @@ export function Desk() {
   const [dropped, setDropped] = useState(0);
   const [offline, setOffline] = useState(false);
   const [demo, setDemo] = useState(false);
+  /** A book request has completed at least once, either way. Until then the
+   *  desk has no basis for saying the book is empty. */
+  const [loadedOnce, setLoadedOnce] = useState(false);
   // Read from the diamond, not from whether we can reach a proxy: those are two
   // different facts and the masthead used to conflate them.
   const [tee, setTee] = useState<TeeStatus>({ state: "unknown" });
@@ -303,6 +306,7 @@ export function Desk() {
       setRfqs(demoBook(headRef.current));
       setOffline(true);
       setDemo(true);
+      setLoadedOnce(true);
       return;
     }
     // One book request at a time.
@@ -329,6 +333,7 @@ export function Desk() {
       setDemo(true);
     } finally {
       inFlight.current = false;
+      setLoadedOnce(true);
     }
   }, [canReachExtension]);
 
@@ -1070,9 +1075,18 @@ export function Desk() {
 
             {shown.length === 0 && (
               <p className="px-4 py-6 text-fg-mute">
-                {rfqs.length === 0
+                {/* An empty state that has not asked anything yet is a lie.
+                    The first book request travels browser to proxy to a tunnel
+                    to a container, which takes seconds, and for that whole
+                    window the desk said "No blocks yet. Post the first one."
+                    to somebody looking at a desk with four auctions on it. It
+                    was caught by recording the page for a video: the flagship
+                    shot was an empty product. */}
+                {!loadedOnce
+                  ? "Reading the book from the enclave."
+                  : rfqs.length === 0
                   ? offline
-                    ? "The extension is not reachable. Start it with BUTA_ALLOW_DIRECT_AUCTION=1 and refresh."
+                    ? "No enclave is answering this browser, so there is no book to show. The contract and its settlements are still on Coston2 - see Audit."
                     : "No blocks yet. Post the first one."
                   : filter === "mine"
                     ? "None of these are yours. Post a block, or switch the filter back to All."
