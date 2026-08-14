@@ -1,0 +1,45 @@
+<!--
+  Buta, the mark.
+
+  Two things the product already uses, put together.
+
+  The reticle is the landing page's cursor: the thing that reads the book, and
+  the favicon it already ships. The solid bar is the desk's redaction, the black
+  block that stands where the maker's reserve would be, on every row.
+
+  A reticle with a bar through it is an instrument that cannot see what it is
+  pointed at. That is the whole product in one shape, and it survives being
+  32 pixels wide, which a wordmark does not.
+
+  Paper and one aviation red, the same two values as everything else. No
+  gradient, no radius, no bevel.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" width="480" height="480" role="img" aria-label="Buta">
+  <title>Buta</title>
+
+  <!-- The substrate. Same paper as the desk and the landing page. -->
+  <rect width="480" height="480" fill="#F4F4F0"/>
+
+  <!-- A hairline register mark in each corner, as on the print language. -->
+  <g stroke="#C9C7BF" stroke-width="4" fill="none">
+    <path d="M28 60 V28 H60"/>
+    <path d="M420 28 H452 V60"/>
+    <path d="M452 420 V452 H420"/>
+    <path d="M60 452 H28 V420"/>
+  </g>
+
+  <!-- The reticle. -->
+  <g stroke="#CE1414" stroke-width="16" fill="none" stroke-linecap="butt">
+    <circle cx="240" cy="240" r="132"/>
+    <path d="M240 60 V128"/>
+    <path d="M240 352 V420"/>
+    <path d="M60 240 H128"/>
+    <path d="M352 240 H420"/>
+  </g>
+
+  <!-- The redaction, kept INSIDE the reticle.
+       Drawn full width it read as a prohibition sign, which is a different
+       idea: nothing here is forbidden, it is unreadable. Contained, it is the
+       same black block the desk puts where the maker's reserve would be. -->
+  <rect x="126" y="216" width="228" height="48" fill="#0A0A0A"/>
+</svg>
